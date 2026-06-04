@@ -83,7 +83,9 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}] })
   });
+  if(!res.ok){ console.error("Claude API error:", res.status, res.statusText); return "{}"; }
   const d = await res.json();
+  if(d.error){ console.error("Claude error:", d.error); return "{}"; }
   if(onTokens) onTokens(d.usage?.input_tokens||0, d.usage?.output_tokens||0);
   return (d.content||[]).map(b=>b.text||"").join("");
 };
@@ -464,56 +466,118 @@ const LoginScreen = ({onAuth}) => {
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-const Dashboard = ({cases,onNew,onOpen}) => (
-  <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
-    <div style={{width:220,background:C.sidebar,padding:"22px 16px",flexShrink:0,display:"flex",flexDirection:"column"}}>
-      <Logo/>
-      <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"20px 0"}}/>
-      <div style={{flex:1}}/>
-      <div style={{background:"rgba(255,255,255,.05)",borderRadius:8,padding:12,fontSize:11,color:"rgba(255,255,255,.35)"}}>PERIT.IA v2.0</div>
-    </div>
-    <div style={{flex:1,padding:"40px 44px",overflowY:"auto"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:32}}>
-        <div>
-          <h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
-          <p style={{color:C.muted,fontSize:13}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
-        </div>
-        <Btn primary onClick={onNew}><Plus size={14}/>Nuevo Encargo</Btn>
-      </div>
-      {cases.length===0
-        ?<Card s={{textAlign:"center",padding:"60px 40px"}}>
-          <Building2 size={44} style={{color:C.border,marginBottom:14}}/>
-          <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
-          <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
-          <Btn primary onClick={onNew}><Plus size={14}/>Crear primer encargo</Btn>
-        </Card>
-        :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {cases.map(c=>{
-            const e=c.encargo||{};
-            const done=[c.s1,c.s2,c.s3,c.s4].filter(s=>s&&Object.keys(s).length>2).length;
-            return (
-              <div key={c.id} onClick={()=>onOpen(c)} style={{background:C.white,border:`1px solid ${C.border}`,
-                borderRadius:10,padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
-                <div style={{width:42,height:42,background:C.accentLight,borderRadius:9,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <FileText size={18} style={{color:C.accent}}/>
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:15,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.asegurado||"Sin asegurado"}</div>
-                  <div style={{fontSize:12,color:C.muted,marginTop:2}}>{e.compania||"—"} · {e.numReferencia||"—"} · {e.lugarIntervencion||""}</div>
-                </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                  <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
-                  <ChevronRight size={15} style={{color:C.muted}}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      }
-    </div>
-  </div>
-);
+const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOpen,setSidebarOpen}) => {
+  return (
+    <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
 
+      {/* SIDEBAR */}
+      <div style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
+        transition:"width .2s ease",display:"flex",flexDirection:"column"}}>
+        {sidebarOpen&&<>
+          <div style={{padding:"22px 16px 10px"}}><Logo/></div>
+          <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"0 16px 10px"}}/>
+          <div style={{padding:"4px 8px",flex:1}}>
+            <button onClick={onNew} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
+              padding:"9px 12px",background:C.accent,color:"#fff",border:"none",borderRadius:8,
+              cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit"}}>
+              <Plus size={13}/>Nuevo encargo
+            </button>
+          </div>
+          <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,.07)",fontSize:11,color:"rgba(255,255,255,.4)"}}>
+            <div style={{marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.email}</div>
+            <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
+              color:"rgba(255,255,255,.35)",fontSize:11,fontFamily:"inherit",padding:0}}>
+              Cerrar sesión
+            </button>
+          </div>
+        </>}
+      </div>
+
+      {/* MAIN */}
+      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+
+        {/* TOPBAR */}
+        <div style={{background:C.accent,padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"}
+            style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,padding:"5px 8px",
+              cursor:"pointer",color:"#fff",display:"flex",alignItems:"center"}}>
+            {sidebarOpen?<ChevronLeft size={14}/>:<ChevronRight size={14}/>}
+          </button>
+          <span style={{fontFamily:"'DM Serif Display',serif",fontSize:15,color:"rgba(255,255,255,.9)"}}>
+            PERIT<span style={{color:"rgba(255,255,255,.55)"}}>.IA</span>
+          </span>
+          <div style={{flex:1}}/>
+          {!sidebarOpen&&<>
+            <span style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{user?.email}</span>
+            <button onClick={onNew} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,
+              padding:"5px 12px",cursor:"pointer",color:"#fff",fontSize:12,fontWeight:600,fontFamily:"inherit",
+              display:"flex",alignItems:"center",gap:5}}>
+              <Plus size={12}/>Nuevo
+            </button>
+            <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
+              color:"rgba(255,255,255,.4)",fontSize:11,fontFamily:"inherit"}}>Salir</button>
+          </>}
+        </div>
+
+        {/* CONTENT */}
+        <div style={{maxWidth:860,margin:"0 auto",padding:"28px 24px",width:"100%",boxSizing:"border-box"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
+            <div>
+              <h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:26,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
+              <p style={{color:C.muted,fontSize:13}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
+            </div>
+            <Btn primary onClick={onNew}><Plus size={14}/>Nuevo Encargo</Btn>
+          </div>
+          {loading&&<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:13}}>Cargando encargos…</div>}
+          {!loading&&(cases.length===0
+            ?<Card s={{textAlign:"center",padding:"60px 40px"}}>
+              <Building2 size={44} style={{color:C.border,marginBottom:14}}/>
+              <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
+              <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
+              <Btn primary onClick={onNew}><Plus size={14}/>Crear primer encargo</Btn>
+            </Card>
+            :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {cases.map(cas=>{
+                const e=cas.encargo||{};
+                const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
+                return (
+                  <div key={cas.id} onClick={()=>onOpen(cas)}
+                    style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,
+                      padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,
+                      transition:"box-shadow .15s"}}
+                    onMouseEnter={ev=>ev.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.07)"}
+                    onMouseLeave={ev=>ev.currentTarget.style.boxShadow="none"}>
+                    <div style={{width:42,height:42,background:C.accentLight,borderRadius:9,display:"flex",
+                      alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <FileText size={18} style={{color:C.accent}}/>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:600,fontSize:15,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                        {e.asegurado||"Sin asegurado"}
+                      </div>
+                      <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+                        {e.compania||"—"} · {e.numReferencia||"—"} · {e.lugarIntervencion||""}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                      <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
+                      {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
+                        style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
+                          cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
+                        <Trash2 size={11}/>
+                      </button>}
+                      <ChevronRight size={15} style={{color:C.muted}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 // ─── DROPZONE ─────────────────────────────────────────────────────────────────
 const DropZone = ({label,sublabel,icon:Icon,file,onFile,accept=".pdf",badge,isLoading,loadingMsg}) => {
   const ref=useRef(); const [drag,setDrag]=useState(false);
@@ -593,6 +657,12 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       onTokens
     , onTokens, 3000).catch(()=>"{}");
     const enc = parseJSON(raw);
+    if(!enc.numReferencia && !enc.asegurado && !enc.compania) {
+      setStep("upload");
+      setMsg("");
+      alert("No se pudieron extraer los datos del PDF.\nComprueba que el archivo es un encargo válido e inténtalo de nuevo.");
+      return;
+    }
 
     let pol = {};
     if(polFile){
@@ -2421,12 +2491,21 @@ export default function App(){
   const handleSignOut = () => { setUser(null); setToken(null); setCases([]); setActive(null); setView('dashboard'); };
 
   const handleDone = async enc => {
-    const newRow = {user_id:user.id, num_referencia:enc.numReferencia||'', compania:enc.compania||'', asegurado:enc.asegurado||'', estado:'borrador', encargo:enc, s1:{}, s2:{}, s3:{}, s4:{}, anexos:{}};
-    const saved = await sbDb('informes', 'POST', newRow, token);
-    const row = Array.isArray(saved)?saved[0]:saved;
-    if(row){
-      const c={id:row.id,_sbId:row.id,encargo:enc,s1:{},s2:{},s3:{},s4:{},anexos:{},tokenStats:{i:0,o:0},estado:'borrador'};
-      setCases(p=>[c,...p]); setActive(c); setView("editor");
+    // Always open editor immediately with extracted data
+    const localCase = {id:'local_'+Date.now(),encargo:enc,s1:{},s2:{},s3:{},s4:{},anexos:{},tokenStats:{i:0,o:0},estado:'borrador'};
+    setActive(localCase); setView("editor");
+    // Then try to save to Supabase in background
+    if(token && user?.id) {
+      const newRow = {user_id:user.id, num_referencia:enc.numReferencia||'', compania:enc.compania||'', asegurado:enc.asegurado||'', estado:'borrador', encargo:enc, s1:{}, s2:{}, s3:{}, s4:{}, anexos:{}};
+      const saved = await sbDb('informes', 'POST', newRow, token);
+      const row = Array.isArray(saved)?saved[0]:saved;
+      if(row) {
+        const savedCase = {...localCase, id:row.id, _sbId:row.id};
+        setCases(p=>[savedCase,...p.filter(x=>x.id!==localCase.id)]);
+        setActive(savedCase);
+      } else {
+        setCases(p=>[localCase,...p]);
+      }
     }
   };
 
