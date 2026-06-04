@@ -80,7 +80,7 @@ const fmtE = n => `${fmt(n)} €`;
 const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
   const res = await fetch("/api/claude",{
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTok,
+    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}] })
   });
   if(!res.ok){ console.error("Claude API error:", res.status, res.statusText); return "{}"; }
