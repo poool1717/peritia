@@ -77,7 +77,7 @@ const fmt  = n => new Intl.NumberFormat("es-ES",{minimumFractionDigits:2,maximum
 const fmtE = n => `${fmt(n)} €`;
 
 const callClaude = async (system, userContent, onTokens) => {
-  const res = await fetch("/api/claude",{
+  const res = await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200,
       system, messages:[{role:"user",content:userContent}] })
@@ -2113,9 +2113,18 @@ ${allFotos.length?`<div class="page-break"></div>
 <script>window.onload=()=>{window.print();}</script>
 </body></html>`;
 
-  const w=window.open('','_blank','width=900,height=700');
-  if(!w){alert('Activa las ventanas emergentes para generar el PDF.');return;}
-  w.document.open(); w.document.write(html); w.document.close();
+  // Blob URL approach: reliable across all browsers, no document.write
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const w    = window.open(url, '_blank');
+  if(!w){
+    // Popup blocked - fallback: download as HTML and let browser print it
+    const a = document.createElement('a');
+    a.href = url; a.download = 'informe_peritia.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    alert('Se ha descargado el informe como HTML. Ábrelo en el navegador y usa Ctrl+P para imprimir como PDF.');
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 };
 
 
