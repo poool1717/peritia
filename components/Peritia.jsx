@@ -65,6 +65,7 @@ const TIPOS_GARANTIA = ["Continente","Contenido","Terceros implicados"];
 
 const SECCIONES = [
   {id:"informe", label:"Informe",                    icon:FileText},
+  {id:"encargo", label:"Datos del Encargo",           icon:FileCheck},
   {id:"s1",      label:"1. Verificación del Riesgo",  icon:MapPin},
   {id:"s2",      label:"2. Causas y Circunstancias",  icon:AlertTriangle},
   {id:"s3",      label:"3. Valoración de Daños",      icon:List},
@@ -76,10 +77,10 @@ const SECCIONES = [
 const fmt  = n => new Intl.NumberFormat("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
 const fmtE = n => `${fmt(n)} €`;
 
-const callClaude = async (system, userContent, onTokens) => {
-  const res = await fetch("https://api.anthropic.com/v1/messages",{
+const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
+  const res = await fetch("/api/claude",{
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1200,
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}] })
   });
   const d = await res.json();
@@ -590,7 +591,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
        {type:"text",text:encPrompt}],
       onTokens
-    ).catch(()=>"{}");
+    , onTokens, 3000).catch(()=>"{}");
     const enc = parseJSON(raw);
 
     let pol = {};
@@ -603,7 +604,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
          {type:"text",text:polPrompt}],
-        onTokens
+        onTokens, 3000
       ).catch(()=>"{}");
       pol = parseJSON(praw);
     }
@@ -1411,7 +1412,7 @@ ${baremoCtx}
 
 Devuelve SOLO:
 {"partidas":[{"cod":"","desc":"","uds":1,"p":0,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado 1","cobertura":true}]}`,
-      onTokens
+      onTokens, 2000
     ).catch(()=>'{"partidas":[]}');
     const j = parseJSON(raw);
     if(j.partidas?.length>0){
@@ -1439,7 +1440,7 @@ Devuelve SOLO:
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
          {type:"text",text:`Extrae todas las líneas de esta factura o presupuesto. Devuelve SOLO:
 {"partidas":[{"desc":"descripción","uds":1,"p":0.00,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado 1","cobertura":true}]}`}],
-        onTokens
+        onTokens, 2000
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
       if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random()}))];
@@ -2180,10 +2181,115 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token}) => {
+// ─── SECCIÓN DATOS DEL ENCARGO (editable dentro del informe) ────────────────
+const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
+  const [saved, setSaved] = useState(false);
+  const s = f => v => onUpdate({...enc, [f]:v});
+  const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
+
+  return (
+    <div className="fade">
+      <SecTitle n="0" label="Datos del Encargo" sub="Revisa y edita los datos extraídos por la IA"/>
+
+      <Card s={{marginBottom:12}}>
+        <SectionLabel>🏢 Compañía y Siniestro</SectionLabel>
+        <div style={{marginBottom:14}}>
+          <Lbl c="Compañía" req/>
+          <select value={COMPANIAS.find(c=>enc.compania&&enc.compania.toUpperCase().includes(c.toUpperCase()))||enc.compania||""}
+            onChange={e=>s("compania")(e.target.value)}
+            style={{...inpStyle(false),cursor:"pointer"}}>
+            <option value="">Seleccionar…</option>
+            {COMPANIAS.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Nº Referencia / Siniestro" value={enc.numReferencia} onChange={s("numReferencia")} required/>
+          <Inp label="Nº Póliza" value={enc.numPoliza} onChange={s("numPoliza")}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Ramo" value={enc.ramo} onChange={s("ramo")}/>
+          <Inp label="Garantía afectada" value={enc.garantia} onChange={s("garantia")}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Causa" value={enc.causa} onChange={s("causa")}/>
+          <Inp label="Nº Exp. Interno" value={enc.numExpInterno} onChange={s("numExpInterno")}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Fecha Encargo" value={enc.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
+          <Inp label="Fecha Siniestro" value={enc.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
+        </div>
+      </Card>
+
+      <Card s={{marginBottom:12}}>
+        <SectionLabel>📍 Asegurado y Localización</SectionLabel>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Asegurado / Tomador" value={enc.asegurado} onChange={s("asegurado")} required/>
+          <Inp label="NIF / CIF" value={enc.nifAsegurado} onChange={s("nifAsegurado")}/>
+        </div>
+        <Inp label="Lugar de intervención" value={enc.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
+          <Inp label="Municipio" value={enc.municipio} onChange={s("municipio")}/>
+        </div>
+      </Card>
+
+      <Card s={{marginBottom:12}}>
+        <SectionLabel>💰 Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>✨ de la póliza</span>}</SectionLabel>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div>
+            <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
+              hint={enc.tipoContinentePoliza?"Tipo: "+enc.tipoContinentePoliza:enc.polizaAdjunta?"Extraído de la póliza":""}/>
+            {enc.todosCapitalesContinente&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:5,padding:"5px 9px",fontSize:10,color:C.blue,marginTop:-10,marginBottom:8}}>
+              Capitales en póliza: {enc.todosCapitalesContinente}
+            </div>}
+          </div>
+          <EuroInput label="Capital Contenido" value={enc.capitalContenido} onChange={s("capitalContenido")}
+            hint={enc.polizaAdjunta?"Extraído de la póliza":""}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <EuroInput label="Franquicia general" value={enc.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay"/>
+          <Inp label="Fecha efecto póliza" value={enc.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div>
+            <Lbl c="Tipo de encargo"/>
+            <select value={enc.tipoEncargo||"PERITACION"} onChange={e=>s("tipoEncargo")(e.target.value)}
+              style={{...inpStyle(false),cursor:"pointer"}}>
+              <option value="PERITACION">Peritación</option>
+              <option value="INSTANT_PAYMENT">Instant Payment</option>
+            </select>
+          </div>
+          <div>
+            <Lbl c="Modalidad de visita"/>
+            <select value={enc.modalidadVisita||"PRESENCIAL"} onChange={e=>s("modalidadVisita")(e.target.value)}
+              style={{...inpStyle(false),cursor:"pointer"}}>
+              <option value="PRESENCIAL">Presencial</option>
+              <option value="DOCUMENTAL">Documental</option>
+            </select>
+          </div>
+        </div>
+        {enc.garantiasActivas&&<div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"9px 12px",fontSize:12,marginTop:4}}>
+          <b style={{color:C.accent}}>Garantías contratadas:</b> {enc.garantiasActivas}
+        </div>}
+      </Card>
+
+      <Card s={{marginBottom:14}}>
+        <SectionLabel>👤 Perito</SectionLabel>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Nombre del Perito" value={enc.perito} onChange={s("perito")}/>
+          <Inp label="Teléfono" value={enc.telPerito} onChange={s("telPerito")}/>
+        </div>
+        <Txt label="Descripción del siniestro" value={enc.descripcionSiniestro} onChange={s("descripcionSiniestro")} rows={3}/>
+      </Card>
+
+      <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Verificación del Riesgo"/>
+    </div>
+  );
+};
+
+const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen}) => {
   const [sec,setSec]         = useState("informe");
   const [saving,setSaving]   = useState(false);
-  const [sidebarOpen,setSidebarOpen] = useState(true);
   const [exportOpen,setExportOpen]   = useState(false);
   const tokens = cData.tokenStats||{i:0,o:0};
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
@@ -2202,6 +2308,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token}) => {
   const renderSec = () => {
     switch(sec){
       case "informe": return <SecInforme enc={cData.encargo||{}} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
+      case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} {...commonProps}/>;
       case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} {...commonProps}/>;
@@ -2299,7 +2406,8 @@ export default function App(){
   const [view,setView]   = useState("dashboard");
   const [cases,setCases] = useState([]);
   const [active,setActive] = useState(null);
-  const [sbLoading,setSbLoading] = useState(false);
+  const [sbLoading,setSbLoading]   = useState(false);
+  const [sidebarOpen,setSidebarOpen] = useState(true);
 
   // Cargar informes del usuario desde Supabase
   const loadCases = async (tk) => {
@@ -2345,9 +2453,9 @@ export default function App(){
 
   if(!user) return <LoginScreen onAuth={handleAuth}/>;
   if(view==="upload") return <UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/>;
-  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token}/>;
+  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>;
   return <>
-    <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading}/>
+    <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
     <link rel="stylesheet" href={FONT}/>
     <style>{css}</style>
   </>;
