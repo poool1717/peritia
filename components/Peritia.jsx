@@ -3,7 +3,7 @@ import {
   FileText, MapPin, AlertTriangle, List, FileCheck, DollarSign,
   Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft,
   Plus, X, Search, Home, Sparkles, Shield, Building2, Image,
-  FileImage, Receipt, Save, Eye, RefreshCw, Edit3,
+  FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2,
 } from "lucide-react";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
