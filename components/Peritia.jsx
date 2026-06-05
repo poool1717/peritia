@@ -83,9 +83,12 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
     body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}] })
   });
-  if(!res.ok){ console.error("Claude API error:", res.status, res.statusText); return "{}"; }
   const d = await res.json();
-  if(d.error){ console.error("Claude error:", d.error); return "{}"; }
+  if(!res.ok || d.error){
+    const msg = d?.error?.message || d?.message || JSON.stringify(d).slice(0,200);
+    console.error("Claude API error:", res.status, msg);
+    return JSON.stringify({_apiError: true, _status: res.status, _msg: msg});
+  }
   if(onTokens) onTokens(d.usage?.input_tokens||0, d.usage?.output_tokens||0);
   return (d.content||[]).map(b=>b.text||"").join("");
 };
@@ -656,7 +659,14 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
        {type:"text",text:encPrompt}],
       onTokens
     , onTokens, 3000).catch(()=>"{}");
-    const enc = parseJSON(raw);
+    const rawParsed = parseJSON(raw);
+    // Check for API error response
+    if(rawParsed?._apiError) {
+      setStep("upload"); setMsg("");
+      alert("Error de la API ("+rawParsed._status+"): "+rawParsed._msg+"\n\nRevisa la configuración de la API key en Vercel.");
+      return;
+    }
+    const enc = rawParsed||{};
     if(!enc.numReferencia && !enc.asegurado && !enc.compania) {
       setStep("upload");
       setMsg("");
