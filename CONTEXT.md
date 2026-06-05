@@ -1,0 +1,134 @@
+# PERIT.IA — CONTEXT.md
+> Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
+
+**Última actualización:** 5 junio 2026
+
+---
+
+## Estado actual
+
+La app está **desplegada y funcional en producción**. El flujo completo funciona:
+login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
+
+La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
+
+---
+
+## Lo que está completado y funcionando
+
+### Core
+- [x] Extracción IA de 24 campos desde PDFs de encargo y póliza
+- [x] Editor completo Sec 0–4 + Anexos
+- [x] Preview live del informe
+- [x] Cálculo de valoración auditado (calcPartida, getPartidas, calcRegla — fuente única)
+- [x] Exportación PDF (window.print) y Word (Blob .doc)
+- [x] Login/registro con Supabase Auth
+- [x] Persistencia BD Supabase (informes + perfiles)
+- [x] Sidebar colapsable global (App-level state, funciona en Dashboard y Editor)
+- [x] Sección 0 "Datos del Encargo" editable en el editor
+- [x] Dashboard reconstruido con sidebar, user info, delete encargos
+- [x] handleDone resiliente (abre editor aunque Supabase falle)
+- [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
+
+### Fórmulas verificadas contra casos reales
+- Case 1 (Empresa, obras reforma): 463,59 € ✅
+- Case 2 (Hogar, primer riesgo, IVA mixto): 1.291,47 € ✅
+
+### Lógica de IVA confirmada
+- Modo baremo → IVA = 0% (los baremos GVP no llevan IVA)
+- Modo factura → IVA del documento por partida
+
+---
+
+## Problemas resueltos en las últimas sesiones
+
+| Problema | Causa | Solución |
+|---|---|---|
+| Login congelado | Sin try/catch + email confirmation activa | try/catch + desactivar email confirmation en Supabase |
+| CSP bloquea fetch a Supabase | Claude.ai artifact sandbox | Migrar a Vercel (fetch desde browser, sin restricciones) |
+| PDF export bloqueado | document.write bloqueado por CSP | Reemplazar con Blob URL + window.open |
+| Extracción falla (400) | Modelo `claude-sonnet-4-20250514` deprecado | Actualizar a `claude-sonnet-4-6` |
+| Extracción falla (max_tokens) | proxy no garantizaba max_tokens | Añadir `if(!body.max_tokens) body.max_tokens=1500` |
+| Extracción falla (créditos) | Cuenta Anthropic sin saldo | Usuario añadió $5 en créditos |
+| Trash2 not defined | Icono usado pero no importado | Añadir Trash2 a imports lucide-react |
+| Dashboard sin toggle sidebar | Componente antiguo sin props sidebarOpen | Reconstruir Dashboard completo |
+| pLibres invisible en Sec4/PDF | getPartidas solo leía `partidas`, no `pLibres` | getPartidas() detecta modo y lee el array correcto |
+| IVA 0% → 21% (bug) | p.iva\|\|21 cambiaba 0 a 21 (falsy) | Cambiar a p.iva??21 (nullish coalescing) |
+| Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
+
+---
+
+## Arquitectura del componente Peritia.jsx
+
+```
+Líneas: 2.552 · Balance llaves: 0
+Modelo IA: claude-sonnet-4-6
+Proxy: /api/claude (Vercel serverless)
+
+Funciones globales clave:
+  callClaude(system, content, onTokens, maxTok=1500)
+  calcPartida(p) → {vRepos, ivaAmt, vReal}
+  getPartidas(s3) → rows filtradas por modo y cobertura
+  calcRegla(enc, s1) → regla proporcional
+  sumReal/sumRepos/sumIVA(rows)
+  sbAuth(path, body) → Supabase Auth REST
+  sbDb(path, method, body, token) → Supabase DB REST
+
+Constantes:
+  SB_URL = "https://yrulaaxdusvmzohugmnc.supabase.co"
+  SB_KEY = "eyJhbGci...TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw"
+
+Datos hardcodeados:
+  BAREMO[] — 22 partidas AXA 2025 (IVA=0%)
+  MOD_ARQ{} — módulos arquitectura por provincia y calidad
+  PROVINCIAS[] — lista provincias con código
+  COMPANIAS[] — 14 aseguradoras compatibles
+```
+
+---
+
+## Próximos pasos pendientes (roadmap)
+
+### Corto plazo (próxima sesión)
+- [ ] Verificar en producción que la extracción funciona correctamente tras los fixes
+- [ ] Test completo del flujo: subida PDFs → extracción → editor → exportar
+- [ ] Validar que Sec 0 "Datos del Encargo" se rellena correctamente con los datos extraídos
+
+### Medio plazo (Fase 2)
+- [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
+- [ ] Refinamiento de prompts de extracción con casos reales
+- [ ] Panel de administración básico
+- [ ] Métricas de uso (cuántos informes, tiempo por sección, etc.)
+
+### Largo plazo (Fase 3–4)
+- [ ] Sistema de facturación (Stripe) y planes de suscripción
+- [ ] Multi-usuario por gabinete pericial
+- [ ] Integración con plataformas de encargos (ISS, Seres)
+- [ ] API para aseguradoras
+- [ ] Módulo IA para valoración automática de fotos
+
+---
+
+## Datos de referencia — Baremo AXA 2025
+
+22 partidas con precio por m² o unidad. IVA siempre 0% en modo baremo.
+Categorías: Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
+
+## Datos de referencia — Módulos arquitectura
+
+€/m² por provincia y tipología (Hotel/Local × Básica/Media/Alta).
+Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, Tenerife, Sevilla, Tarragona, Valencia, Otras.
+
+---
+
+## Notas importantes para Claude
+
+1. **El usuario no es programador.** Siempre explicar qué hace cada cambio y por qué.
+2. **Antes de aplicar cualquier cambio grande**, leer el archivo actual con bash y verificar el estado real del código — no asumir qué hay.
+3. **Verificar balance de llaves** después de cada modificación con:
+   ```bash
+   node -e "const fs=require('fs');const c=fs.readFileSync('/mnt/user-data/outputs/peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}console.log('diff:',o-b);"
+   ```
+4. **El flujo de deploy es manual** — el usuario sube archivos a GitHub. Siempre indicar exactamente qué archivo(s) subir.
+5. **Los Vercel MCP y Supabase MCP** están conectados y son funcionales para verificar deployments y BD.
+6. **La extracción requiere créditos en Anthropic.** El usuario tiene ~$5 añadidos (suficiente para ~10 informes).
