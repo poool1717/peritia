@@ -114,6 +114,26 @@ RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `ha
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
 5. **Preguntar antes de cambios grandes.** Para refactorizaciones que afecten >5 componentes, proponer y esperar confirmación.
 6. **Después de cada cambio:** crear una Pull Request con descripción clara de qué se modificó y por qué.
+7. **Actualizar documentación antes de cada Pull Request.** Es un paso obligatorio, no opcional. Hacerlo siempre antes de crear la PR, aunque el cambio parezca pequeño.
+
+   **CONTEXT.md — actualizar siempre:**
+   - En "Lo que está completado y funcionando": marcar con ✅ cualquier item completado en esta sesión
+   - En "Problemas resueltos": añadir fila a la tabla con formato `| Problema | Causa | Solución |` para cada bug corregido
+   - En "Próximos pasos pendientes": eliminar los items completados y añadir los nuevos que hayan surgido
+   - En "Estado actual": actualizar el párrafo de estado general si ha cambiado algo relevante
+   - Al inicio del archivo: actualizar la fecha de "Última actualización"
+
+   **RESUMEN_PERITIA.md — actualizar solo si aplica:**
+   - Si se añade una nueva llamada a la IA: añadir fila a la tabla "Llamadas a la IA"
+   - Si cambia una fórmula de cálculo: actualizar la sección "Lógica de negocio"
+   - Si se añade un componente nuevo: actualizar la sección "Componentes base"
+   - Si cambia el número de líneas de Peritia.jsx: actualizar el dato en "Arquitectura"
+   - Si cambia el estado de un módulo: actualizar la tabla "Estado actual"
+
+   **CLAUDE.md — actualizar solo si aplica:**
+   - Si se añade una dependencia nueva a package.json: actualizar la tabla de stack técnico
+   - Si cambia la estructura de archivos del repo: actualizar el árbol de archivos
+   - Si se acuerda una nueva regla de desarrollo: añadirla a esta sección
 
 ---
 
@@ -124,8 +144,9 @@ RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `ha
 2. Leer el archivo afectado antes de modificarlo
 3. Aplicar cambios en components/Peritia.jsx (y/o pages/api/claude.js si toca el proxy)
 4. Verificar balance de llaves con el script de arriba
-5. Crear Pull Request con descripción del cambio
-6. Vercel auto-despliega al hacer merge a main (2-3 min)
+5. Actualizar documentación según regla 7 (OBLIGATORIO)
+6. Crear Pull Request con descripción del cambio
+7. Vercel auto-despliega al hacer merge a main (2-3 min)
 ```
 
 ---
