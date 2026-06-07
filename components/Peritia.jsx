@@ -2488,6 +2488,7 @@ export default function App(){
   const [active,setActive] = useState(null);
   const [sbLoading,setSbLoading]   = useState(false);
   const [sidebarOpen,setSidebarOpen] = useState(true);
+  const sbSaveTimer = useRef(null);
 
   // Cargar informes del usuario desde Supabase
   const loadCases = async (tk) => {
@@ -2521,15 +2522,21 @@ export default function App(){
 
   const openCase  = c => { setActive(c); setView("editor"); };
 
-  const updateCase = async u => {
+  const saveToSb = (u) => {
+    if(!u._sbId||!token) return;
+    sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', {
+      encargo:u.encargo||{}, s1:u.s1||{}, s2:u.s2||{}, s3:u.s3||{}, s4:u.s4||{},
+      anexos:u.anexos||{}, estado:u.estado||'borrador',
+      num_referencia:u.encargo?.numReferencia||'',
+      compania:u.encargo?.compania||'', asegurado:u.encargo?.asegurado||''
+    }, token);
+  };
+
+  const updateCase = u => {
     setActive(u); setCases(p=>p.map(c=>c.id===u.id?u:c));
     if(u._sbId&&token){
-      await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', {
-        encargo:u.encargo||{}, s1:u.s1||{}, s2:u.s2||{}, s3:u.s3||{}, s4:u.s4||{},
-        anexos:u.anexos||{}, estado:u.estado||'borrador',
-        num_referencia:u.encargo?.numReferencia||'',
-        compania:u.encargo?.compania||'', asegurado:u.encargo?.asegurado||''
-      }, token);
+      clearTimeout(sbSaveTimer.current);
+      sbSaveTimer.current = setTimeout(() => saveToSb(u), 5000);
     }
   };
 
