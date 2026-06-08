@@ -701,7 +701,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
     const CAUSA_COB = {VIENTO:"Atmosféricos",PEDRISCO:"Atmosféricos",LLUVIA:"Atmosféricos",NIEVE:"Atmosféricos",ATMOSFER:"Atmosféricos",TEMPORAL:"Atmosféricos",AGUA:"Daños por agua",FILTRAC:"Daños por agua",INCENDIO:"Incendio",FUEGO:"Incendio",ROBO:"Robo",HURTO:"Robo",ELECTRIC:"Daños eléctricos",RAYO:"Daños eléctricos",RCEXP:"RC Explotación",RCLOC:"RC Locatario"};
     const COD_NOMBRE = {"RGEXT":"Atmosféricos","DAGUA":"Daños por agua","INCEN":"Incendio","ROBO":"Robo","DELEC":"Daños eléctricos","RCEXP":"RC Explotación","RCLOC":"RC Locatario"};
-    const toNombreComercial = v => COD_NOMBRE[v?.toUpperCase?.()?.trim()] || v || "";
+    const toNombreComercial = v => { const r = COD_NOMBRE[v?.toUpperCase?.()?.trim()] || v || ""; return r ? r.charAt(0).toUpperCase()+r.slice(1) : ""; };
     const causaU = (enc.causa||"").toUpperCase();
     const inferidaDeCausa = toNombreComercial(enc.coberturaInferida)||Object.entries(CAUSA_COB).find(([k])=>causaU.includes(k))?.[1]||"";
     // Si hay póliza, buscar la garantía más relevante en las coberturas activas según la causa
