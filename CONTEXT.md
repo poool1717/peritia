@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 7 junio 2026
+**Última actualización:** 8 junio 2026
 
 ---
 
@@ -26,6 +26,7 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] Persistencia BD Supabase (informes + perfiles)
 - [x] Sidebar colapsable global (App-level state, funciona en Dashboard y Editor)
 - [x] Sección 0 "Datos del Encargo" editable en el editor
+- [x] Sección 0 revisada: título "Datos del Encargo", campos Producto contratado y Código postal, lógica garantía desde póliza, campos perito movidos al modal de exportación, botón "Iniciar Informe"
 - [x] Dashboard reconstruido con sidebar, user info, delete encargos
 - [x] handleDone resiliente (abre editor aunque Supabase falle)
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
@@ -56,13 +57,14 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | IVA 0% → 21% (bug) | p.iva\|\|21 cambiaba 0 a 21 (falsy) | Cambiar a p.iva??21 (nullish coalescing) |
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
 | Disk IO excesivo (guardado por keystroke) | updateCase hacía PATCH a Supabase en cada cambio de campo | Debounce de 5s con useRef: el PATCH solo se ejecuta 5s después del último cambio |
+| Garantía afectada no se cruzaba con póliza | Se usaba solo el campo literal del encargo | Nueva lógica: si hay póliza, cruzar causa contra garantiasActivas de la póliza para seleccionar la cobertura correcta |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~2.560 · Balance llaves: 0
+Líneas: ~2.570 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 

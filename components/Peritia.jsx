@@ -632,7 +632,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "numReferencia": "numero de siniestro o referencia",
   "numPoliza": "numero de poliza",
   "ramo": "ramo del seguro",
-  "garantia": "coberturas afectadas separadas por coma (DAGUA, RCEXP, etc)",
+  "garantia": "coberturas afectadas separadas por coma. Usa nombres comerciales: Atmosféricos, Daños por agua, Incendio, Robo, Daños eléctricos, RC Explotación, RC Locatario",
   "fechaEncargo": "fecha del encargo dd/mm/aaaa",
   "fechaSiniestro": "fecha de ocurrencia dd/mm/aaaa",
   "numExpInterno": "numero de expediente interno",
@@ -643,6 +643,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "nifAsegurado": "NIF o CIF del asegurado",
   "causa": "causa del siniestro",
   "descripcionSiniestro": "descripcion completa del siniestro",
+  "codigoPostal": "codigo postal del lugar de intervencion (5 digitos)",
   "perito": "nombre completo del perito",
   "telPerito": "telefono del perito",
   "capitalContinente": "capital asegurado del CONTINENTE EDIFICIO u OBRAS DE REFORMA en euros solo el numero. Busca en tabla de garantias o capitales asegurados. Si no aparece pon 0",
@@ -651,7 +652,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "fechaEfecto": "fecha de efecto o inicio de la poliza en formato dd/mm/aaaa. En encargos AXA aparece como Fecha de efecto en la seccion Poliza al final del documento. Ejemplo: 30/06/2021",
   "tipoEncargo": "INSTANT_PAYMENT si el tipo contiene Instant Payment, PERITACION para cualquier otro tipo",
   "modalidadVisita": "PRESENCIAL si el perito visita el riesgo fisicamente, DOCUMENTAL si se gestiona sin visita presencial",
-  "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=RGEXT Agua/Filtracion=DAGUA Incendio=INCEN Robo=ROBO Electrico=DELEC sino vacio"
+  "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=Atmosféricos Agua/Filtracion=Daños por agua Incendio=Incendio Robo=Robo Electrico=Daños eléctricos sino vacio"
 }`;
     const raw = await callClaude(
       "Eres un extractor experto de documentos periciales y de seguros espanoles. Responde SOLO con JSON valido sin markdown.",
@@ -679,7 +680,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setMsg("Leyendo poliza de seguro...");
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
-      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
+      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
       const praw = await callClaude(
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
@@ -698,9 +699,20 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       return "";
     };
 
-        const CAUSA_COB = {VIENTO:"RGEXT",PEDRISCO:"RGEXT",LLUVIA:"RGEXT",NIEVE:"RGEXT",ATMOSFER:"RGEXT",TEMPORAL:"RGEXT",AGUA:"DAGUA",FILTRAC:"DAGUA",INCENDIO:"INCEN",FUEGO:"INCEN",ROBO:"ROBO",HURTO:"ROBO",ELECTRIC:"DELEC",RAYO:"DELEC"};
+    const CAUSA_COB = {VIENTO:"Atmosféricos",PEDRISCO:"Atmosféricos",LLUVIA:"Atmosféricos",NIEVE:"Atmosféricos",ATMOSFER:"Atmosféricos",TEMPORAL:"Atmosféricos",AGUA:"Daños por agua",FILTRAC:"Daños por agua",INCENDIO:"Incendio",FUEGO:"Incendio",ROBO:"Robo",HURTO:"Robo",ELECTRIC:"Daños eléctricos",RAYO:"Daños eléctricos",RCEXP:"RC Explotación",RCLOC:"RC Locatario"};
+    const COD_NOMBRE = {"RGEXT":"Atmosféricos","DAGUA":"Daños por agua","INCEN":"Incendio","ROBO":"Robo","DELEC":"Daños eléctricos","RCEXP":"RC Explotación","RCLOC":"RC Locatario"};
+    const toNombreComercial = v => { const r = COD_NOMBRE[v?.toUpperCase?.()?.trim()] || v || ""; return r ? r.charAt(0).toUpperCase()+r.slice(1) : ""; };
     const causaU = (enc.causa||"").toUpperCase();
-    const cobFinal2 = enc.garantia||enc.coberturaInferida||Object.entries(CAUSA_COB).find(([k])=>causaU.includes(k))?.[1]||"";
+    const inferidaDeCausa = toNombreComercial(enc.coberturaInferida)||Object.entries(CAUSA_COB).find(([k])=>causaU.includes(k))?.[1]||"";
+    // Si hay póliza, buscar la garantía más relevante en las coberturas activas según la causa
+    let cobFinal2 = toNombreComercial(enc.garantia)||"";
+    if(pol.garantiasActivas && inferidaDeCausa) {
+      const garsPoliza = (pol.garantiasActivas||"").split(/[;, ]+/);
+      const inferidaU = inferidaDeCausa.toUpperCase();
+      const matchPoliza = garsPoliza.find(g=>toNombreComercial(g).toUpperCase()===inferidaU||g.toUpperCase().includes(inferidaU)||inferidaU.includes(g.toUpperCase()));
+      if(matchPoliza) cobFinal2 = toNombreComercial(matchPoliza)||matchPoliza;
+    }
+    if(!cobFinal2) cobFinal2 = inferidaDeCausa;
     const ramoU = (enc.ramo||"").toUpperCase();
     const esHogarEnc = ramoU.includes("HOGAR")||ramoU.includes("VIVIENDA");
     const capCPol = parseCap(pol.capitalContinente||enc.capitalContinente);
@@ -713,6 +725,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       garantia:                 cobFinal2,
       garantiasActivas:         pol.garantiasActivas||enc.garantia||"",
       condicionesEspeciales:    pol.condicionesEspeciales||"",
+      productoContratado:       pol.productoContratado||"",
+      codigoPostal:             enc.codigoPostal||"",
       primerRiesgo:             pol.primerRiesgo||esHogarEnc||false,
       tipoContinentePoliza:     esHogarEnc?"Primer riesgo (Hogar)":(pol.tipoContinente||""),
       todosCapitalesContinente: esHogarEnc?"":(pol.todosCapitalesContinente||""),
@@ -780,7 +794,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px"}}>
         <div style={{marginBottom:22}}>
           <div style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos ✨</div>
-          <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:22,fontWeight:400,color:C.ink}}>Revisión del Encargo</h2>
+          <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:22,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
           <p style={{color:C.muted,fontSize:12,marginTop:3}}>Revisa y corrige antes de continuar</p>
         </div>
         <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
@@ -810,6 +824,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <Inp label="Ramo ✨" value={data.ramo} onChange={s("ramo")}/>
             <Inp label="Garantía afectada ✨" value={data.garantia} onChange={s("garantia")}/>
           </div>
+          <Inp label="Producto contratado ✨" value={data.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa" hint={data.polizaAdjunta?"Extraído de la póliza":"Adjunta la póliza para extraer automáticamente"}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Causa ✨" value={data.causa} onChange={s("causa")}/>
             <Inp label="Nº Exp. Interno ✨" value={data.numExpInterno} onChange={s("numExpInterno")}/>
@@ -827,9 +842,10 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <Inp label="NIF / CIF ✨" value={data.nifAsegurado} onChange={s("nifAsegurado")}/>
           </div>
           <Inp label="Lugar de intervención ✨" value={data.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Provincia ✨" value={data.provincia} onChange={s("provincia")} placeholder="Ej: Girona"/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <Inp label="Código postal ✨" value={data.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
             <Inp label="Municipio ✨" value={data.municipio} onChange={s("municipio")} placeholder="Ej: Palamós"/>
+            <Inp label="Provincia ✨" value={data.provincia} onChange={s("provincia")} placeholder="Ej: Girona"/>
           </div>
         </Card>
 
@@ -850,23 +866,11 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <EuroInput label="Franquicia general" value={data.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay franquicia"/>
             <Inp label="Fecha efecto póliza ✨" value={data.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
           </div>
-          {data.garantiasActivas&&<div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"9px 12px",fontSize:12}}>
-            <b style={{color:C.accent}}>Garantías:</b> {data.garantiasActivas}
-          </div>}
-        </Card>
-
-        <Card s={{marginBottom:14}}>
-          <SectionLabel>👤 Perito</SectionLabel>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Nombre del Perito ✨" value={data.perito} onChange={s("perito")}/>
-            <Inp label="Teléfono ✨" value={data.telPerito} onChange={s("telPerito")}/>
-          </div>
-          <Txt label="Descripción del siniestro ✨" value={data.descripcionSiniestro} onChange={s("descripcionSiniestro")} rows={3}/>
         </Card>
 
         <div style={{display:"flex",justifyContent:"space-between",paddingBottom:32}}>
           <Btn ghost onClick={onCancel}><ChevronLeft size={14}/>Cancelar</Btn>
-          <Btn primary onClick={()=>onDone(data)}>Crear Informe<ChevronRight size={14}/></Btn>
+          <Btn primary onClick={()=>onDone(data)}>Iniciar Informe<ChevronRight size={14}/></Btn>
         </div>
       </div>
     </div>
@@ -2210,21 +2214,25 @@ ${allFotos.length?`<div class="page-break"></div>
 
 
 const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
-  const [dni,setDni]     = useState(cData.encargo?.dniPerito||'');
+  const [dni,setDni]         = useState(cData.encargo?.dniPerito||'');
+  const [perito,setPerito]   = useState(cData.encargo?.perito||'');
+  const [telPerito,setTel]   = useState(cData.encargo?.telPerito||'');
   const [pdfLoad,setPdfLoad] = useState(false);
   const [wrdLoad,setWrdLoad] = useState(false);
   const [pdfOk,setPdfOk]   = useState(false);
   const [wrdOk,setWrdOk]   = useState(false);
   const [err,setErr]       = useState('');
 
+  const cDataWithPerito = () => ({...cData, encargo:{...cData.encargo, perito, telPerito, dniPerito:dni}});
+
   const handlePDF = () => {
     setErr('');
-    try{ exportPDF(cData, dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni); }
+    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); }
     catch(e){ setErr('Error al generar PDF. Activa las ventanas emergentes del navegador.'); console.error(e); }
   };
   const handleWord = () => {
     setWrdLoad(true); setErr('');
-    try{ exportWord(cData); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); }
+    try{ exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); }
     catch(e){ setErr('Error al generar Word.'); console.error(e); }
     setWrdLoad(false);
   };
@@ -2236,11 +2244,23 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
           <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
           <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+          <div>
+            <Lbl c="Nombre del Perito"/>
+            <input value={perito} onChange={e=>setPerito(e.target.value)} placeholder="Nombre completo"
+              style={{...inpStyle(false)}}/>
+          </div>
+          <div>
+            <Lbl c="Teléfono"/>
+            <input value={telPerito} onChange={e=>setTel(e.target.value)} placeholder="Ej: 93 118 51 38"
+              style={{...inpStyle(false)}}/>
+          </div>
+        </div>
         <div style={{marginBottom:20}}>
           <Lbl c="DNI del Perito (para la página de firma)"/>
           <input value={dni} onChange={e=>setDni(e.target.value)} placeholder="Ej: B13809660"
             style={{...inpStyle(false),marginBottom:4}}/>
-          <div style={{fontSize:11,color:C.muted}}>Se guarda automáticamente en el encargo</div>
+          <div style={{fontSize:11,color:C.muted}}>Datos del perito para el documento exportado</div>
         </div>
         {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
         <div style={{display:'flex',gap:10}}>
@@ -2290,6 +2310,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           <Inp label="Ramo" value={enc.ramo} onChange={s("ramo")}/>
           <Inp label="Garantía afectada" value={enc.garantia} onChange={s("garantia")}/>
         </div>
+        <Inp label="Producto contratado" value={enc.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Causa" value={enc.causa} onChange={s("causa")}/>
           <Inp label="Nº Exp. Interno" value={enc.numExpInterno} onChange={s("numExpInterno")}/>
@@ -2307,9 +2328,10 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           <Inp label="NIF / CIF" value={enc.nifAsegurado} onChange={s("nifAsegurado")}/>
         </div>
         <Inp label="Lugar de intervención" value={enc.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <Inp label="Código postal" value={enc.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
           <Inp label="Municipio" value={enc.municipio} onChange={s("municipio")}/>
+          <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
         </div>
       </Card>
 
@@ -2348,18 +2370,6 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
             </select>
           </div>
         </div>
-        {enc.garantiasActivas&&<div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"9px 12px",fontSize:12,marginTop:4}}>
-          <b style={{color:C.accent}}>Garantías contratadas:</b> {enc.garantiasActivas}
-        </div>}
-      </Card>
-
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>👤 Perito</SectionLabel>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Inp label="Nombre del Perito" value={enc.perito} onChange={s("perito")}/>
-          <Inp label="Teléfono" value={enc.telPerito} onChange={s("telPerito")}/>
-        </div>
-        <Txt label="Descripción del siniestro" value={enc.descripcionSiniestro} onChange={s("descripcionSiniestro")} rows={3}/>
       </Card>
 
       <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Verificación del Riesgo"/>
@@ -2472,7 +2482,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         </div>
       </div>
 
-      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); }}/>}
+      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }}/>}
       <link rel="stylesheet" href={FONT}/>
       <style>{css}</style>
     </div>
