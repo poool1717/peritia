@@ -632,7 +632,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "numReferencia": "numero de siniestro o referencia",
   "numPoliza": "numero de poliza",
   "ramo": "ramo del seguro",
-  "garantia": "coberturas afectadas separadas por coma (DAGUA, RCEXP, etc)",
+  "garantia": "coberturas afectadas separadas por coma. Usa nombres comerciales: Atmosféricos, Daños por agua, Incendio, Robo, Daños eléctricos, RC Explotación, RC Locatario",
   "fechaEncargo": "fecha del encargo dd/mm/aaaa",
   "fechaSiniestro": "fecha de ocurrencia dd/mm/aaaa",
   "numExpInterno": "numero de expediente interno",
@@ -652,7 +652,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "fechaEfecto": "fecha de efecto o inicio de la poliza en formato dd/mm/aaaa. En encargos AXA aparece como Fecha de efecto en la seccion Poliza al final del documento. Ejemplo: 30/06/2021",
   "tipoEncargo": "INSTANT_PAYMENT si el tipo contiene Instant Payment, PERITACION para cualquier otro tipo",
   "modalidadVisita": "PRESENCIAL si el perito visita el riesgo fisicamente, DOCUMENTAL si se gestiona sin visita presencial",
-  "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=RGEXT Agua/Filtracion=DAGUA Incendio=INCEN Robo=ROBO Electrico=DELEC sino vacio"
+  "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=Atmosféricos Agua/Filtracion=Daños por agua Incendio=Incendio Robo=Robo Electrico=Daños eléctricos sino vacio"
 }`;
     const raw = await callClaude(
       "Eres un extractor experto de documentos periciales y de seguros espanoles. Responde SOLO con JSON valido sin markdown.",
@@ -699,15 +699,18 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       return "";
     };
 
-        const CAUSA_COB = {VIENTO:"RGEXT",PEDRISCO:"RGEXT",LLUVIA:"RGEXT",NIEVE:"RGEXT",ATMOSFER:"RGEXT",TEMPORAL:"RGEXT",AGUA:"DAGUA",FILTRAC:"DAGUA",INCENDIO:"INCEN",FUEGO:"INCEN",ROBO:"ROBO",HURTO:"ROBO",ELECTRIC:"DELEC",RAYO:"DELEC"};
+    const CAUSA_COB = {VIENTO:"Atmosféricos",PEDRISCO:"Atmosféricos",LLUVIA:"Atmosféricos",NIEVE:"Atmosféricos",ATMOSFER:"Atmosféricos",TEMPORAL:"Atmosféricos",AGUA:"Daños por agua",FILTRAC:"Daños por agua",INCENDIO:"Incendio",FUEGO:"Incendio",ROBO:"Robo",HURTO:"Robo",ELECTRIC:"Daños eléctricos",RAYO:"Daños eléctricos",RCEXP:"RC Explotación",RCLOC:"RC Locatario"};
+    const COD_NOMBRE = {"RGEXT":"Atmosféricos","DAGUA":"Daños por agua","INCEN":"Incendio","ROBO":"Robo","DELEC":"Daños eléctricos","RCEXP":"RC Explotación","RCLOC":"RC Locatario"};
+    const toNombreComercial = v => COD_NOMBRE[v?.toUpperCase?.()?.trim()] || v || "";
     const causaU = (enc.causa||"").toUpperCase();
-    const inferidaDeCausa = enc.coberturaInferida||Object.entries(CAUSA_COB).find(([k])=>causaU.includes(k))?.[1]||"";
+    const inferidaDeCausa = toNombreComercial(enc.coberturaInferida)||Object.entries(CAUSA_COB).find(([k])=>causaU.includes(k))?.[1]||"";
     // Si hay póliza, buscar la garantía más relevante en las coberturas activas según la causa
-    let cobFinal2 = enc.garantia||"";
+    let cobFinal2 = toNombreComercial(enc.garantia)||"";
     if(pol.garantiasActivas && inferidaDeCausa) {
-      const garsPoliza = (pol.garantiasActivas||"").toUpperCase().split(/[;, ]+/);
-      const matchPoliza = garsPoliza.find(g=>g===inferidaDeCausa||g.includes(inferidaDeCausa)||inferidaDeCausa.includes(g));
-      if(matchPoliza) cobFinal2 = matchPoliza;
+      const garsPoliza = (pol.garantiasActivas||"").split(/[;, ]+/);
+      const inferidaU = inferidaDeCausa.toUpperCase();
+      const matchPoliza = garsPoliza.find(g=>toNombreComercial(g).toUpperCase()===inferidaU||g.toUpperCase().includes(inferidaU)||inferidaU.includes(g.toUpperCase()));
+      if(matchPoliza) cobFinal2 = toNombreComercial(matchPoliza)||matchPoliza;
     }
     if(!cobFinal2) cobFinal2 = inferidaDeCausa;
     const ramoU = (enc.ramo||"").toUpperCase();
