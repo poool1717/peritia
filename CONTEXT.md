@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 5 junio 2026
+**Última actualización:** 7 junio 2026
 
 ---
 
@@ -55,13 +55,14 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | pLibres invisible en Sec4/PDF | getPartidas solo leía `partidas`, no `pLibres` | getPartidas() detecta modo y lee el array correcto |
 | IVA 0% → 21% (bug) | p.iva\|\|21 cambiaba 0 a 21 (falsy) | Cambiar a p.iva??21 (nullish coalescing) |
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
+| Disk IO excesivo (guardado por keystroke) | updateCase hacía PATCH a Supabase en cada cambio de campo | Debounce de 5s con useRef: el PATCH solo se ejecuta 5s después del último cambio |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: 2.552 · Balance llaves: 0
+Líneas: ~2.560 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
