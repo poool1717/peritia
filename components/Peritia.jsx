@@ -967,7 +967,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             </div>
           ))}
         </div>
-        <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(provincia?`, ${provincia}`:"")}/>
+        <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(enc.provincia?`, ${enc.provincia}`:"")}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
           <InfoRow label="Asegurado" val={enc.asegurado}/>
           <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
