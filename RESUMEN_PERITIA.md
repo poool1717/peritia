@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · 2.552 líneas · ~158 KB · React 18
+**Archivo principal:** `peritia.jsx` · ~2.650 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -86,7 +86,10 @@ Tipo "Obras de reforma / Primer riesgo"
   → Preexistente = Capital asegurado, infraseguro = 0%
 
 Tipo "Continente completo"
-  → Preexistente = m² × €/m² (módulos AXA 2025 por provincia y calidad)
+  → Preexistente = calcVPreexCont(m², provCode, arqKey, calidad)
+                 = m² × getModuloArq(provCode, arqKey, calidad) × getFactorArq(arqKey)
+  → getModuloArq: TABLAS_ARQ[prov][tipo][calidadIdx] (€/m² CYPE 2025)
+  → getFactorArq: 1.486 residencial · 1.618 no residencial · 1.366 urbanización
   → Infraseguro = (Preexistente − Asegurado) / Preexistente × 100
   → Regla proporcional = Asegurado / Preexistente
 ```
@@ -106,10 +109,13 @@ Subtotal    = Σ V.Propuesto (solo items con cobertura = Sí)
 
 **Funciones de cálculo globales (fuente única de verdad):**
 ```javascript
-calcPartida(p)    → {vRepos, ivaAmt, vReal}  // p.iva??0
-getPartidas(s3)   → filtra por modo (baremo/factura) y cobertura
-calcRegla(enc,s1) → 1 si primerRiesgo/obrasReforma/Hogar; si no, infraseguro
+calcPartida(p)                        → {vRepos, ivaAmt, vReal}  // p.iva??0
+getPartidas(s3)                       → filtra por modo (baremo/factura) y cobertura
+calcRegla(enc,s1)                     → 1 si primerRiesgo/obrasReforma/Hogar; si no, infraseguro
 sumReal/sumRepos/sumIVA(rows)
+getModuloArq(provCode, arqKey, cal)   → €/m² de TABLAS_ARQ
+getFactorArq(arqKey)                  → 1.486 | 1.618 | 1.366
+calcVPreexCont(m2, prov, arqKey, cal) → valor preexistente continente completo
 ```
 
 **Modos de valoración Sec3:**
@@ -176,7 +182,7 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 
 **Baremo AXA 2025** — 22 partidas (IVA = 0%): Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
 
-**Módulos de arquitectura 2025** — Precios €/m² por provincia y tipología (Hotel/Local · Básica/Media/Alta): Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, Tenerife, Sevilla, Tarragona, Valencia, Otras.
+**TABLAS_ARQ 2025** — 63 tipos de arquitectura × 6 provincias (Baleares, Barcelona, Girona, Lleida, Tarragona, Otras) × 3 calidades (Básica/Media/Alta). Fuente: Excel tablas_calculo_2025. "Otras" = media de las 5 provincias. Reemplaza el antiguo MOD_ARQ.
 
 **Compañías aseguradoras** — 14 compatibles: AXA, Mapfre, Allianz, Generali, Zurich, Helvetia, Mutua Madrileña, Caser, Reale, Santalucía, Pelayo, BBVA Seguros, Catalana Occidente, Línea Directa.
 
@@ -200,7 +206,9 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Dashboard + sidebar toggle global | ✅ |
 | Extracción IA encargo + póliza (24 campos) | ✅ |
 | Sec 0 — Datos del Encargo (editable) | ✅ |
-| Sec 1–4 + Anexos | ✅ |
+| Sec 1 — Riesgo + auto-fill póliza + arquitectura 3 niveles | ✅ |
+| Sec 2–4 + Anexos | ✅ |
+| Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |
 | Fórmula de cálculo auditada y verificada | ✅ |
 | Preview live del informe | ✅ |
 | Exportación PDF + Word | ✅ |
@@ -227,7 +235,7 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Recurso | URL |
 |---|---|
 | App producción | `https://peritia-git-main-pol-myprojects.vercel.app` |
-| GitHub | `https://github.com/poool1717/peritia` |
+| GitHub | `https://github.com/poologii1717/peritia` |
 | Vercel dashboard | `https://vercel.com/pol-myprojects/peritia` |
 | Supabase | `https://supabase.com/dashboard/project/yrulaaxdusvmzohugmnc` |
 | Artefacto referencia | `https://claude.ai/public/artifacts/ced45450-ed81-4101-8c46-39f79cf17ce7` |
