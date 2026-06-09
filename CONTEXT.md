@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 8 junio 2026 (sesión 2)
+**Última actualización:** 9 junio 2026 (sesión 3)
 
 ---
 
@@ -10,7 +10,7 @@
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
 
-La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
+La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Sección 1 renovada con campos auto-extraídos de póliza, selector jerárquico de arquitectura y fórmula correcta de valor preexistente. Todo validado y desplegado en producción.
 
 ---
 
@@ -30,6 +30,8 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] Dashboard reconstruido con sidebar, user info, delete encargos
 - [x] Sección 1 renovada: campos Tipo vivienda, Uso vivienda, Ubicación, selector tipo arquitectura 3 niveles
 - [x] TABLAS_ARQ 2025: 63 tipos arquitectura × 6 provincias (Baleares, Barcelona, Girona, Lleida, Tarragona + Otras)
+- [x] Auto-fill Sec1 desde póliza: tipoVivienda, usoVivienda, ubicacion se rellenan automáticamente al abrir el editor
+- [x] Normalización tipoVivienda: texto libre de póliza mapeado a opciones exactas del dropdown TIPOS_USO
 - [x] Fórmula correcta valor preexistente: PEM × factor (1.486 residencial / 1.618 no residencial / 1.366 urbanización)
 - [x] Valor preexistente continente: primer riesgo detectado → = capital asegurado; si no → cálculo tablas
 - [x] Valor preexistente contenido editable por el perito
@@ -65,6 +67,8 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
 | Disk IO excesivo (guardado por keystroke) | updateCase hacía PATCH a Supabase en cada cambio de campo | Debounce de 5s con useRef: el PATCH solo se ejecuta 5s después del último cambio |
 | Garantía afectada no se cruzaba con póliza | Se usaba solo el campo literal del encargo | Nueva lógica: si hay póliza, cruzar causa contra garantiasActivas de la póliza para seleccionar la cobertura correcta |
+| Auto-fill Sec1 no funcionaba | setData en processAll no guardaba los campos nuevos de póliza (tipoVivienda, usoVivienda, ubicacionVivienda) | Añadidos al setData + useEffect en Sec1 para poblar s1 desde enc al cargar |
+| Dropdown "Tipo de vivienda" no se rellenaba | La póliza devuelve texto libre ("piso") que no coincide con las opciones exactas del selector | Función normTipo() mapea texto libre a valor correcto del array TIPOS_USO |
 | Valor preexistente incompleto | Sólo calculaba módulo × m², sin gastos generales, honorarios ni IVA | Fórmula completa: PEM × factor (1.486 residencial / 1.618 no residencial) según tablas CYPE 2025 |
 | Tipos arquitectura insuficientes (solo hotel/local) | MOD_ARQ tenía 2 tipos × 7 provincias | TABLAS_ARQ con 63 tipos × 6 provincias extraídos del Excel tablas_calculo_2025 |
 
@@ -102,9 +106,8 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
-- [ ] Validar en pre los cambios de Sec1: tipo arquitectura, cálculo valor preexistente, campos nuevos de póliza
-- [ ] Verificar que la extracción de tipoVivienda/usoVivienda/ubicacion/calidad funciona con una póliza real
-- [ ] Merge a main y despliegue a producción
+- [ ] Validar en producción el cálculo de valor preexistente con casos reales (superficies, provincias, tipos arquitectura)
+- [ ] Verificar que calidad de acabados se extrae correctamente de pólizas que la incluyen
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
@@ -126,10 +129,12 @@ Datos hardcodeados:
 22 partidas con precio por m² o unidad. IVA siempre 0% en modo baremo.
 Categorías: Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
 
-## Datos de referencia — Módulos arquitectura
+## Datos de referencia — TABLAS_ARQ 2025
 
-€/m² por provincia y tipología (Hotel/Local × Básica/Media/Alta).
-Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, Tenerife, Sevilla, Tarragona, Valencia, Otras.
+€/m² por provincia, tipo de arquitectura (63 tipos) y calidad (Básica/Media/Alta).
+Provincias con datos propios: Baleares (07), Barcelona (08), Girona (17), Lleida (25), Tarragona (43).
+Otras provincias: media de las 5 anteriores (código "00").
+Tipos: residencial unifamiliar/plurifamiliar, no residencial (oficinas, comercial, industrial, hotelero…), urbanización.
 
 ---
 
@@ -141,6 +146,8 @@ Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, 
    ```bash
    node -e "const fs=require('fs');const c=fs.readFileSync('/mnt/user-data/outputs/peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}console.log('diff:',o-b);"
    ```
-4. **El flujo de deploy es manual** — el usuario sube archivos a GitHub. Siempre indicar exactamente qué archivo(s) subir.
+4. **El flujo de deploy es automático** — Claude Code hace commit + push a la rama feature, abre PR y mergea a main. Vercel auto-despliega al mergear.
 5. **Los Vercel MCP y Supabase MCP** están conectados y son funcionales para verificar deployments y BD.
 6. **La extracción requiere créditos en Anthropic.** El usuario tiene ~$5 añadidos (suficiente para ~10 informes).
+7. **TABLAS_ARQ reemplaza MOD_ARQ.** No usar MOD_ARQ — está obsoleto. La función de cálculo es `calcVPreexCont(m2, provCode, arqKey, calidad)`.
+8. **normTipo()** está definida dentro del useEffect de Sec1. Normaliza texto libre de póliza a valores exactos de TIPOS_USO.
