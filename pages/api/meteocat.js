@@ -60,34 +60,46 @@ const esCatalunya = (cp, provincia) => {
 };
 
 const geocodificar = async (q) => {
-  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es&q=${encodeURIComponent(q)}`;
-  const arr = await fetchJSON(url, { headers: { 'User-Agent': 'PeritIA/1.0 (informes periciales)' } }).catch(() => null);
-  if (Array.isArray(arr) && arr.length && arr[0].lat) {
-    return { lat: parseFloat(arr[0].lat), lng: parseFloat(arr[0].lon) };
+  // 1) Nominatim (OpenStreetMap)
+  const nom = await fetchJSON(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=es&q=${encodeURIComponent(q)}`,
+    { headers: { 'User-Agent': 'PeritIA/1.0 (informes periciales)' } }
+  ).catch(() => null);
+  if (Array.isArray(nom) && nom.length && nom[0].lat) {
+    return { lat: parseFloat(nom[0].lat), lng: parseFloat(nom[0].lon) };
   }
+  // 2) Photon (komoot) — más permisivo desde servidores
+  const ph = await fetchJSON(
+    `https://photon.komoot.io/api/?limit=1&lang=default&q=${encodeURIComponent(q)}`
+  ).catch(() => null);
+  const c = ph?.features?.[0]?.geometry?.coordinates;
+  if (Array.isArray(c) && c.length === 2) return { lat: c[1], lng: c[0] };
   return null;
 };
 
 const getEstacions = async () => {
   if (_estacionsCache && Date.now() - _estacionsTs < 6 * 3600 * 1000) return _estacionsCache;
-  const url = `${SOCRATA}/${DS_ESTACIONS}.json?$select=codi_estacio,nom_estacio,latitud,longitud,nom_municipi,nom_comarca,data_baixa&$limit=2000`;
-  const arr = await fetchJSON(url);
+  // Sin $select: se evita un 400 por nombre de columna y se leen los campos de forma defensiva.
+  const arr = await fetchJSON(`${SOCRATA}/${DS_ESTACIONS}.json?$limit=2000`);
   const list = (arr || [])
-    .filter(s => !s.data_baixa && s.latitud && s.longitud)
     .map(s => ({
-      codi: s.codi_estacio, nom: s.nom_estacio,
+      codi: s.codi_estacio || s.codi || '',
+      nom: s.nom_estacio || s.nom || '',
       lat: parseFloat(s.latitud), lng: parseFloat(s.longitud),
-      municipi: s.nom_municipi || '', comarca: s.nom_comarca || '',
-    }));
+      municipi: s.nom_municipi || s.municipi || '',
+      comarca: s.nom_comarca || s.comarca || '',
+      baixa: s.data_baixa || s.data_baixa_ema || '',
+    }))
+    .filter(s => s.codi && !s.baixa && !isNaN(s.lat) && !isNaN(s.lng));
   _estacionsCache = list; _estacionsTs = Date.now();
   return list;
 };
 
 // Resumen de las lecturas de un día para una estación
 const resumirDia = async (codi, fecha) => {
-  const url = `${SOCRATA}/${DS_MESURADES}.json?$select=codi_variable,data_lectura,valor_lectura,codi_estat` +
-    `&$where=codi_estacio='${codi}' AND data_lectura between '${fecha}T00:00:00' and '${fecha}T23:59:59'` +
-    `&$order=data_lectura&$limit=5000`;
+  const sel = encodeURIComponent('codi_variable,data_lectura,valor_lectura');
+  const where = encodeURIComponent(`codi_estacio='${codi}' AND data_lectura between '${fecha}T00:00:00' and '${fecha}T23:59:59'`);
+  const url = `${SOCRATA}/${DS_MESURADES}.json?$select=${sel}&$where=${where}&$order=data_lectura&$limit=5000`;
   const rows = await fetchJSON(url).catch(() => []);
   if (!rows || !rows.length) return null;
 
@@ -97,12 +109,13 @@ const resumirDia = async (codi, fecha) => {
   for (const r of rows) {
     const val = parseFloat(r.valor_lectura);
     if (isNaN(val)) continue;
-    if (r.codi_variable === VAR_VENT_MITJA) { vMitja.push(val); nVent++; }
-    else if (r.codi_variable === VAR_RATXA) {
+    const cv = String(r.codi_variable);
+    if (cv === VAR_VENT_MITJA) { vMitja.push(val); nVent++; }
+    else if (cv === VAR_RATXA) {
       vRatxa.push(val); nVent++;
       if (val > ratxaMax) { ratxaMax = val; ratxaHora = (r.data_lectura || '').slice(11, 16); }
     }
-    else if (r.codi_variable === VAR_PRECIP) {
+    else if (cv === VAR_PRECIP) {
       precipTotal += val; nPrecip++;
       const h = (r.data_lectura || '').slice(0, 13); // agrupa por hora natural
       precipPorHora[h] = (precipPorHora[h] || 0) + val;
@@ -153,7 +166,10 @@ export default async function handler(req, res) {
     // Si no se pudo geocodificar, intenta centrar en una estación del mismo municipio
     if (!punto) {
       const muni = municipio.toLowerCase().trim();
-      const enMuni = muni && estacions.find(s => s.municipi.toLowerCase() === muni);
+      const enMuni = muni && estacions.find(s => {
+        const m = s.municipi.toLowerCase();
+        return m === muni || m.includes(muni) || muni.includes(m);
+      });
       if (enMuni) punto = { lat: enMuni.lat, lng: enMuni.lng };
     }
     if (!punto) return res.status(200).json({ ok: false, error: 'No se pudo localizar la dirección. Revisa el lugar de intervención o el código postal.' });
