@@ -44,18 +44,56 @@ const BAREMO = [
   {g:"Otros",        cod:"OTR-02",desc:"Persiana enrollable — sustitución",   u:"ud", p:165.00},
 ];
 
-const MOD_ARQ = {
-  "07":{n:"Baleares",  hotel:[996,1149,1744],  local:[730,842,1192]},
-  "08":{n:"Barcelona", hotel:[1042,1201,1825], local:[764,881,1247]},
-  "17":{n:"Girona",    hotel:[983,1133,1721],  local:[720,831,1176]},
-  "28":{n:"Madrid",    hotel:[1080,1246,1890], local:[792,915,1295]},
-  "41":{n:"Sevilla",   hotel:[940,1084,1646],  local:[690,796,1127]},
-  "46":{n:"Valencia",  hotel:[970,1118,1698],  local:[712,821,1162]},
-  "00":{n:"Otras",     hotel:[950,1095,1660],  local:[696,804,1140]},
+// Tablas módulos arquitectura 2025 — [Básica, Media, Alta] €/m²
+const TABLAS_ARQ = {
+  "17":{unif_aislada:[772.07,1148.06,1721.72],unif_hilera_menos10:[666.93,939.04,1387.21],unif_hilera_10_25:[639.69,894.93,1317.77],unif_hilera_mas25:[612.47,844.59,1243.31],unif_garaje:[383.18,449.09,581.68],unif_almacen:[357.22,397.58,550.83],unif_instalaciones:[369.25,382.18,514.37],pluri_bloque_menos16:[629.56,787.58,1089.77],pluri_bloque_16_40:[633.36,715.7,1002.62],pluri_bloque_mas40:[556.72,669.18,941.42],pluri_manzana_menos16:[608.03,730.85,961.9],pluri_manzana_16_40:[572.56,682.49,894.34],pluri_manzana_mas40:[537.73,630.21,818.42],pluri_garaje:[343.91,372.8,448.12],pluri_almacen:[338.21,365.28,459.98],pluri_instalaciones:[340.75,342.46,379.6],pluri_oficinas:[443.36,532.91,683.66],pluri_locales:[233.08,268.27,308.83],ofic_oficinas:[822.11,1003.79,1488.83],ofic_diafanas:[459.83,520.98,658.47],com_locales_resid:[362.28,410.46,562.62],com_comercio:[720.77,831.05,1176.3],ind_naves:[301.49,323.79,404.9],ind_edificios:[583.33,614.83,748.42],ind_cobertizos:[200.15,203.15,232.97],ind_almacenes_agric:[146.3,154.64,164.45],gar_planta_baja:[312.88,336.03,413.94],gar_semisotano:[389.51,418.34,515.33],gar_2_3_sotano:[443.36,476.16,586.56],gar_exterior:[232.44,249.65,307.52],sin_uso_local:[244.48,281.39,323.94],host_hostales:[734.7,796.42,1001.4],host_hoteles:[982.98,1133.38,1721.21],host_residencias:[789.8,894.85,1233.67],host_restaurantes:[877.84,1037.6,1589.78],host_cafeterias:[721.4,852.7,1306.46],host_camping:[570.03,617.91,776.95],dep_polideportivo:[810.07,822.22,1039.31],dep_piscina_cubierta:[825.9,870.5,1125.71],dep_pistas:[106.4,108,136.52],dep_piscinas_exterior:[422.45,437.24,567.35],dep_vestuarios:[668.2,704.28,910.75],dep_graderio_desc:[243.85,252.38,327.49],dep_graderio_cub:[376.85,390.04,506.11],esp_discotecas:[827.18,953.73,1308.59],esp_salas_fiestas:[1034.28,1232.86,1677.6],esp_centros_culturales:[1238.22,1695.13,2168.12],esp_stands:[1371.86,2067.4,2661.42],doc_universidades:[967.15,1076.44,1413.98],doc_colegios:[696.07,754.54,969.62],san_hospitales:[1277.49,1397.58,1651.8],san_ambulatorios:[985.52,1058.44,1244.71],san_dispensarios:[818.3,862.49,1001.6],rel_iglesias:[1067.85,1125.51,1466.15],rel_capillas:[800.57,896.64,1168.84],rel_seminarios:[730.27,795.99,1007.77],fun_nichos_sobre:[335.05,363.2,436.57],fun_nichos_bajo:[419.29,454.5,546.32],fun_panteon:[994.37,1371.25,1988.75],fun_tanatorio:[822.74,948.62,1285.12],tra_estacion:[1239.49,1343.6,1716.69],pen_carcel:[1131.18,1383.44,1598.36],urb_urbanizacion:[89.94,98.39,126.18]},
+  "25":{unif_aislada:[751.99,1118.21,1676.93],unif_hilera_menos10:[649.58,914.61,1351.13],unif_hilera_10_25:[623.06,871.66,1283.49],unif_hilera_mas25:[596.54,822.62,1210.96],unif_garaje:[373.22,437.42,566.55],unif_almacen:[347.92,387.24,536.5],unif_instalaciones:[359.65,372.23,500.99],pluri_bloque_menos16:[613.19,767.1,1061.43],pluri_bloque_16_40:[616.89,697.08,976.54],pluri_bloque_mas40:[542.24,651.77,916.94],pluri_manzana_menos16:[592.21,711.84,936.88],pluri_manzana_16_40:[557.67,664.74,871.08],pluri_manzana_mas40:[523.74,613.82,797.13],pluri_garaje:[334.97,363.11,436.46],pluri_almacen:[329.42,355.78,448.01],pluri_instalaciones:[331.88,333.55,369.72],pluri_oficinas:[431.83,519.05,665.87],pluri_locales:[227.02,261.29,300.8],ofic_oficinas:[800.72,977.68,1450.11],ofic_diafanas:[447.86,507.43,641.34],com_locales_resid:[352.86,399.79,547.99],com_comercio:[702.02,809.43,1145.7],ind_naves:[293.64,315.37,394.37],ind_edificios:[568.16,598.84,728.95],ind_cobertizos:[194.94,197.87,226.91],ind_almacenes_agric:[142.5,150.62,160.17],gar_planta_baja:[304.74,327.29,403.17],gar_semisotano:[379.39,407.46,501.92],gar_2_3_sotano:[431.83,463.78,571.31],gar_exterior:[226.4,243.16,299.53],sin_uso_local:[238.12,274.08,315.51],host_hostales:[715.6,775.7,975.36],host_hoteles:[957.41,1103.9,1676.44],host_residencias:[769.26,871.57,1201.58],host_restaurantes:[855.01,1010.62,1548.42],host_cafeterias:[702.64,830.52,1272.48],host_camping:[555.2,601.85,756.74],dep_polideportivo:[789,800.83,1012.28],dep_piscina_cubierta:[804.42,847.86,1096.43],dep_pistas:[103.64,105.2,132.97],dep_piscinas_exterior:[411.47,425.87,552.59],dep_vestuarios:[650.81,685.96,887.06],dep_graderio_desc:[237.5,245.81,318.97],dep_graderio_cub:[367.04,379.89,492.95],esp_discotecas:[805.66,928.93,1274.56],esp_salas_fiestas:[1007.38,1200.8,1633.97],esp_centros_culturales:[1206.01,1651.04,2111.73],esp_stands:[1336.19,2013.63,2592.2],doc_universidades:[941.99,1048.44,1377.2],doc_colegios:[677.96,734.91,944.39],san_hospitales:[1244.26,1361.23,1608.84],san_ambulatorios:[959.88,1030.91,1212.33],san_dispensarios:[797.02,840.06,975.56],rel_iglesias:[1040.07,1096.24,1428.02],rel_capillas:[779.75,873.32,1138.43],rel_seminarios:[711.27,775.28,981.56],fun_nichos_sobre:[326.34,353.75,425.21],fun_nichos_bajo:[408.38,442.68,532.12],fun_panteon:[968.51,1335.59,1937.03],fun_tanatorio:[801.34,923.94,1251.69],tra_estacion:[1207.25,1308.65,1672.04],pen_carcel:[1101.76,1347.45,1556.79],urb_urbanizacion:[87.6,95.84,122.9]},
+  "43":{unif_aislada:[794.23,1181.02,1771.13],unif_hilera_menos10:[686.07,965.99,1427.02],unif_hilera_10_25:[658.05,920.62,1355.59],unif_hilera_mas25:[630.04,868.82,1278.98],unif_garaje:[394.19,461.99,598.37],unif_almacen:[367.47,408.99,566.63],unif_instalaciones:[379.85,393.14,529.13],pluri_bloque_menos16:[647.63,810.19,1121.05],pluri_bloque_16_40:[651.54,736.24,1031.39],pluri_bloque_mas40:[572.7,688.39,968.45],pluri_manzana_menos16:[625.48,751.82,989.5],pluri_manzana_16_40:[588.99,702.08,920.01],pluri_manzana_mas40:[553.16,648.3,841.91],pluri_garaje:[353.78,383.5,460.98],pluri_almacen:[347.92,375.76,473.17],pluri_instalaciones:[350.53,352.28,390.49],pluri_oficinas:[456.08,548.21,703.28],pluri_locales:[239.77,275.97,317.69],ofic_oficinas:[845.69,1032.59,1531.56],ofic_diafanas:[473.02,535.93,677.36],com_locales_resid:[372.67,422.24,578.77],com_comercio:[741.46,854.9,1210.06],ind_naves:[310.14,333.08,416.51],ind_edificios:[600.07,632.47,769.89],ind_cobertizos:[205.89,208.98,239.65],ind_almacenes_agric:[150.5,159.08,169.16],gar_planta_baja:[321.86,345.67,425.82],gar_semisotano:[400.7,430.34,530.12],gar_2_3_sotano:[456.08,489.83,603.39],gar_exterior:[239.12,256.82,316.35],sin_uso_local:[251.5,289.47,333.23],host_hostales:[755.79,819.28,1030.14],host_hoteles:[1011.2,1165.91,1770.6],host_residencias:[812.47,920.53,1269.07],host_restaurantes:[903.04,1067.39,1635.4],host_cafeterias:[742.1,877.17,1343.96],host_camping:[586.39,635.65,799.25],dep_polideportivo:[833.32,845.81,1069.14],dep_piscina_cubierta:[849.6,895.49,1158.01],dep_pistas:[109.46,111.1,140.44],dep_piscinas_exterior:[434.57,449.78,583.64],dep_vestuarios:[687.38,724.49,936.89],dep_graderio_desc:[250.84,259.62,336.89],dep_graderio_cub:[387.66,401.23,520.63],esp_discotecas:[850.91,981.11,1346.15],esp_salas_fiestas:[1063.96,1268.24,1725.75],esp_centros_culturales:[1273.75,1743.78,2230.35],esp_stands:[1411.24,2126.73,2737.8],doc_universidades:[994.91,1107.33,1454.55],doc_colegios:[716.04,776.19,997.44],san_hospitales:[1314.16,1437.69,1699.21],san_ambulatorios:[1013.8,1088.82,1280.43],san_dispensarios:[841.79,887.25,1030.35],rel_iglesias:[1098.5,1157.81,1508.24],rel_capillas:[823.55,922.37,1202.38],rel_seminarios:[751.22,818.84,1036.69],fun_nichos_sobre:[344.67,373.62,449.1],fun_nichos_bajo:[431.32,467.54,562.01],fun_panteon:[1022.91,1410.6,2045.83],fun_tanatorio:[846.35,975.84,1322],tra_estacion:[1275.06,1382.16,1765.96],pen_carcel:[1163.65,1423.14,1644.23],urb_urbanizacion:[92.52,101.22,129.8]},
+  "08":{unif_aislada:[818.46,1217.06,1825.17],unif_hilera_menos10:[707,995.46,1470.56],unif_hilera_10_25:[678.13,948.71,1396.95],unif_hilera_mas25:[649.27,895.34,1318.01],unif_garaje:[406.21,476.08,616.63],unif_almacen:[378.68,421.47,583.93],unif_instalaciones:[391.44,405.14,545.27],pluri_bloque_menos16:[667.4,834.91,1155.25],pluri_bloque_16_40:[671.42,758.7,1062.86],pluri_bloque_mas40:[590.17,709.4,998],pluri_manzana_menos16:[644.56,774.77,1019.7],pluri_manzana_16_40:[606.96,723.5,948.08],pluri_manzana_mas40:[570.04,668.09,867.59],pluri_garaje:[364.58,395.21,475.04],pluri_almacen:[358.54,387.23,487.61],pluri_instalaciones:[361.22,363.03,402.41],pluri_oficinas:[470,564.93,724.73],pluri_locales:[247.08,284.39,327.38],ofic_oficinas:[871.5,1064.1,1578.29],ofic_diafanas:[487.46,552.29,698.03],com_locales_resid:[384.04,435.13,596.43],com_comercio:[764.08,880.98,1246.98],ind_naves:[319.6,343.25,429.23],ind_edificios:[618.38,651.77,793.39],ind_cobertizos:[212.17,215.36,246.96],ind_almacenes_agric:[155.09,163.94,174.32],gar_planta_baja:[331.68,356.22,438.81],gar_semisotano:[412.92,443.48,546.29],gar_2_3_sotano:[470,504.77,621.8],gar_exterior:[246.41,264.65,326],sin_uso_local:[259.17,298.31,343.4],host_hostales:[778.85,844.28,1061.58],host_hoteles:[1042.05,1201.49,1824.63],host_residencias:[837.26,948.62,1307.8],host_restaurantes:[930.59,1099.96,1685.3],host_cafeterias:[764.75,903.94,1384.97],host_camping:[604.28,655.04,823.64],dep_polideportivo:[858.74,871.62,1101.76],dep_piscina_cubierta:[875.53,922.81,1193.35],dep_pistas:[112.8,114.49,144.72],dep_piscinas_exterior:[447.83,463.51,601.44],dep_vestuarios:[708.35,746.6,965.47],dep_graderio_desc:[258.5,267.55,347.17],dep_graderio_cub:[399.5,413.48,536.52],esp_discotecas:[876.88,1011.05,1387.22],esp_salas_fiestas:[1096.43,1306.94,1778.41],esp_centros_culturales:[1312.63,1796.99,2298.4],esp_stands:[1454.3,2191.63,2821.34],doc_universidades:[1025.26,1141.12,1498.94],doc_colegios:[737.89,799.88,1027.88],san_hospitales:[1354.26,1481.56,1751.05],san_ambulatorios:[1044.74,1122.04,1319.5],san_dispensarios:[867.47,914.33,1061.79],rel_iglesias:[1132.01,1193.14,1554.26],rel_capillas:[848.68,950.52,1239.07],rel_seminarios:[774.14,843.82,1068.32],fun_nichos_sobre:[355.19,385.02,462.8],fun_nichos_bajo:[444.48,481.81,579.15],fun_panteon:[1054.13,1453.64,2108.26],fun_tanatorio:[872.18,1005.62,1362.34],tra_estacion:[1313.97,1424.34,1819.85],pen_carcel:[1199.15,1466.57,1694.41],urb_urbanizacion:[95.34,104.3,133.76]},
+  "07":{unif_aislada:[782.45,1163.51,1744.88],unif_hilera_menos10:[675.9,951.67,1405.87],unif_hilera_10_25:[648.3,906.97,1335.5],unif_hilera_mas25:[620.7,855.95,1260.03],unif_garaje:[388.34,455.14,589.5],unif_almacen:[362.02,402.92,558.24],unif_instalaciones:[374.22,387.31,521.29],pluri_bloque_menos16:[638.03,798.18,1104.44],pluri_bloque_16_40:[641.88,725.33,1016.1],pluri_bloque_mas40:[564.22,678.18,954.09],pluri_manzana_menos16:[616.21,740.68,974.84],pluri_manzana_16_40:[580.26,691.67,906.38],pluri_manzana_mas40:[544.96,638.69,829.43],pluri_garaje:[348.54,377.81,454.15],pluri_almacen:[342.77,370.19,466.16],pluri_instalaciones:[345.33,347.06,384.71],pluri_oficinas:[449.32,540.08,692.85],pluri_locales:[236.21,271.88,312.98],ofic_oficinas:[833.16,1017.29,1508.86],ofic_diafanas:[466.01,527.99,667.33],com_locales_resid:[367.16,415.99,570.19],com_comercio:[730.46,842.23,1192.12],ind_naves:[305.54,328.15,410.34],ind_edificios:[591.17,623.1,758.48],ind_cobertizos:[202.84,205.88,236.1],ind_almacenes_agric:[148.27,156.73,166.66],gar_planta_baja:[317.08,340.55,419.51],gar_semisotano:[394.76,423.97,522.26],gar_2_3_sotano:[449.32,482.56,594.45],gar_exterior:[235.57,253.01,311.66],sin_uso_local:[247.77,285.18,328.3],host_hostales:[744.59,807.14,1014.88],host_hoteles:[996.2,1148.63,1744.36],host_residencias:[800.43,906.89,1250.26],host_restaurantes:[889.65,1051.57,1611.16],host_cafeterias:[731.11,864.17,1324.04],host_camping:[577.69,626.23,787.4],dep_polideportivo:[820.96,833.27,1053.29],dep_piscina_cubierta:[837.01,882.21,1140.85],dep_pistas:[107.84,109.46,138.35],dep_piscinas_exterior:[428.13,443.12,574.98],dep_vestuarios:[677.18,713.75,923],dep_graderio_desc:[247.13,255.77,331.89],dep_graderio_cub:[381.92,395.29,512.92],esp_discotecas:[838.31,966.56,1326.2],esp_salas_fiestas:[1048.19,1249.45,1700.18],esp_centros_culturales:[1254.88,1717.94,2197.29],esp_stands:[1390.32,2095.22,2697.22],doc_universidades:[980.16,1090.92,1433],doc_colegios:[705.43,764.69,982.66],san_hospitales:[1294.68,1416.38,1674.02],san_ambulatorios:[998.77,1072.68,1261.45],san_dispensarios:[829.31,874.1,1015.08],rel_iglesias:[1082.21,1140.65,1485.88],rel_capillas:[811.34,908.7,1184.56],rel_seminarios:[740.09,806.69,1021.32],fun_nichos_sobre:[339.56,368.08,442.44],fun_nichos_bajo:[424.93,460.62,553.67],fun_panteon:[1007.75,1389.7,2015.51],fun_tanatorio:[833.81,961.37,1302.41],tra_estacion:[1256.16,1361.68,1739.78],pen_carcel:[1146.4,1402.04,1619.87],urb_urbanizacion:[91.15,99.72,127.88]},
+  "00":{unif_aislada:[783.84,1165.57,1747.97],unif_hilera_menos10:[677.1,953.35,1408.36],unif_hilera_10_25:[649.45,908.58,1337.86],unif_hilera_mas25:[621.8,857.46,1262.26],unif_garaje:[389.03,455.94,590.55],unif_almacen:[362.66,403.64,559.23],unif_instalaciones:[374.88,388,522.21],pluri_bloque_menos16:[639.16,799.59,1106.39],pluri_bloque_16_40:[643.02,726.61,1017.9],pluri_bloque_mas40:[565.21,679.38,955.78],pluri_manzana_menos16:[617.3,741.99,976.56],pluri_manzana_16_40:[581.29,692.9,907.98],pluri_manzana_mas40:[545.93,639.82,830.9],pluri_garaje:[349.16,378.49,454.95],pluri_almacen:[343.37,370.85,466.99],pluri_instalaciones:[345.94,347.68,385.39],pluri_oficinas:[450.12,541.04,694.08],pluri_locales:[236.63,272.36,313.54],ofic_oficinas:[834.64,1019.09,1511.53],ofic_diafanas:[466.84,528.92,668.51],com_locales_resid:[367.8,416.72,571.2],com_comercio:[731.76,843.72,1194.23],ind_naves:[306.08,328.73,411.07],ind_edificios:[592.22,624.2,759.83],ind_cobertizos:[203.2,206.25,236.52],ind_almacenes_agric:[148.53,157,166.95],gar_planta_baja:[317.65,341.15,420.25],gar_semisotano:[395.46,424.72,523.18],gar_2_3_sotano:[450.12,483.42,595.5],gar_exterior:[235.99,253.46,312.21],sin_uso_local:[248.21,285.69,328.88],host_hostales:[745.91,808.56,1016.67],host_hoteles:[997.97,1150.66,1747.45],host_residencias:[801.84,908.49,1252.48],host_restaurantes:[891.23,1053.43,1614.01],host_cafeterias:[732.4,865.7,1326.38],host_camping:[578.72,627.34,788.8],dep_polideportivo:[822.42,834.75,1055.16],dep_piscina_cubierta:[838.49,883.77,1142.87],dep_pistas:[108.03,109.65,138.6],dep_piscinas_exterior:[428.89,443.9,576],dep_vestuarios:[678.38,715.02,924.63],dep_graderio_desc:[247.56,256.23,332.48],dep_graderio_cub:[382.59,395.99,513.83],esp_discotecas:[839.79,968.28,1328.54],esp_salas_fiestas:[1050.05,1251.66,1703.18],esp_centros_culturales:[1257.1,1720.98,2201.18],esp_stands:[1392.78,2098.92,2702],doc_universidades:[981.89,1092.85,1435.53],doc_colegios:[706.68,766.04,984.4],san_hospitales:[1296.97,1418.89,1676.98],san_ambulatorios:[1000.54,1074.58,1263.68],san_dispensarios:[830.78,875.65,1016.88],rel_iglesias:[1084.13,1142.67,1488.51],rel_capillas:[812.78,910.31,1186.66],rel_seminarios:[741.4,808.12,1023.13],fun_nichos_sobre:[340.16,368.73,443.22],fun_nichos_bajo:[425.68,461.43,554.65],fun_panteon:[1009.53,1392.16,2019.08],fun_tanatorio:[835.28,963.08,1304.71],tra_estacion:[1258.39,1364.09,1742.86],pen_carcel:[1148.43,1404.53,1622.73],urb_urbanizacion:[91.31,99.89,128.1]},
 };
+// Jerarquía de tipos arquitectura para la UI
+const ARQ_N2 = {
+  "Residencial":["Viviendas unifamiliares","Viviendas plurifamiliares"],
+  "No residencial":["Uso oficinas","Uso comercial","Uso industrial y agropecuario","Uso garaje y aparcamiento","Sin uso","Uso hostelería","Uso deportivo","Uso espectáculos","Uso docente","Uso sanitario","Uso religioso","Uso funerario","Uso transportes","Uso penitenciario","Urbanización - Obra civil"],
+};
+const ARQ_N3 = {
+  "Viviendas unifamiliares":[{k:"unif_aislada",l:"Unifamiliar aislada"},{k:"unif_hilera_menos10",l:"Unifamiliar en hilera (< 10 viviendas)"},{k:"unif_hilera_10_25",l:"Unifamiliar en hilera (10 a 25 viviendas)"},{k:"unif_hilera_mas25",l:"Unifamiliar en hilera (> 25 viviendas)"},{k:"unif_garaje",l:"Garaje en vivienda unifamiliar"},{k:"unif_almacen",l:"Almacenes y trasteros en vivienda unifamiliar"},{k:"unif_instalaciones",l:"Instalaciones y otros en vivienda unifamiliar"}],
+  "Viviendas plurifamiliares":[{k:"pluri_bloque_menos16",l:"Bloque aislado (< 16 viviendas)"},{k:"pluri_bloque_16_40",l:"Bloque aislado (16 a 40 viviendas)"},{k:"pluri_bloque_mas40",l:"Bloque aislado (> 40 viviendas)"},{k:"pluri_manzana_menos16",l:"Manzana cerrada (< 16 viviendas)"},{k:"pluri_manzana_16_40",l:"Manzana cerrada (16 a 40 viviendas)"},{k:"pluri_manzana_mas40",l:"Manzana cerrada (> 40 viviendas)"},{k:"pluri_garaje",l:"Garaje en vivienda plurifamiliar"},{k:"pluri_almacen",l:"Almacenes y trasteros en vivienda plurifamiliar"},{k:"pluri_instalaciones",l:"Instalaciones y otros en vivienda plurifamiliar"},{k:"pluri_oficinas",l:"Oficinas en vivienda plurifamiliar"},{k:"pluri_locales",l:"Locales en edificio plurifamiliar (diáfanos)"}],
+  "Uso oficinas":[{k:"ofic_oficinas",l:"Oficinas"},{k:"ofic_diafanas",l:"Oficinas diáfanas (sin distribución)"}],
+  "Uso comercial":[{k:"com_locales_resid",l:"Locales comerciales en edificios residenciales"},{k:"com_comercio",l:"Comercio"}],
+  "Uso industrial y agropecuario":[{k:"ind_naves",l:"Naves industriales"},{k:"ind_edificios",l:"Edificios industriales diáfanos en altura"},{k:"ind_cobertizos",l:"Cobertizos o naves sin cerramientos"},{k:"ind_almacenes_agric",l:"Almacenes agrícolas / Establos"}],
+  "Uso garaje y aparcamiento":[{k:"gar_planta_baja",l:"Garajes en planta baja o en altura"},{k:"gar_semisotano",l:"Garajes en semisótano o 1er sótano"},{k:"gar_2_3_sotano",l:"Garajes en 2º o 3er sótano"},{k:"gar_exterior",l:"Aparcamientos exteriores"}],
+  "Sin uso":[{k:"sin_uso_local",l:"Local sin uso"}],
+  "Uso hostelería":[{k:"host_hostales",l:"Hostales / Pensiones"},{k:"host_hoteles",l:"Hoteles / Aparthoteles / Moteles"},{k:"host_residencias",l:"Residencias para la tercera edad"},{k:"host_restaurantes",l:"Restaurantes"},{k:"host_cafeterias",l:"Cafeterías"},{k:"host_camping",l:"Edificaciones de servicio / Camping"}],
+  "Uso deportivo":[{k:"dep_polideportivo",l:"Polideportivo cubierto"},{k:"dep_piscina_cubierta",l:"Piscina cubierta"},{k:"dep_pistas",l:"Pistas descubiertas / Instalación exterior"},{k:"dep_piscinas_exterior",l:"Piscinas al aire libre"},{k:"dep_vestuarios",l:"Vestuarios / Servicios de apoyo deportivo"},{k:"dep_graderio_desc",l:"Graderío descubierto"},{k:"dep_graderio_cub",l:"Graderío cubierto"}],
+  "Uso espectáculos":[{k:"esp_discotecas",l:"Discotecas / Casinos culturales / Cines"},{k:"esp_salas_fiestas",l:"Salas de fiestas / Teatros / Auditorios"},{k:"esp_centros_culturales",l:"Centros culturales"},{k:"esp_stands",l:"Stands de feria"}],
+  "Uso docente":[{k:"doc_universidades",l:"Universidades / Centros de investigación / Museos / Bibliotecas"},{k:"doc_colegios",l:"Academias / Guarderías / Colegios / Institutos"}],
+  "Uso sanitario":[{k:"san_hospitales",l:"Hospitales / Clínicas / Grandes centros sanitarios"},{k:"san_ambulatorios",l:"Ambulatorios / Centros médicos / Consultorios"},{k:"san_dispensarios",l:"Dispensarios / Botiquines"}],
+  "Uso religioso":[{k:"rel_iglesias",l:"Centros de culto / Iglesias / Mezquitas"},{k:"rel_capillas",l:"Capillas / Ermitas"},{k:"rel_seminarios",l:"Seminarios / Conventos / Centros parroquiales"}],
+  "Uso funerario":[{k:"fun_nichos_sobre",l:"Nichos sobre rasante"},{k:"fun_nichos_bajo",l:"Nichos bajo rasante"},{k:"fun_panteon",l:"Panteón familiar"},{k:"fun_tanatorio",l:"Tanatorio / Crematorio"}],
+  "Uso transportes":[{k:"tra_estacion",l:"Estación de trenes / Buses / Metro / Intercambiador"}],
+  "Uso penitenciario":[{k:"pen_carcel",l:"Cárcel / Prisión / Centro de menores"}],
+  "Urbanización - Obra civil":[{k:"urb_urbanizacion",l:"Urbanización / Plaza / Parque / Cementerio"}],
+};
+const getModuloArq = (provCode, key, calidad) => {
+  const tbl = TABLAS_ARQ[provCode] || TABLAS_ARQ["00"];
+  const ci = calidad==="Alta"?2:calidad==="Básica"?0:1;
+  return tbl[key]?.[ci] || 0;
+};
+const getFactorArq = key => {
+  if(!key) return 1.486;
+  if(key.startsWith("unif_")||key.startsWith("pluri_")) return 1.486;
+  if(key.startsWith("urb_")) return 1.366;
+  return 1.618;
+};
+const calcVPreexCont = (m2, provCode, arqKey, calidad) =>
+  parseFloat(m2||0) * getModuloArq(provCode, arqKey, calidad) * getFactorArq(arqKey);
+
 const PROVINCIAS = [
   {v:"07",l:"Baleares"},{v:"08",l:"Barcelona"},{v:"17",l:"Girona"},
-  {v:"28",l:"Madrid"},{v:"29",l:"Málaga"},{v:"33",l:"Asturias"},
+  {v:"25",l:"Lleida"},{v:"28",l:"Madrid"},{v:"29",l:"Málaga"},{v:"33",l:"Asturias"},
   {v:"35",l:"Las Palmas"},{v:"38",l:"S.C.Tenerife"},{v:"41",l:"Sevilla"},
   {v:"43",l:"Tarragona"},{v:"46",l:"Valencia"},{v:"00",l:"Otras"},
 ];
@@ -153,9 +191,8 @@ const calcRegla = (enc, s1) => {
   if(enc?.primerRiesgo || s1?.tipoContinente==="obrasReforma" || enc?.esHogar) return 1;
   const capCont = parseCap(enc?.capitalContinente);
   const prov = PROVINCIAS.find(p=>p.l===enc?.provincia||p.v===enc?.provincia);
-  const calIdx = (s1?.calidad)==="Alta"?2:(s1?.calidad)==="Básica"?0:1;
-  const modProv = MOD_ARQ[prov?.v||"00"]||MOD_ARQ["00"];
-  const vReal = parseCap(s1?.superficieConstruida)*modProv.hotel[calIdx];
+  const arqKey = s1?.tipoArqKey || "unif_aislada";
+  const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKey, s1?.calidad||"Media");
   return vReal>0&&capCont>0&&capCont<vReal ? (capCont/vReal) : 1;
 };
 
@@ -171,15 +208,19 @@ const parseJSON = txt => {
 const getRiesgoIA = async (enc, onTokens) => {
   const raw = await callClaude(
     "Eres un perito de seguros español. Responde SOLO con JSON válido, sin markdown.",
-    `Estima las características catastrales del inmueble basándote en los datos del encargo.
+    `Estima las características del inmueble asegurado basándote en los datos disponibles.
 ASEGURADO: ${enc.asegurado||""}
 DIRECCIÓN: ${enc.lugarIntervencion||""}
 MUNICIPIO: ${enc.municipio||""}, PROVINCIA: ${enc.provincia||""}
 CAUSA: ${enc.causa||""} — RAMO: ${enc.ramo||""}
 DESCRIPCIÓN: ${enc.descripcionSiniestro||""}
+TIPO VIVIENDA PÓLIZA: ${enc.tipoVivienda||""}
+USO VIVIENDA PÓLIZA: ${enc.usoVivienda||""}
+UBICACIÓN PÓLIZA: ${enc.ubicacionVivienda||""}
+CALIDAD PÓLIZA: ${enc.calidadPóliza||""}
 
 Devuelve SOLO este JSON:
-{"tipoRiesgo":"tipo de uso (Hotel, Local, Vivienda...)","anoConstruccion":"año numérico","superficieConstruida":"m2 numérico","refCatastral":"si la conoces","calidad":"Básica|Media|Alta","justificacionCalidad":"una frase técnica"}`,
+{"tipoRiesgo":"tipo de uso (Hotel, Local, Vivienda...)","tipoVivienda":"tipo de vivienda del apartado descripción de la póliza si disponible, si no estima","usoVivienda":"uso de la vivienda (Habitual, Segunda residencia, Arrendamiento...) si disponible","ubicacion":"ubicación exacta del riesgo asegurado si disponible","anoConstruccion":"año numérico","superficieConstruida":"m2 numérico","refCatastral":"si la conoces","calidad":"Básica|Media|Alta","justificacionCalidad":"una frase técnica"}`,
     onTokens
   );
   return parseJSON(raw);
@@ -680,7 +721,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setMsg("Leyendo poliza de seguro...");
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
-      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
+      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
       const praw = await callClaude(
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
@@ -738,6 +779,10 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       fechaEfecto:              normD(pol.fechaEfecto||enc.fechaEfecto||""),
       descripciones:            pol.descripciones||{},
       polizaAdjunta:            !!polFile,
+      tipoVivienda:             pol.tipoVivienda||"",
+      usoVivienda:              pol.usoVivienda||"",
+      ubicacionVivienda:        pol.ubicacionVivienda||"",
+      calidadPóliza:            pol.calidadPóliza||"",
     });;
     setStep("review");
   };
@@ -879,12 +924,9 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
 const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
-  const provincia = enc.provincia||"";
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const calIdx = s1?.calidad==="Alta"?2:s1?.calidad==="Básica"?0:1;
-  const modProv = MOD_ARQ[prov?.v||"00"]||MOD_ARQ["00"];
-  const precio = modProv.hotel[calIdx];
-  const vReal = parseFloat(s1?.superficieConstruida||0)*precio;
+  const arqKeyPrev = s1?.tipoArqKey || "unif_aislada";
+  const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKeyPrev, s1?.calidad||"Media");
   const capCont = parseFloat(enc.capitalContinente||0);
   const infraCont = vReal>0&&capCont>0&&capCont<vReal?((vReal-capCont)/vReal*100):0;
   const regla = infraCont>0?(capCont/vReal):1;
@@ -929,7 +971,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             </div>
           ))}
         </div>
-        <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(provincia?`, ${provincia}`:"")}/>
+        <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(enc.provincia?`, ${enc.provincia}`:"")}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
           <InfoRow label="Asegurado" val={enc.asegurado}/>
           <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
@@ -1119,16 +1161,35 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
 
 // ─── SECCIÓN 1 ────────────────────────────────────────────────────────────────
 const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
-  const [autoLoad,setAutoLoad] = useState(false);
-  const [autoMsg,setAutoMsg]   = useState("");
-  const [autoOk,setAutoOk]     = useState(false);
   const [calSug,setCalSug]     = useState("");
   const [aiLoad,setAiLoad]     = useState(false);
-  const [saved,setSaved]       = useState(false);
   const s = f => v => onChange({...data,[f]:v});
   const esHogar  = enc.esHogar||((enc.ramo||"").toUpperCase().includes("HOGAR"));
   const esInstant = enc.tipoEncargo==="INSTANT_PAYMENT";
-  const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
+
+  // Auto-fill from póliza extraction on mount
+  useEffect(()=>{
+    const normTipo = raw => {
+      if(!raw) return "";
+      const r = raw.toLowerCase();
+      if(r.includes("hotel")||r.includes("apart-hotel")||r.includes("aparthotel")) return "Hotel / Apart-hotel";
+      if(r.includes("hostal")||r.includes("pensión")||r.includes("pension")) return "Hostal / Pensión";
+      if(r.includes("local comercial")||r.includes("local")) return "Local comercial";
+      if(r.includes("oficin")) return "Oficinas";
+      if(r.includes("comunidad")) return "Comunidad de propietarios";
+      if(r.includes("industria")||r.includes("nave")||r.includes("almac")) return "Industria / Nave";
+      if(r.includes("restaurante")||r.includes("bar")||r.includes("cafet")) return "Restaurante / Bar";
+      if(r.includes("unifamiliar")||r.includes("chalet")||r.includes("casa aislada")||r.includes("adosado")) return "Vivienda unifamiliar";
+      if(r.includes("piso")||r.includes("apartamento")||r.includes("ático")||r.includes("atico")||r.includes("vivienda")) return "Piso / Apartamento";
+      return "Otro";
+    };
+    const upd = {};
+    if(!data.tipoRiesgo && enc.tipoVivienda){ const n=normTipo(enc.tipoVivienda); if(n) upd.tipoRiesgo = n; }
+    if(!data.usoVivienda && enc.usoVivienda) upd.usoVivienda = enc.usoVivienda;
+    if(!data.ubicacion && enc.ubicacionVivienda) upd.ubicacion = enc.ubicacionVivienda;
+    if(!data.calidad && enc.calidadPóliza) upd.calidad = enc.calidadPóliza;
+    if(Object.keys(upd).length > 0) onChange({...data,...upd});
+  },[]);
 
   // Auto-init instant text
   useEffect(()=>{
@@ -1138,26 +1199,19 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
     }
   },[esInstant]);
 
-  // Catastro is manual — no auto-run on mount
-
-  // runAuto removed — catastro data must be entered manually from the official source
-
-  // buscarRef removed — data entered manually from Catastro
-
   const genTexto = async () => {
     setAiLoad(true);
     const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-    const calIdx = data.calidad==="Alta"?2:data.calidad==="Básica"?0:1;
-    const precio = (MOD_ARQ[prov?.v||"00"]||MOD_ARQ["00"]).hotel[calIdx];
-    const vReal = parseFloat(data.superficieConstruida||0)*precio;
-    const capCont = parseFloat(enc.capitalContinente||0);
+    const arqKey = data.tipoArqKey||"unif_aislada";
+    const vPre = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
+    const capCont = parseCap(data.capContOverride!=null?data.capContOverride:enc.capitalContinente);
     const text = await callClaude(
       "Perito de seguros. Redacta en estilo técnico pericial, conciso. Sin título de apartado.",
       `Sección 1.1 "Descripción del Riesgo" de un informe pericial:
-RIESGO: ${data.tipoRiesgo||""} · ${data.superficieConstruida||"—"} m² · Año ${data.anoConstruccion||"—"} · Calidad ${data.calidad||"Media"} · ${data.estado||"—"}
-UBICACIÓN: ${enc.lugarIntervencion||""}, ${enc.provincia||""}
+TIPO VIVIENDA: ${data.tipoVivienda||data.tipoRiesgo||""} · USO: ${data.usoVivienda||""} · UBICACIÓN: ${data.ubicacion||enc.lugarIntervencion||""}, ${enc.provincia||""}
+SUPERFICIE: ${data.superficieConstruida||"—"} m² · AÑO: ${data.anoConstruccion||"—"} · CALIDAD: ${data.calidad||"Media"} · ESTADO: ${data.estado||"—"}
 REF.CATASTRAL: ${data.refCatastral||"No aportada"}
-CONTINENTE: Asegurado ${fmtE(capCont)} / Preexistente ${fmtE(vReal)} / Infraseguro ${vReal>capCont&&capCont>0?((vReal-capCont)/vReal*100).toFixed(2):"0,00"}%
+CONTINENTE: Asegurado ${fmtE(capCont)} / Preexistente ${fmtE(vPre)} / Infraseguro ${vPre>capCont&&capCont>0?((vPre-capCont)/vPre*100).toFixed(2):"0,00"}%
 Redacta en viñetas, siguiendo el estilo de un informe pericial real.`,
       onTokens
     ).catch(()=>"Error al conectar con la IA.");
@@ -1166,16 +1220,15 @@ Redacta en viñetas, siguiendo el estilo de un informe pericial real.`,
   };
 
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const calIdx = data.calidad==="Alta"?2:data.calidad==="Básica"?0:1;
-  const modProv = MOD_ARQ[prov?.v||"00"]||MOD_ARQ["00"];
-  const precio = modProv.hotel[calIdx];
-  const vReal = parseFloat(data.superficieConstruida||0)*precio;
+  const arqKey   = data.tipoArqKey||"unif_aislada";
   const capCont  = data.capContOverride!=null ? parseCap(data.capContOverride)  : parseCap(enc.capitalContinente);
-  const capCont2  = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
-  const vRealMod = vReal;
-  const vRealFinal = esHogar ? capCont : vReal;
-  const infraCont = !esHogar&&vReal>0&&capCont>0&&capCont<vReal?((vReal-capCont)/vReal*100):0;
-  const primeRiesgo = enc.primerRiesgo||esHogar||false;
+  const capCont2 = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
+  const primerRiesgoDetectado = enc.primerRiesgo||esHogar||false;
+  const vPreexCalc = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
+  const vPreex = primerRiesgoDetectado ? capCont : vPreexCalc;
+  const modulo = getModuloArq(prov?.v||"00", arqKey, data.calidad||"Media");
+  const factor = getFactorArq(arqKey);
+  const infraCont = !primerRiesgoDetectado&&vPreexCalc>0&&capCont>0&&capCont<vPreexCalc ? ((vPreexCalc-capCont)/vPreexCalc*100) : 0;
 
   if(esInstant) return (
     <div className="fade">
@@ -1210,36 +1263,103 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         {enc.umbralLluvia&&<InfoRow label="Umbral precipitación lluvia" val={enc.umbralLluvia+" l/m²/h"}/>}
       </Card>}
 
-      <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Causas y Circunstancias"/>
+      <NavBottom onNext={onNext} nextLabel="Siguiente — Causas y Circunstancias"/>
     </div>
   );
+
+  // Computed for tipo arquitectura selectors
+  const n2opciones = ARQ_N2[data.tipoArqNivel1||"Residencial"]||[];
+  const n3opciones = ARQ_N3[data.tipoArqNivel2||""]||[];
+  const arqLabel = n3opciones.find(x=>x.k===arqKey)?.l||"";
 
   return (
     <div className="fade">
       <SecTitle n="1" label="Verificación del Riesgo y Póliza" sub="Datos del inmueble asegurado, capitales y detección de infraseguro"/>
 
-
-
       {/* DATOS DEL RIESGO */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Datos del Riesgo Asegurado</SectionLabel>
-        <Sel label="Tipo de uso" value={data.tipoRiesgo} onChange={s("tipoRiesgo")} options={TIPOS_USO}
-          hint={data.tipoRiesgo?"Completado por IA — editable":""}/>
+        <Sel label="Tipo de vivienda" value={data.tipoRiesgo} onChange={s("tipoRiesgo")} options={TIPOS_USO}
+          hint={data.tipoRiesgo?"Extraído de póliza — editable":""}/>
+        <Inp label="Uso de vivienda" value={data.usoVivienda||""} onChange={s("usoVivienda")}
+          placeholder="Ej: Habitual, Segunda residencia, Arrendamiento…"
+          hint={data.usoVivienda?"Extraído de póliza — editable":"Extraer de la descripción de la vivienda en la póliza"}/>
+        <Inp label="Ubicación" value={data.ubicacion||""} onChange={s("ubicacion")}
+          placeholder="Dirección o ubicación del riesgo asegurado"
+          hint={data.ubicacion?"Extraído de póliza — editable":"Extraer de la descripción de la vivienda en la póliza"}/>
 
         <div style={{marginBottom:14}}>
           <Lbl c="Calidad de acabados"/>
-          <select value={data.calidad||""} onChange={e=>s("calidad")(e.target.value)}
-            style={{...inpStyle(false),cursor:"pointer",border:`1.5px solid ${data.calidad?"#A7F3D0":C.border}`}}>
+          {enc.calidadPóliza&&!data.calidad&&<div style={{fontSize:11,color:C.green,marginBottom:4}}>
+            ✨ Detectado en póliza: <b>{enc.calidadPóliza}</b> — seleccionado automáticamente
+          </div>}
+          <select value={data.calidad||(enc.calidadPóliza||"")} onChange={e=>s("calidad")(e.target.value)}
+            style={{...inpStyle(false),cursor:"pointer",border:`1.5px solid ${(data.calidad||enc.calidadPóliza)?"#A7F3D0":C.border}`}}>
             <option value="">Seleccionar…</option>
             {["Básica","Media","Alta"].map(o=><option key={o}>{o}</option>)}
           </select>
           {calSug&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:5,padding:"7px 10px",marginTop:5,fontSize:11,color:C.green}}>
-            <b>✨ Sugerencia IA:</b> {data.calidad} — {calSug}
+            <b>✨ Sugerencia IA:</b> {data.calidad||enc.calidadPóliza} — {calSug}
           </div>}
         </div>
         <Sel label="Estado general del riesgo ✏️ (rellenar tras visita)" value={data.estado} onChange={s("estado")}
           options={["Nuevo","Buen estado","Reformado","Regular","Deteriorado"]}/>
         {!data.estado&&<div style={{fontSize:11,color:C.orange,marginTop:-10,marginBottom:10}}>⚠ Pendiente de rellenar tras la visita presencial</div>}
+      </Card>
+
+      {/* TIPO DE ARQUITECTURA */}
+      <Card s={{marginBottom:14}}>
+        <SectionLabel>Tipo de Arquitectura</SectionLabel>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Selecciona el tipo para calcular el valor preexistente del continente.</div>
+
+        {/* Nivel 1 */}
+        <div style={{marginBottom:12}}>
+          <Lbl c="Categoría principal"/>
+          <div style={{display:"flex",gap:10,marginTop:4}}>
+            {["Residencial","No residencial"].map(n1=>(
+              <div key={n1} onClick={()=>onChange({...data,tipoArqNivel1:n1,tipoArqNivel2:"",tipoArqKey:""})}
+                style={{flex:1,padding:"10px 12px",borderRadius:7,cursor:"pointer",textAlign:"center",
+                  border:`2px solid ${(data.tipoArqNivel1||"Residencial")===n1?C.accent:C.border}`,
+                  background:(data.tipoArqNivel1||"Residencial")===n1?C.accentLight:C.white,
+                  fontWeight:700,fontSize:13,color:(data.tipoArqNivel1||"Residencial")===n1?C.accent:C.ink}}>
+                {n1}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Nivel 2 */}
+        <div style={{marginBottom:12}}>
+          <Lbl c="Tipo de uso"/>
+          <select value={data.tipoArqNivel2||""} onChange={e=>onChange({...data,tipoArqNivel2:e.target.value,tipoArqKey:""})}
+            style={{...inpStyle(false),cursor:"pointer"}}>
+            <option value="">Seleccionar tipo…</option>
+            {n2opciones.map(o=><option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+
+        {/* Nivel 3 */}
+        {n3opciones.length>0&&<div style={{marginBottom:12}}>
+          <Lbl c="Subtipo específico"/>
+          <select value={arqKey||""} onChange={e=>onChange({...data,tipoArqKey:e.target.value})}
+            style={{...inpStyle(false),cursor:"pointer",border:`1.5px solid ${arqKey?"#A7F3D0":C.border}`}}>
+            <option value="">Seleccionar subtipo…</option>
+            {n3opciones.map(o=><option key={o.k} value={o.k}>{o.l}</option>)}
+          </select>
+        </div>}
+
+        {/* Módulo €/m² resultante */}
+        {arqKey&&data.superficieConstruida&&(
+          <div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"10px 13px",fontSize:12}}>
+            <div style={{fontWeight:700,color:C.accent,marginBottom:4}}>Módulo de cálculo</div>
+            <div style={{color:C.muted}}>
+              {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} (factor completo) = <b style={{color:C.ink,fontSize:13}}>{fmtE(vPreexCalc)}</b>
+            </div>
+            <div style={{fontSize:10,color:C.muted,marginTop:3}}>
+              Factor incluye: gastos generales (13%), SS (1%), BI (6%), IVA, honorarios y tasas — según tablas 2025
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* CATASTRO */}
@@ -1263,94 +1383,66 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 
       {/* CONTINENTE */}
       <Card s={{marginBottom:14}}>
-        <SectionLabel>Continente / Obras de Reforma</SectionLabel>
-        {esHogar&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
-          <b>ℹ Seguro de Hogar — primer riesgo:</b> El valor preexistente es igual al capital asegurado. Sin módulos de arquitectura ni regla proporcional.
+        <SectionLabel>Continente</SectionLabel>
+        {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
+          <b>ℹ Continente a primer riesgo detectado en póliza.</b> El valor preexistente es igual al capital asegurado.
         </div>}
-
-        {/* AVISO SI CAPITAL = 0 */}
-        {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,
-          padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
+        {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
           <b>⚠ Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
-
-        {/* ENTRADA DE CAPITAL */}
         <EuroInput label="Capital asegurado continente (de la póliza)" value={data.capContOverride!=null?data.capContOverride:enc.capitalContinente}
           onChange={v=>onChange({...data,capContOverride:v})}
           hint="Introduce el valor que figura en la póliza"/>
-
-        {!esHogar&&<div style={{marginBottom:14}}>
-          <Lbl c="Tipo de cobertura del continente"/>
-          <div style={{display:"flex",gap:10,marginTop:4}}>
-            {[
-              {v:"obrasReforma", l:"Obras de reforma / Primer riesgo", desc:"Valor preexistente = Capital asegurado"},
-              {v:"continenteCompleto", l:"Continente completo", desc:"Valor preexistente calculado por módulos"},
-            ].map(opt=>(
-              <div key={opt.v} onClick={()=>onChange({...data,tipoContinente:opt.v})}
-                style={{flex:1,padding:"10px 12px",borderRadius:7,cursor:"pointer",
-                  border:`2px solid ${(data.tipoContinente||"obrasReforma")===opt.v?C.accent:C.border}`,
-                  background:(data.tipoContinente||"obrasReforma")===opt.v?C.accentLight:C.white}}>
-                <div style={{fontWeight:700,fontSize:12,color:(data.tipoContinente||"obrasReforma")===opt.v?C.accent:C.ink,marginBottom:2}}>{opt.l}</div>
-                <div style={{fontSize:10,color:C.muted}}>{opt.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>}
-
-        {/* TABLA RESULTADO */}
-        {(()=>{
-          const tipoCalc = data.tipoContinente||"obrasReforma";
-          const prev = (esHogar||tipoCalc==="obrasReforma") ? capCont : (vRealMod||capCont);
-          const infra = !esHogar&&tipoCalc==="continenteCompleto"&&vRealMod>0&&capCont>0&&capCont<vRealMod ? ((vRealMod-capCont)/vRealMod*100) : 0;
-          const color = infra>0?C.red:C.green;
-          const bg    = infra>0?C.redBg:C.greenBg;
-          const bord  = infra>0?"#FECACA":"#A7F3D0";
-          return (
-            <div style={{background:bg,border:`1px solid ${bord}`,borderRadius:8,padding:14}}>
-              <div style={{fontSize:11,fontWeight:700,color,marginBottom:10,textTransform:"uppercase"}}>CONTINENTE</div>
-              {[["Valor Asegurado",fmtE(capCont)],["Valor Preexistente",fmtE(prev)],["Infraseguro",`${fmt(infra)} %`]].map(([k,v],i)=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
-                  <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
-                  <span style={{fontWeight:700,color:i===2&&infra>0?C.red:i===2?C.green:C.ink}}>{v}</span>
-                </div>
-              ))}
-              {tipoCalc==="continenteCompleto"&&data.superficieConstruida&&(
-                <div style={{fontSize:10,color:C.muted,marginTop:6}}>
-                  Cálculo: {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(precio)} €/m² ({modProv.n} · {data.calidad||"Media"})
-                </div>
-              )}
-              {infra>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
-                <b>⚠ Infraseguro {fmt(infra)}%</b> — Regla proporcional: coeficiente {(capCont/vReal).toFixed(4)}
-              </div>}
+        <div style={{background:infraCont>0?C.redBg:C.greenBg,border:`1px solid ${infraCont>0?"#FECACA":"#A7F3D0"}`,borderRadius:8,padding:14,marginTop:4}}>
+          <div style={{fontSize:11,fontWeight:700,color:infraCont>0?C.red:C.green,marginBottom:10,textTransform:"uppercase"}}>CONTINENTE</div>
+          {[["Valor Asegurado",fmtE(capCont)],["Valor Preexistente",fmtE(vPreex)],["Infraseguro",`${fmt(infraCont)} %`]].map(([k,v],i)=>(
+            <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
+              <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
+              <span style={{fontWeight:700,color:i===2&&infraCont>0?C.red:i===2?C.green:C.ink}}>{v}</span>
             </div>
-          );
-        })()}
+          ))}
+          {!primerRiesgoDetectado&&arqKey&&data.superficieConstruida&&(
+            <div style={{fontSize:10,color:C.muted,marginTop:6}}>
+              {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
+            </div>
+          )}
+          {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
+            <b>⚠ Infraseguro {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
+          </div>}
+        </div>
       </Card>
 
       {/* CONTENIDO */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Contenido</SectionLabel>
-
-        {/* AVISO SI CAPITAL = 0 */}
-        {capCont2===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,
-          padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
+        {capCont2===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
           <b>⚠ Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
-
         <EuroInput label="Capital asegurado contenido (de la póliza)" value={data.capCont2Override!=null?data.capCont2Override:enc.capitalContenido}
           onChange={v=>onChange({...data,capCont2Override:v})}
           hint="Introduce el valor que figura en la póliza"/>
-
-        <div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:14,marginTop:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.green,marginBottom:10,textTransform:"uppercase"}}>CONTENIDO</div>
-          {[["Valor Asegurado",fmtE(capCont2)],["Valor Preexistente",fmtE(capCont2)],["Infraseguro","0,00 %"]].map(([k,v],i)=>(
-            <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
-              <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
-              <span style={{fontWeight:700,color:i===2?C.green:C.ink}}>{v}</span>
-            </div>
-          ))}
+        <div style={{marginBottom:12}}>
+          <Lbl c="Valor preexistente del contenido (editable)"/>
+          <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Por defecto igual al capital asegurado. Puedes ajustarlo si es necesario.</div>
+          <EuroInput label="" value={data.vPreexContenido!=null?data.vPreexContenido:enc.capitalContenido}
+            onChange={v=>onChange({...data,vPreexContenido:v})}
+            hint=""/>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginTop:7,fontStyle:"italic"}}>La preexistencia del contenido es estimada atendiendo a criterios objetivos de calidad, ubicación y superficie.</div>
+        {(()=>{
+          const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
+          const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
+          return (
+            <div style={{background:infraC2>0?C.redBg:C.greenBg,border:`1px solid ${infraC2>0?"#FECACA":"#A7F3D0"}`,borderRadius:8,padding:14,marginTop:4}}>
+              <div style={{fontSize:11,fontWeight:700,color:infraC2>0?C.red:C.green,marginBottom:10,textTransform:"uppercase"}}>CONTENIDO</div>
+              {[["Valor Asegurado",fmtE(capCont2)],["Valor Preexistente",fmtE(vPCont)],["Infraseguro",`${fmt(infraC2)} %`]].map(([k,v],i)=>(
+                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
+                  <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
+                  <span style={{fontWeight:700,color:i===2&&infraC2>0?C.red:i===2?C.green:C.ink}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </Card>
 
       {/* IA TEXTO */}
@@ -1374,7 +1466,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         </div>}
       </Card>
 
-      <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Causas y Circunstancias"/>
+      <NavBottom onNext={onNext} nextLabel="Siguiente — Causas y Circunstancias"/>
     </div>
   );
 };
@@ -1915,9 +2007,8 @@ const buildWordHTML = (cData) => {
   const capCont=parseFloat(enc.capitalContinente||0);
   const franq=parseFloat(s3.franquiciaVal||enc.franquicia||0);
   const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const calIdx=(s1.calidad)==='Alta'?2:(s1.calidad)==='Básica'?0:1;
-  const vRealM=(MOD_ARQ[prov?.v||'00']||MOD_ARQ['00']).hotel[calIdx];
-  const vRealC=enc.primerRiesgo?capCont:parseFloat(s1.superficieConstruida||0)*vRealM;
+  const arqKeyW=s1.tipoArqKey||'unif_aislada';
+  const vRealC=enc.primerRiesgo?capCont:calcVPreexCont(s1.superficieConstruida,prov?.v||'00',arqKeyW,s1.calidad||'Media');
   const regla=!enc.primerRiesgo&&vRealC>0&&capCont>0&&capCont<vRealC?(capCont/vRealC):1;
   const indemn=Math.max(0,totalDano*regla-franq);
   const capCont2=parseFloat(enc.capitalContenido||0);
@@ -2056,10 +2147,8 @@ const exportPDF = (cData, dniPerito='') => {
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
   const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const calI=(s1.calidad)==='Alta'?2:(s1.calidad)==='Básica'?0:1;
-  const mP=(MOD_ARQ[prov?.v||'00']||MOD_ARQ['00']).hotel[calI];
   const capC=parseCap(enc.capitalContinente), capC2=parseCap(enc.capitalContenido);
-  const vRC=(enc.primerRiesgo||s1.tipoContinente==='obrasReforma'||enc.esHogar)?capC:parseCap(s1.superficieConstruida)*mP;
+  const vRC=(enc.primerRiesgo||s1.tipoContinente==='obrasReforma'||enc.esHogar)?capC:calcVPreexCont(s1.superficieConstruida,prov?.v||'00',s1.tipoArqKey||'unif_aislada',s1.calidad||'Media');
   const reg=calcRegla(enc,s1);
   const inf=reg<1?((vRC-capC)/vRC*100):0;
   const fr=parseCap(s3.franquiciaVal||enc.franquicia);

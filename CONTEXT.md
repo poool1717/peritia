@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 8 junio 2026
+**Última actualización:** 8 junio 2026 (sesión 2)
 
 ---
 
@@ -28,6 +28,13 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] Sección 0 "Datos del Encargo" editable en el editor
 - [x] Sección 0 revisada: título "Datos del Encargo", campos Producto contratado y Código postal, lógica garantía desde póliza, campos perito movidos al modal de exportación, botón "Iniciar Informe"
 - [x] Dashboard reconstruido con sidebar, user info, delete encargos
+- [x] Sección 1 renovada: campos Tipo vivienda, Uso vivienda, Ubicación, selector tipo arquitectura 3 niveles
+- [x] TABLAS_ARQ 2025: 63 tipos arquitectura × 6 provincias (Baleares, Barcelona, Girona, Lleida, Tarragona + Otras)
+- [x] Fórmula correcta valor preexistente: PEM × factor (1.486 residencial / 1.618 no residencial / 1.366 urbanización)
+- [x] Valor preexistente continente: primer riesgo detectado → = capital asegurado; si no → cálculo tablas
+- [x] Valor preexistente contenido editable por el perito
+- [x] Calidad de acabados: extraída de póliza primero, si no → selección manual
+- [x] Botón Guardar eliminado de Sec1 (guardado automático)
 - [x] handleDone resiliente (abre editor aunque Supabase falle)
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
 
@@ -58,6 +65,8 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
 | Disk IO excesivo (guardado por keystroke) | updateCase hacía PATCH a Supabase en cada cambio de campo | Debounce de 5s con useRef: el PATCH solo se ejecuta 5s después del último cambio |
 | Garantía afectada no se cruzaba con póliza | Se usaba solo el campo literal del encargo | Nueva lógica: si hay póliza, cruzar causa contra garantiasActivas de la póliza para seleccionar la cobertura correcta |
+| Valor preexistente incompleto | Sólo calculaba módulo × m², sin gastos generales, honorarios ni IVA | Fórmula completa: PEM × factor (1.486 residencial / 1.618 no residencial) según tablas CYPE 2025 |
+| Tipos arquitectura insuficientes (solo hotel/local) | MOD_ARQ tenía 2 tipos × 7 provincias | TABLAS_ARQ con 63 tipos × 6 provincias extraídos del Excel tablas_calculo_2025 |
 
 ---
 
@@ -93,9 +102,9 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
-- [ ] Verificar en producción que la extracción funciona correctamente tras los fixes
-- [ ] Test completo del flujo: subida PDFs → extracción → editor → exportar
-- [ ] Validar que Sec 0 "Datos del Encargo" se rellena correctamente con los datos extraídos
+- [ ] Validar en pre los cambios de Sec1: tipo arquitectura, cálculo valor preexistente, campos nuevos de póliza
+- [ ] Verificar que la extracción de tipoVivienda/usoVivienda/ubicacion/calidad funciona con una póliza real
+- [ ] Merge a main y despliegue a producción
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
