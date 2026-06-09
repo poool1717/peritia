@@ -129,10 +129,12 @@ Datos hardcodeados:
 22 partidas con precio por m² o unidad. IVA siempre 0% en modo baremo.
 Categorías: Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
 
-## Datos de referencia — Módulos arquitectura
+## Datos de referencia — TABLAS_ARQ 2025
 
-€/m² por provincia y tipología (Hotel/Local × Básica/Media/Alta).
-Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, Tenerife, Sevilla, Tarragona, Valencia, Otras.
+€/m² por provincia, tipo de arquitectura (63 tipos) y calidad (Básica/Media/Alta).
+Provincias con datos propios: Baleares (07), Barcelona (08), Girona (17), Lleida (25), Tarragona (43).
+Otras provincias: media de las 5 anteriores (código "00").
+Tipos: residencial unifamiliar/plurifamiliar, no residencial (oficinas, comercial, industrial, hotelero…), urbanización.
 
 ---
 
@@ -144,6 +146,8 @@ Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, 
    ```bash
    node -e "const fs=require('fs');const c=fs.readFileSync('/mnt/user-data/outputs/peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}console.log('diff:',o-b);"
    ```
-4. **El flujo de deploy es manual** — el usuario sube archivos a GitHub. Siempre indicar exactamente qué archivo(s) subir.
+4. **El flujo de deploy es automático** — Claude Code hace commit + push a la rama feature, abre PR y mergea a main. Vercel auto-despliega al mergear.
 5. **Los Vercel MCP y Supabase MCP** están conectados y son funcionales para verificar deployments y BD.
 6. **La extracción requiere créditos en Anthropic.** El usuario tiene ~$5 añadidos (suficiente para ~10 informes).
+7. **TABLAS_ARQ reemplaza MOD_ARQ.** No usar MOD_ARQ — está obsoleto. La función de cálculo es `calcVPreexCont(m2, provCode, arqKey, calidad)`.
+8. **normTipo()** está definida dentro del useEffect de Sec1. Normaliza texto libre de póliza a valores exactos de TIPOS_USO.
