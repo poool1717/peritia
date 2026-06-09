@@ -779,6 +779,10 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       fechaEfecto:              normD(pol.fechaEfecto||enc.fechaEfecto||""),
       descripciones:            pol.descripciones||{},
       polizaAdjunta:            !!polFile,
+      tipoVivienda:             pol.tipoVivienda||"",
+      usoVivienda:              pol.usoVivienda||"",
+      ubicacionVivienda:        pol.ubicacionVivienda||"",
+      calidadPóliza:            pol.calidadPóliza||"",
     });;
     setStep("review");
   };
@@ -1162,6 +1166,16 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
   const s = f => v => onChange({...data,[f]:v});
   const esHogar  = enc.esHogar||((enc.ramo||"").toUpperCase().includes("HOGAR"));
   const esInstant = enc.tipoEncargo==="INSTANT_PAYMENT";
+
+  // Auto-fill from póliza extraction on mount
+  useEffect(()=>{
+    const upd = {};
+    if(!data.tipoRiesgo && enc.tipoVivienda) upd.tipoRiesgo = enc.tipoVivienda;
+    if(!data.usoVivienda && enc.usoVivienda) upd.usoVivienda = enc.usoVivienda;
+    if(!data.ubicacion && enc.ubicacionVivienda) upd.ubicacion = enc.ubicacionVivienda;
+    if(!data.calidad && enc.calidadPóliza) upd.calidad = enc.calidadPóliza;
+    if(Object.keys(upd).length > 0) onChange({...data,...upd});
+  },[]);
 
   // Auto-init instant text
   useEffect(()=>{
