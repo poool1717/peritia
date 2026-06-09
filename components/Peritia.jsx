@@ -205,6 +205,67 @@ const parseJSON = txt => {
   return {};
 };
 
+// ─── METEO XEMA (datos abiertos Meteocat) ────────────────────────────────────
+// Detecta si el siniestro es de tipo atmosférico (viento, lluvia, pedrisco, nieve…)
+const esSiniestroAtmosferico = enc => {
+  const t = `${enc?.garantia||""} ${enc?.causa||""} ${enc?.coberturaInferida||""} ${enc?.descripcionSiniestro||""}`.toLowerCase();
+  return /atmosf|viento|vent\b|pedrisco|granizo|lluvia|pluja|nieve|neu\b|temporal|tormenta|tempesta|r[aá]fag|ratxa/.test(t);
+};
+// Llama al proxy /api/meteocat con los datos del encargo
+const fetchMeteoXEMA = async enc => {
+  const res = await fetch("/api/meteocat",{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      direccion: enc?.lugarIntervencion||"", municipio: enc?.municipio||"",
+      provincia: enc?.provincia||"", cp: enc?.codigoPostal||"", fecha: enc?.fechaSiniestro||"",
+    })
+  });
+  return res.json();
+};
+// ¿Los valores medidos superan los umbrales de la póliza?
+const meteoSupera = (m, enc) => {
+  const uv = parseFloat(enc?.umbralViento)||0, ul = parseFloat(enc?.umbralLluvia)||0;
+  const sv = uv>0 && (m?.rachaMax>=uv), sl = ul>0 && (m?.precipMaxHoraria>=ul);
+  let label = "—";
+  if(uv>0||ul>0) label = sv&&sl?"Sí (viento y lluvia)":sv?"Sí (viento)":sl?"Sí (lluvia)":"No";
+  return {sv, sl, label, hayUmbral:(uv>0||ul>0)};
+};
+// Tabla de datos meteo (React) — reutilizada en Sec2 y en el preview del informe
+const MeteoTabla = ({m, enc}) => {
+  if(!m) return null;
+  const sup = meteoSupera(m, enc);
+  const alerta = sup.sv||sup.sl;
+  const cols = [["Estación",m.estacio||"—"],["Dist.",`${m.distanciaKm} km`],
+    ["Racha máx.",`${m.rachaMax} km/h`],["Viento medio",`${m.vientoMedioMax} km/h`],
+    ["Lluvia máx/h",`${m.precipMaxHoraria} l/m²`],["Lluvia total",`${m.precipTotal} l/m²`],
+    ["¿Supera umbral?",sup.label]];
+  return (
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:8}}>
+      <thead><tr style={{background:C.accentLight}}>
+        {cols.map(([h])=><th key={h} style={{padding:"5px 6px",textAlign:"left",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>)}
+      </tr></thead>
+      <tbody><tr style={{borderBottom:`1px solid ${C.border}`}}>
+        {cols.map(([h,v])=>{
+          const hl = h==="¿Supera umbral?"&&alerta;
+          return <td key={h} style={{padding:"5px 6px",fontSize:11,fontWeight:hl?700:400,color:hl?C.red:C.ink}}>{v}</td>;
+        })}
+      </tr></tbody>
+    </table>
+  );
+};
+// Bloque meteo en HTML (para Word y PDF). cls = clase de tabla ("" Word · "data" PDF)
+const meteoHTML = (m, enc, cls="") => {
+  if(!m) return "";
+  const sup = meteoSupera(m, enc);
+  const td = (v,al="left") => `<td style="text-align:${al}">${v}</td>`;
+  return `<h3>2.2. Verificación meteorológica (estación automática XEMA):</h3>
+${m.texto?`<p>${String(m.texto).replace(/\n/g,'<br/>')}</p>`:''}
+<table${cls?` class="${cls}"`:''}><thead><tr><th>Estación</th><th>Dist.</th><th>Racha máx.</th><th>Viento medio</th><th>Lluvia máx/h</th><th>Lluvia total</th><th>¿Supera umbral?</th></tr></thead><tbody>
+<tr>${td(m.estacio||'—')}${td(m.distanciaKm+' km','right')}${td(m.rachaMax+' km/h','right')}${td(m.vientoMedioMax+' km/h','right')}${td(m.precipMaxHoraria+' l/m²','right')}${td(m.precipTotal+' l/m²','right')}${td(sup.label,'center')}</tr>
+</tbody></table>
+<p style="font-style:italic;font-size:8pt;color:#666">Fuente: Servei Meteorològic de Catalunya — Xarxa d'Estacions Meteorològiques Automàtiques (XEMA). Datos abiertos de la Generalitat de Catalunya${m.consultadoEl?`. Consulta: ${m.consultadoEl}`:''}.</p>`;
+};
+
 const getRiesgoIA = async (enc, onTokens) => {
   const raw = await callClaude(
     "Eres un perito de seguros español. Responde SOLO con JSON válido, sin markdown.",
@@ -1031,9 +1092,16 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       </Section>
 
       {/* SECCIÓN 2 */}
-      <Section n="2" title="Causas y Circunstancias" id="s2" done={!!(s2?.textoAI||s2?.textoRaw)}>
-        {(s2?.textoAI||s2?.textoRaw)
-          ?<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>
+      <Section n="2" title="Causas y Circunstancias" id="s2" done={!!(s2?.textoAI||s2?.textoRaw||s2?.meteo)}>
+        {(s2?.textoAI||s2?.textoRaw||s2?.meteo)
+          ?<>
+            {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
+            {s2?.meteo&&<div style={{marginTop:(s2?.textoAI||s2?.textoRaw)?14:0}}>
+              <div style={{fontFamily:"'DM Serif Display',serif",fontSize:13,color:C.ink,marginBottom:6}}>Verificación meteorológica (XEMA)</div>
+              {s2.meteo.texto&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
+              <MeteoTabla m={s2.meteo} enc={enc}/>
+            </div>}
+          </>
           :<Empty msg="Completa la Sección 2 para ver las causas y circunstancias"/>}
       </Section>
 
@@ -1475,7 +1543,38 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave}) => {
   const [improving,setImproving] = useState(false);
   const [saved,setSaved]         = useState(false);
+  const [meteoLoad,setMeteoLoad] = useState(false);
+  const [meteoErr,setMeteoErr]   = useState("");
   const s = f => v => onChange({...data,[f]:v});
+  const esAtmosferico = esSiniestroAtmosferico(enc);
+
+  // Consulta automática a la estación XEMA más cercana (datos abiertos Meteocat)
+  const consultarMeteo = async () => {
+    setMeteoErr("");
+    if(!enc.fechaSiniestro){ setMeteoErr("Falta la fecha del siniestro en los Datos del Encargo. Complétala para poder consultar."); return; }
+    setMeteoLoad(true);
+    const d = await fetchMeteoXEMA(enc).catch(()=>({ok:false,error:"Error de conexión con el servicio meteorológico."}));
+    if(!d || !d.ok){ setMeteoErr(d?.error||"No se pudieron obtener datos meteorológicos."); setMeteoLoad(false); return; }
+    // Redacción pericial del párrafo a partir de los datos medidos
+    const sup = meteoSupera(d, enc);
+    const texto = await callClaude(
+      "Perito de seguros. Redacta en tercera persona, estilo pericial, conciso, un único párrafo. Sin título de apartado.",
+      `Redacta un párrafo pericial sobre las condiciones meteorológicas registradas el día del siniestro, citando la estación automática oficial y comparando con los umbrales de la póliza cuando existan.
+ESTACIÓN XEMA: ${d.estacio} (${d.municipiEstacio||""}), a ${d.distanciaKm} km del riesgo
+FECHA: ${d.fecha}
+RACHA MÁXIMA DE VIENTO: ${d.rachaMax} km/h${d.rachaHora?` (registrada a las ${d.rachaHora} h)`:''}
+VIENTO MEDIO MÁXIMO: ${d.vientoMedioMax} km/h
+PRECIPITACIÓN MÁXIMA EN UNA HORA: ${d.precipMaxHoraria} l/m²
+PRECIPITACIÓN TOTAL DEL DÍA: ${d.precipTotal} l/m²
+UMBRAL VIENTO PÓLIZA: ${enc.umbralViento||"no especificado"} km/h · UMBRAL LLUVIA PÓLIZA: ${enc.umbralLluvia||"no especificado"} l/m²/h
+CONCLUSIÓN UMBRALES: ${sup.hayUmbral?sup.label:"la póliza no fija umbrales"}
+Fuente: Servei Meteorològic de Catalunya (XEMA), datos abiertos. Menciona la fuente al final.`,
+      onTokens
+    ).catch(()=>"");
+    const textoLimpio = (texto&&!texto.includes('"_apiError"'))?texto:"";
+    onChange({...data, meteo:{...d, texto:textoLimpio}});
+    setMeteoLoad(false);
+  };
 
   const improve = async () => {
     if(!data.textoRaw) return;
@@ -1510,6 +1609,33 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
           onApply={()=>onChange({...data,aiApplied:true})} applied={data.aiApplied}
           placeholder="Describe el siniestro: cómo ocurrió, qué daños encontraste, qué te dijeron los afectados…" rows={5}/>
       </Card>
+
+      {/* CONSULTA METEOROLÓGICA XEMA — solo si el siniestro es atmosférico */}
+      {esAtmosferico&&(
+        <Card s={{marginBottom:14}}>
+          <SectionLabel>Verificación Meteorológica (XEMA · Meteocat)</SectionLabel>
+          <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
+            Consulta automática a la estación automática oficial más cercana al lugar del siniestro. Compara el viento y la lluvia registrados el día del siniestro con los umbrales de la póliza.
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <Btn outline onClick={consultarMeteo} disabled={meteoLoad}>
+              {meteoLoad?<><Loader2 size={12} style={{animation:"spin 1s linear infinite"}}/>Consultando…</>:<><Search size={12}/>{data.meteo?"Volver a consultar":"Consultar datos meteorológicos"}</>}
+            </Btn>
+            {data.meteo&&<span style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={12}/>Estación {data.meteo.estacio} · {data.meteo.distanciaKm} km</span>}
+          </div>
+          {meteoErr&&<div style={{marginTop:10,background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:7,padding:"8px 12px",fontSize:12,color:C.orange}}>{meteoErr}</div>}
+          {data.meteo&&<>
+            <MeteoTabla m={data.meteo} enc={enc}/>
+            <div style={{marginTop:12}}>
+              <SectionLabel>Texto pericial meteorológico — editable</SectionLabel>
+              <textarea value={data.meteo.texto||""} onChange={e=>onChange({...data,meteo:{...data.meteo,texto:e.target.value}})}
+                rows={4} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}
+                placeholder="El texto se genera automáticamente tras la consulta. Puedes editarlo."/>
+              <div style={{fontSize:11,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
+            </div>
+          </>}
+        </Card>
+      )}
 
       {data.textoAI&&(
         <Card s={{marginBottom:14}}>
@@ -2098,6 +2224,7 @@ ${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
+${meteoHTML(s2.meteo, enc, '')}
 <div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>3. VALORACIÓN DE DAÑOS.</h2>
@@ -2245,6 +2372,7 @@ ${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
+${meteoHTML(s2.meteo, enc, 'data')}
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>3.&nbsp;&nbsp;&nbsp;VALORACIÓN DE DAÑOS.</h2>
@@ -2271,12 +2399,13 @@ ${partidas.length>0?`<h3 style="text-align:center">Resumen por garantías. Propu
 <td style="width:50%"><p>VºBº técnico GVP</p><div class="firma-box"></div></td>
 <td style="width:50%;text-align:right"><p>Perito: ${enc.perito||'—'}</p><p>Telef: ${enc.telPerito||'—'}</p><p>DNI: ${dniPerito||'—'}</p><p>Firma perito:</p><div class="firma-box"></div></td>
 </tr></table>
-${(anexos?.catastro?.length||anexos?.meteosim?.length||allFac.length||allFotos.length)?`
+${(anexos?.catastro?.length||anexos?.meteosim?.length||allFac.length||allFotos.length||s2?.meteo)?`
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2 style="text-align:center">Anexos.</h2>
 ${allFotos.length?'<p>- Reportaje fotográfico. Reportaje fotográfico</p>':''}
 ${anexos?.catastro?.length?'<p>- Info catastral.</p>':''}
+${s2?.meteo?'<p>- Verificación meteorológica XEMA (Meteocat).</p>':''}
 ${anexos?.meteosim?.length?'<p>- Info Meteosim.</p>':''}
 ${allFac.length?'<p>- Factura.</p>':''}
 ${allFotos.length?`<div class="page-break"></div>
@@ -2539,7 +2668,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
             const isActive=sec===item.id;
             const isDone=(()=>{
               if(item.id==="s1") return !!(cData.s1?.superficieConstruida||cData.s1?.textoInstant);
-              if(item.id==="s2") return !!(cData.s2?.textoAI||cData.s2?.textoRaw);
+              if(item.id==="s2") return !!(cData.s2?.textoAI||cData.s2?.textoRaw||cData.s2?.meteo);
               if(item.id==="s3") return !!(cData.s3?.partidas?.length>0||cData.s3?.pLibres?.length>0);
               if(item.id==="s4") return !!(cData.s4?.aiText);
               if(item.id==="anexos"){

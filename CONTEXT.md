@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 8 junio 2026 (sesión 2)
+**Última actualización:** 9 junio 2026 (sesión 4 — Verificación meteorológica XEMA)
 
 ---
 
@@ -37,6 +37,7 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] Botón Guardar eliminado de Sec1 (guardado automático)
 - [x] handleDone resiliente (abre editor aunque Supabase falle)
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
+- [x] **Sección 2 — Verificación meteorológica automática (XEMA / Meteocat):** en siniestros atmosféricos, botón que localiza la estación XEMA más cercana al lugar del siniestro, consulta viento y lluvia del día del siniestro y los compara con los umbrales de la póliza. Genera tabla de datos + párrafo pericial redactado por IA. Tabla y texto se incrustan en el informe (preview, Word y PDF) y en el índice de anexos. Fuente: datos abiertos de la Generalitat (Socrata), gratis y sin clave de pago.
 
 ### Fórmulas verificadas contra casos reales
 - Case 1 (Empresa, obras reforma): 463,59 € ✅
@@ -102,9 +103,10 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
-- [ ] Validar en pre los cambios de Sec1: tipo arquitectura, cálculo valor preexistente, campos nuevos de póliza
-- [ ] Verificar que la extracción de tipoVivienda/usoVivienda/ubicacion/calidad funciona con una póliza real
-- [ ] Merge a main y despliegue a producción
+- [ ] Validar la consulta meteo XEMA con un siniestro atmosférico real de Catalunya (fecha + dirección reales)
+- [ ] Confirmar que la estación elegida y los valores (racha/lluvia) cuadran con el evento
+- [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
+- [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
@@ -144,3 +146,4 @@ Provincias: Baleares, Barcelona, Girona, Madrid, Málaga, Asturias, Las Palmas, 
 4. **El flujo de deploy es manual** — el usuario sube archivos a GitHub. Siempre indicar exactamente qué archivo(s) subir.
 5. **Los Vercel MCP y Supabase MCP** están conectados y son funcionales para verificar deployments y BD.
 6. **La extracción requiere créditos en Anthropic.** El usuario tiene ~$5 añadidos (suficiente para ~10 informes).
+7. **Meteo XEMA:** nuevo proxy `pages/api/meteocat.js` (datos abiertos Socrata + geocodificación Nominatim). No requiere variables de entorno nuevas. Solo cubre Catalunya. Los datos se guardan en `s2.meteo` del informe. Helpers en Peritia.jsx: `esSiniestroAtmosferico`, `fetchMeteoXEMA`, `meteoSupera`, `MeteoTabla`, `meteoHTML`.
