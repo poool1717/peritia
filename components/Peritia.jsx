@@ -1169,8 +1169,22 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
 
   // Auto-fill from póliza extraction on mount
   useEffect(()=>{
+    const normTipo = raw => {
+      if(!raw) return "";
+      const r = raw.toLowerCase();
+      if(r.includes("hotel")||r.includes("apart-hotel")||r.includes("aparthotel")) return "Hotel / Apart-hotel";
+      if(r.includes("hostal")||r.includes("pensión")||r.includes("pension")) return "Hostal / Pensión";
+      if(r.includes("local comercial")||r.includes("local")) return "Local comercial";
+      if(r.includes("oficin")) return "Oficinas";
+      if(r.includes("comunidad")) return "Comunidad de propietarios";
+      if(r.includes("industria")||r.includes("nave")||r.includes("almac")) return "Industria / Nave";
+      if(r.includes("restaurante")||r.includes("bar")||r.includes("cafet")) return "Restaurante / Bar";
+      if(r.includes("unifamiliar")||r.includes("chalet")||r.includes("casa aislada")||r.includes("adosado")) return "Vivienda unifamiliar";
+      if(r.includes("piso")||r.includes("apartamento")||r.includes("ático")||r.includes("atico")||r.includes("vivienda")) return "Piso / Apartamento";
+      return "Otro";
+    };
     const upd = {};
-    if(!data.tipoRiesgo && enc.tipoVivienda) upd.tipoRiesgo = enc.tipoVivienda;
+    if(!data.tipoRiesgo && enc.tipoVivienda){ const n=normTipo(enc.tipoVivienda); if(n) upd.tipoRiesgo = n; }
     if(!data.usoVivienda && enc.usoVivienda) upd.usoVivienda = enc.usoVivienda;
     if(!data.ubicacion && enc.ubicacionVivienda) upd.ubicacion = enc.ubicacionVivienda;
     if(!data.calidad && enc.calidadPóliza) upd.calidad = enc.calidadPóliza;
