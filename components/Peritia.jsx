@@ -1079,7 +1079,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* PROGRESO */}
       <div style={{display:"flex",gap:7,marginBottom:18,flexWrap:"wrap"}}>
         {[["Encargo",!!(enc.asegurado&&enc.numReferencia)],["Sec.1",!!(s1?.superficieConstruida)],
-          ["Sec.2",!!(s2?.textoAI)],["Sec.3",partidas.length>0],["Sec.4",!!(s4?.aiText)]
+          ["Sec.2",!!(s2?.textoAI)],["Sec.3",partidas.length>0],["Sec.4",!!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||partidas.length>0]
         ].map(([l,done])=>(
           <div key={l} style={{background:done?C.greenBg:C.tag,border:`1px solid ${done?"#A7F3D0":C.border}`,
             borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:600,color:done?C.green:C.muted,
@@ -1188,10 +1188,17 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       </Section>
 
       {/* SECCIÓN 4 */}
-      <Section n="4" title="Estudio de Cobertura-Indemnización" id="s4" done={!!(s4?.aiText)}>
-        {s4?.aiText
+      {(()=>{
+        const s4Intro  = s4?.textoIntro||sec4IntroAuto(s3?.modoValoracion||"baremo");
+        const s4Desc   = s4?.descripcionCobertura||"";
+        const s4Indemn = s4?.textoIndemn||sec4IndemnAuto(s3,indemn);
+        const s4Done   = !!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||totalDano>0;
+        return (
+        <Section n="4" title="Estudio de Cobertura-Indemnización" id="s4" done={s4Done}>
+          {s4Done
           ?<>
-            <div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s4.aiText}</div>
+            {s4Intro&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s4Intro}</div>}
+            {s4Desc&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14,background:C.bg,borderRadius:7,padding:12}}>{s4Desc}</div>}
             {totalDano>0&&<>
               <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
@@ -1217,9 +1224,12 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                 </tbody>
               </table>
             </>}
+            {s4Indemn&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s4Indemn}</div>}
           </>
           :<Empty msg="Completa la Sección 4 para ver el estudio de cobertura"/>}
-      </Section>
+        </Section>
+        );
+      })()}
 
       {/* ANEXOS */}
       {(()=>{
@@ -2336,6 +2346,9 @@ const buildWordHTML = (cData) => {
     {tit:'Continente',dano:dCont,lim:capCont,on:s3.reglaContinente,regla:reglas.continente,ajust:aCont},
     {tit:'Contenido', dano:dCont2,lim:capCont2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aCont2},
   ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}.<br/>${enc.garantia||''}<br/>${enc.causa||''}</td><td>${fmtPDF(b.dano)} €</td><td>${fmtPDF(b.lim)} €</td><td>${b.on&&b.regla<1?fmtPDF(b.regla*100)+'%':'NO'}</td><td>${fmtPDF(b.ajust)} €</td><td>—</td><td>${fmtPDF(b.ajust)} €</td></tr>`).join('');
+  const w4Intro=s4.textoIntro||sec4IntroAuto(modo);
+  const w4Desc=s4.descripcionCobertura||'';
+  const w4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,indemn);
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
@@ -2423,14 +2436,15 @@ ${wFrase?`<p style='white-space:pre-wrap'>${wFrase.replace(/\n/g,'<br/>')}</p>`:
 <div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
-<p>${(s4.aiText||'').replace(/\n/g,'<br/>')}</p>
+${w4Intro?`<p>${w4Intro.replace(/\n/g,'<br/>')}</p>`:''}
+${w4Desc?`<p style='white-space:pre-wrap'>${w4Desc.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style='text-align:center'>Resumen por garantías. Propuesta de indemnización</h3>
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
 ${wGarRows}
 <tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(ajustado)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
 <tr><td>Franquicia general</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
-<div class='total-box'>Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(indemn)} €</div>
-${wFrase?`<p style='white-space:pre-wrap'>${wFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
+<div class='total-box'>Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(indemn)} €</div>`:''}
+${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style='margin-top:16pt'>En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
@@ -2497,6 +2511,9 @@ const exportPDF = (cData, dniPerito='') => {
     {tit:'Continente',dano:dC,lim:capC,on:s3.reglaContinente,regla:reglas.continente,ajust:aC},
     {tit:'Contenido', dano:dC2,lim:capC2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aC2},
   ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}. ${enc.garantia||''}. ${enc.causa||''}</td><td style="text-align:right">${fmtPDF(b.dano)} €</td><td style="text-align:right">${fmtPDF(b.lim)} €</td><td style="text-align:right">${b.on&&b.regla<1?fmtPDF(b.regla*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td><td style="text-align:right">—</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td></tr>`).join('');
+  const d4Intro=s4.textoIntro||sec4IntroAuto(modo);
+  const d4Desc=s4.descripcionCobertura||'';
+  const d4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,ind);
 
   const rLines=enc.tipoEncargo==='INSTANT_PAYMENT'
     ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
@@ -2595,14 +2612,15 @@ ${dFrase?`<p style="white-space:pre-wrap;margin-top:8pt">${dFrase.replace(/\n/g,
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
-${s4.aiText?`<p>${s4.aiText.replace(/\n/g,'<br/>')}</p>`:''}
+${d4Intro?`<p>${d4Intro.replace(/\n/g,'<br/>')}</p>`:''}
+${d4Desc?`<p style="white-space:pre-wrap">${d4Desc.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style="text-align:center">Resumen por garantías. Propuesta de indemnización</h3>
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
 ${dGarRows}
 <tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(ajustado)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
 <tr><td colspan="6">Franquicia general</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
-<div class="total-box">Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(ind)} €</div>
-${dFrase?`<p style="white-space:pre-wrap;margin-top:8pt">${dFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
+<div class="total-box">Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(ind)} €</div>`:''}
+${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style="margin-top:12pt">En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${today}</p>
@@ -2881,7 +2899,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
               if(item.id==="s1") return !!(cData.s1?.superficieConstruida||cData.s1?.textoInstant);
               if(item.id==="s2") return !!(cData.s2?.textoAI||cData.s2?.textoRaw||cData.s2?.meteo);
               if(item.id==="s3") return !!(cData.s3?.partidas?.length>0||cData.s3?.pLibres?.length>0);
-              if(item.id==="s4") return !!(cData.s4?.aiText);
+              if(item.id==="s4") return !!(cData.s4?.textoIntro||cData.s4?.descripcionCobertura||cData.s4?.textoIndemn||cData.s3?.partidas?.length>0);
               if(item.id==="anexos"){
                 const a=cData.anexos||{};
                 return !!(a.fotos?.length||a.catastro?.length||a.meteosim?.length||a.facturas?.length||(cData.s3?.facturas?.length));

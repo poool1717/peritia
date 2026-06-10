@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~2.960 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.000 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -47,7 +47,7 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ---
 
-## Llamadas a la IA (11 en total)
+## Llamadas a la IA (9 en total)
 
 | # | Dónde | Qué hace | max_tokens |
 |---|---|---|---|
@@ -60,8 +60,8 @@ App (Root) — auth state (user, token, sidebarOpen)
 | 7 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
 | 8 | Sec3 | Genera tabla de daños desde descripción + Baremo AXA | 2000 |
 | 9 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
-| 10 | Sec4 | Genera análisis de cobertura e indemnización | 1500 |
-| 11 | Sec4 | Genera descripción de cobertura desde póliza | 1500 |
+
+> **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
 
 ---
 
@@ -124,6 +124,8 @@ sumReal/sumRepos/sumIVA(rows)
 getModuloArq(provCode, arqKey, cal)   → €/m² de TABLAS_ARQ
 getFactorArq(arqKey)                  → 1.486 | 1.618 | 1.366
 calcVPreexCont(m2, prov, arqKey, cal) → valor preexistente continente completo
+sec4IntroAuto(modo)                   → texto de valoración fijo según modo (Sec4)
+sec4IndemnAuto(s3, indemn)            → propuesta de indemnización estructurada (Sec4)
 ```
 
 **Modos de valoración Sec3 (orden):**
@@ -145,6 +147,23 @@ primerRiesgo / obrasReforma / esHogar → continente sin infraseguro → regla =
 ```
 Valor ajustado = Σ por partida ( V.Real × regla del bloque de la partida )
 Indemnización  = MAX(0, Valor ajustado − Franquicia)
+```
+
+**Sec4 — Estudio de Cobertura-Indemnización (textos automáticos editables):**
+```
+Texto de valoración (sec4IntroAuto, según modo Sec3):
+  Presupuesto → "Procedemos a realizar valoración… en base al presupuesto aportado…"
+  Factura     → "Procedemos a realizar valoración… en base a la factura aportada…"
+  Baremo      → "A la espera de aportación de presupuestos o facturas… valoración unilateral… en base a baremo."
+
+Descripción de la cobertura:
+  Extraída de la póliza (enc.descripciones) cruzando garantía afectada / causa.
+
+Propuesta de indemnización (sec4IndemnAuto):
+  Sin cobertura (todas las filas "No")     → "NO se propone indemnización."
+  Presupuesto                              → "A la espera de aportación de la factura… Asegurado: € (valor real sin IVA)"
+  Factura + Reparador                      → "Se propone indemnización… Reparador: €"
+  Factura + Particular                     → "Se propone indemnización… Asegurado: € (IVA incl.)"
 ```
 
 **Verificado contra informes reales:**
@@ -223,6 +242,8 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Sec 3 — Regla proporcional por bloque (continente/contenido) | ✅ |
 | Sec 3 — Modos Baremo / Presupuesto / Factura + perceptor | ✅ |
 | Sec 3 — Frase de indemnización automática + drag & drop de filas | ✅ |
+| Sec 3 — Auto-relleno concepto de garantía + franquicia | ✅ |
+| Sec 4 — Textos automáticos (valoración, cobertura, indemnización) editables | ✅ |
 | Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |
 | Fórmula de cálculo auditada y verificada | ✅ |
 | Preview live del informe | ✅ |
