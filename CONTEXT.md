@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 10 junio 2026 (sesión 5 — Sección 3 renovada: regla proporcional por bloque, modos de valoración, drag & drop)
+**Última actualización:** 10 junio 2026 (sesión 5 — auto-relleno concepto de garantía y franquicia en Sec3)
 
 ---
 
@@ -48,6 +48,7 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
   - **Columna Cobertura** muestra "Sí"/"No" (clic para alternar) en verde/rojo.
   - **Reordenar filas con drag & drop** (tirador ⠿ por fila).
   - **Subtotal corregido** (bug: en modo factura leía `pLibres` vacío; ahora `getPartidas` lee siempre `s3.partidas`).
+  - **Auto-relleno de Concepto de garantía y Franquicia:** al abrir Sec3 se rellenan automáticamente desde el encargo (`enc.garantia`/`enc.causa`) y la póliza (`enc.franquicia`). Ambos campos siguen siendo editables.
 
 ### Fórmulas verificadas contra casos reales
 - Case 1 (Empresa, obras reforma): 463,59 € ✅
@@ -120,7 +121,8 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
-- [ ] Probar en producción la nueva Sección 3 con un caso real (regla por bloque continente/contenido, modos presupuesto/factura, drag & drop)
+- [x] Auto-relleno de concepto de garantía y franquicia en Sec3 desde encargo/póliza
+- [ ] Probar en producción la nueva Sección 3 con un caso real (regla por bloque continente/contenido, modos presupuesto/factura, drag & drop, auto-relleno)
 - [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
