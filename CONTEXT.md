@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 10 junio 2026 (sesión 5 — auto-relleno concepto de garantía y franquicia en Sec3)
+**Última actualización:** 10 junio 2026 (sesión 5 — Sección 4 renovada: textos automáticos, descripción cobertura desde póliza, propuesta indemnización estructurada)
 
 ---
 
@@ -122,7 +122,12 @@ Datos hardcodeados:
 
 ### Corto plazo (próxima sesión)
 - [x] Auto-relleno de concepto de garantía y franquicia en Sec3 desde encargo/póliza
-- [ ] Probar en producción la nueva Sección 3 con un caso real (regla por bloque continente/contenido, modos presupuesto/factura, drag & drop, auto-relleno)
+- [x] **Sección 4 renovada (sesión 5):**
+  - Texto de valoración fijo según modo (baremo/presupuesto/factura), editable con botón Restaurar.
+  - Descripción de cobertura extraída automáticamente de la póliza (garantías contratadas según causa/cobertura afectada). Editable.
+  - Eliminado bloque "Redacción IA — Sección 4".
+  - Propuesta de indemnización estructurada y automática: presupuesto → "A la espera de factura… Asegurado: €"; factura+particular → "Asegurado: € (IVA incl.)"; reparador → "Reparador: €"; sin cobertura → "NO se propone indemnización". Editable con botón Restaurar.
+- [ ] Probar en producción la Sec3 y Sec4 renovadas con un caso real
 - [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones

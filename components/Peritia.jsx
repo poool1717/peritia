@@ -2048,66 +2048,104 @@ Devuelve SOLO:
 };
 
 // ─── SECCIÓN 4 ────────────────────────────────────────────────────────────────
+const SEC4_INTROS = [
+  "Procedemos a realizar valoración correspondiente, en base al presupuesto aportado por el asegurado.",
+  "Procedemos a realizar valoración correspondiente, en base a la factura aportada por el asegurado.",
+  "A la espera de aportación de presupuestos o facturas procedemos a realizar, valoración unilateral a modo informativo en base a baremo.",
+];
+
+const sec4IntroAuto = modo =>
+  modo==="presupuesto" ? SEC4_INTROS[0]
+  : modo==="factura"  ? SEC4_INTROS[1]
+  : SEC4_INTROS[2];
+
+const sec4IndemnAuto = (s3, indemn) => {
+  const todaSinCob = (s3?.partidas?.length>0) && getPartidas(s3).length===0;
+  if(todaSinCob) return "NO se propone indemnización.";
+  const modo = s3?.modoValoracion||"baremo";
+  const reparador = s3?.perceptorTipo==="reparador";
+  const eur = fmt(indemn)+" €";
+  if(modo==="presupuesto")
+    return `A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur}`;
+  if(modo==="factura"&&reparador)
+    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nReparador: ${eur}`;
+  if(modo==="factura")
+    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur} (IVA incl.)`;
+  return "";
+};
+
 const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
-  const [aiLoad,setAiLoad] = useState(false);
-  const [saved,setSaved]   = useState(false);
+  const [saved,setSaved] = useState(false);
   const s = f => v => onChange({...data,[f]:v});
 
-  const partidas = getPartidas(s3);
-  const reglas   = calcReglas(enc, s1);
-  // Daño por bloque
+  const partidas  = getPartidas(s3);
+  const reglas    = calcReglas(enc, s1);
   const dañoCont  = partidas.filter(p=>(p.garantia||"continente")!=="contenido").reduce((a,p)=>a+calcPartida(p).vReal,0);
   const dañoCont2 = partidas.filter(p=>p.garantia==="contenido").reduce((a,p)=>a+calcPartida(p).vReal,0);
   const reglaCEf  = s3?.reglaContinente?reglas.continente:1;
   const reglaC2Ef = s3?.reglaContenido?reglas.contenido:1;
   const ajustCont  = dañoCont*reglaCEf;
   const ajustCont2 = dañoCont2*reglaC2Ef;
-  const totalDano = dañoCont+dañoCont2;
-  const ajustado  = ajustCont+ajustCont2;
-  const franq = parseCap(s3?.franquiciaVal||enc.franquicia);
-  const indemn = Math.max(0,ajustado-franq);
-  const regla = totalDano>0?ajustado/totalDano:1;   // coeficiente global (para texto IA)
+  const totalDano  = dañoCont+dañoCont2;
+  const ajustado   = ajustCont+ajustCont2;
+  const franq      = parseCap(s3?.franquiciaVal||enc.franquicia);
+  const indemn     = Math.max(0,ajustado-franq);
+  const modoVal    = s3?.modoValoracion||"baremo";
 
-  // Auto-fill descripción cobertura from policy
+  // Auto-fill descripción cobertura desde póliza (garantías contratadas)
   useEffect(()=>{
     if(!data.descripcionCobertura&&enc.descripciones){
-      const gars = (enc.garantia||"").split(/[;, ]+/);
-      const desc = gars.map(g=>enc.descripciones[g]).filter(Boolean).join("\n\n");
+      const gars = (enc.garantia||enc.causa||"").split(/[;,]+/).map(g=>g.trim()).filter(Boolean);
+      const desc = gars.map(g=>enc.descripciones[g]||enc.descripciones[Object.keys(enc.descripciones).find(k=>k.toLowerCase().includes(g.toLowerCase()))||""]).filter(Boolean).join("\n\n");
       if(desc) onChange({...data,descripcionCobertura:desc});
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[enc?.garantia,enc?.causa]);
+
+  // Auto-fill texto intro (actualiza si el usuario no lo ha personalizado)
+  useEffect(()=>{
+    if(!data.textoIntro||SEC4_INTROS.includes(data.textoIntro))
+      onChange({...data,textoIntro:sec4IntroAuto(modoVal)});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[modoVal]);
+
+  // Auto-fill texto indemnización (solo en primer acceso)
+  useEffect(()=>{
+    if(!data.textoIndemn) onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  const genAI = async () => {
-    setAiLoad(true);
-    const text = await callClaude(
-      "Perito de seguros. Redacta en estilo pericial, conciso y técnico. Sin título de apartado.",
-      `Sección "Estudio de Cobertura-Indemnización" del informe:
-CAUSA: ${enc.causa||""} · GARANTÍA: ${enc.garantia||""} · PÓLIZA: ${enc.numPoliza||""}
-DAÑO VALORADO: ${fmtE(totalDano)} · REGLA PROPORCIONAL: ${regla<1?`Sí, coeficiente ${regla.toFixed(4)}`:"No aplicable"}
-FRANQUICIA: ${fmtE(franq)} · INDEMNIZACIÓN: ${fmtE(indemn)}
-COBERTURA PÓLIZA: ${data.descripcionCobertura||enc.garantia||""}
-Analiza coberturas aplicables, posibles exclusiones y justifica la propuesta de indemnización. Sin redundancias.`,
-      onTokens
-    ).catch(()=>"Error.");
-    onChange({...data,aiText:text,aiApplied:false});
-    setAiLoad(false);
-  };
-
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
+
+  const RestoreBtn = ({onClick}) => (
+    <button onClick={onClick} style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit"}}>
+      ↺ Restaurar
+    </button>
+  );
 
   return (
     <div className="fade">
       <SecTitle n="4" label="Estudio de Cobertura-Indemnización" sub="Análisis de coberturas aplicables y propuesta de indemnización final"/>
 
+      {/* TEXTO INTRO MODO VALORACIÓN */}
+      <Card s={{marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <SectionLabel>Texto de Valoración</SectionLabel>
+          <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal)})}/>
+        </div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
+        <Txt value={data.textoIntro||sec4IntroAuto(modoVal)} onChange={s("textoIntro")} rows={2}/>
+      </Card>
+
       {/* DESCRIPCIÓN COBERTURA */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción de la Cobertura</SectionLabel>
         <div style={{fontSize:11,color:C.muted,marginBottom:8}}>
-          Texto extraído automáticamente de la póliza para la garantía afectada. Editable.
+          Extraída automáticamente de la póliza para la garantía afectada. Editable.
         </div>
         <Txt value={data.descripcionCobertura} onChange={s("descripcionCobertura")} rows={5}
           placeholder={enc.garantia?"Buscando cobertura para "+enc.garantia+"…":"Adjunta la póliza en el paso inicial para extraer automáticamente la descripción de la cobertura"}/>
-        {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange}}>⚠ Sin póliza adjunta — introduce manualmente la descripción de la cobertura</div>}
+        {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange,marginTop:6}}>⚠ Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
       </Card>
 
       {/* TABLA GARANTÍAS */}
@@ -2116,7 +2154,7 @@ Analiza coberturas aplicables, posibles exclusiones y justifica la propuesta de 
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:C.accentLight}}>
-              {["Garantía Afectada","D.con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
+              {["Garantía Afectada","Daño con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
                 <th key={h} style={{padding:"7px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:11}}>{h}</th>
               ))}
             </tr></thead>
@@ -2151,26 +2189,18 @@ Analiza coberturas aplicables, posibles exclusiones y justifica la propuesta de 
           <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
           <div style={{fontFamily:"'DM Serif Display',serif",fontSize:30,color:C.green}}>{fmtE(indemn)}</div>
         </div>
-        {fraseIndemn(s3,indemn)&&(
-          <div style={{marginTop:12,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7,padding:"0 4px"}}>{fraseIndemn(s3,indemn)}</div>
-        )}
       </Card>
 
-      {/* IA */}
+      {/* PROPUESTA DE INDEMNIZACIÓN */}
       <Card s={{marginBottom:14}}>
-        <SectionLabel>Redacción IA — Sección 4</SectionLabel>
-        <Btn primary onClick={genAI} disabled={aiLoad} full>
-          {aiLoad?<><Spin/>Generando análisis…</>:<><Sparkles size={13}/>Generar análisis de cobertura e indemnización</>}
-        </Btn>
-        {(data.aiText||aiLoad)&&<div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:8,padding:13,marginTop:12}}>
-          <div style={{display:"flex",gap:6,marginBottom:8}}>
-            <Btn sm ghost onClick={genAI} disabled={aiLoad}><RefreshCw size={10}/>Regenerar</Btn>
-            <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado</>:<><Check size={10}/>Aplicar</>}</Btn>
-          </div>
-          {aiLoad?<div style={{display:"flex",gap:8,alignItems:"center",color:C.muted,fontSize:12}}><Spin/>Generando…</div>
-            :<textarea value={data.aiText||""} onChange={e=>onChange({...data,aiText:e.target.value})}
-              rows={6} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}/>}
-        </div>}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <SectionLabel>Propuesta de Indemnización</SectionLabel>
+          <RestoreBtn onClick={()=>onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)})}/>
+        </div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según modo, perceptor y cobertura. Editable.</div>
+        <Txt value={data.textoIndemn||sec4IndemnAuto(s3,indemn)} onChange={s("textoIndemn")}
+          rows={sec4IndemnAuto(s3,indemn)==="NO se propone indemnización."?2:5}
+          placeholder="Completar la Sección 3 para generar la propuesta automáticamente…"/>
       </Card>
 
       <NavBottom onPrev={onPrev} onSave={handleSave} onNext={onNext} saved={saved}
