@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 9 junio 2026 (sesión 4 — Verificación meteorológica XEMA)
+**Última actualización:** 10 junio 2026 (sesión 5 — Sección 3 renovada: regla proporcional por bloque, modos de valoración, drag & drop)
 
 ---
 
@@ -38,6 +38,16 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] handleDone resiliente (abre editor aunque Supabase falle)
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
 - [x] **Sección 2 — Verificación meteorológica automática (XEMA / Meteocat):** en siniestros atmosféricos, botón que localiza la estación XEMA más cercana al lugar del siniestro, consulta viento y lluvia del día del siniestro y los compara con los umbrales de la póliza. Genera tabla de datos + párrafo pericial redactado por IA. Tabla y texto se incrustan en el informe (preview, Word y PDF) y en el índice de anexos. Fuente: datos abiertos de la Generalitat (Socrata), gratis y sin clave de pago.
+- [x] **Sección 3 — Valoración renovada (sesión 5):**
+  - Parámetros de garantía en **dos bloques (Continente / Contenido)**, cada uno con capital asegurado, valor preexistente, infraseguro y toggle de regla proporcional.
+  - **Regla proporcional por bloque** y por fila: `indemnización = valor del daño × (capital asegurado / valor preexistente)`. Cada partida se asigna a Continente o Contenido y aplica la regla de su bloque. Se auto-activa al detectar infraseguro (editable).
+  - **Tres modos de valoración** (orden): Por Baremo compañía · Por Presupuesto · Por Factura.
+  - **Frase de indemnización automática** según modo y perceptor (Particular/Reparador): presupuesto → "a la espera de aportación de la factura… Asegurado: €"; factura particular → "… Asegurado: € (IVA incl.)"; reparador → "… Reparador: €"; baremo → sin frase. Se incrusta en preview, Word y PDF.
+  - **Checkbox exclusivo Particular / Reparador** (solo presupuesto/factura). Con Reparador no hay depreciación → columnas Depr ocultas.
+  - **Columna IVA oculta** en modo Presupuesto.
+  - **Columna Cobertura** muestra "Sí"/"No" (clic para alternar) en verde/rojo.
+  - **Reordenar filas con drag & drop** (tirador ⠿ por fila).
+  - **Subtotal corregido** (bug: en modo factura leía `pLibres` vacío; ahora `getPartidas` lee siempre `s3.partidas`).
 
 ### Fórmulas verificadas contra casos reales
 - Case 1 (Empresa, obras reforma): 463,59 € ✅
@@ -68,21 +78,28 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | Garantía afectada no se cruzaba con póliza | Se usaba solo el campo literal del encargo | Nueva lógica: si hay póliza, cruzar causa contra garantiasActivas de la póliza para seleccionar la cobertura correcta |
 | Valor preexistente incompleto | Sólo calculaba módulo × m², sin gastos generales, honorarios ni IVA | Fórmula completa: PEM × factor (1.486 residencial / 1.618 no residencial) según tablas CYPE 2025 |
 | Tipos arquitectura insuficientes (solo hotel/local) | MOD_ARQ tenía 2 tipos × 7 provincias | TABLAS_ARQ con 63 tipos × 6 provincias extraídos del Excel tablas_calculo_2025 |
+| Subtotal de la tabla de valoración no sumaba (modo factura) | `getPartidas` leía `s3.pLibres` (vacío) cuando el modo era factura, pero las partidas se guardaban en `s3.partidas` | `getPartidas` lee siempre `s3.partidas` (fuente única) |
+| Regla proporcional no distinguía continente de contenido | `calcRegla` devolvía un único coeficiente del continente | Nuevo `calcReglas` devuelve regla por bloque; cada partida lleva su `garantia` y aplica la regla correspondiente |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~2.570 · Balance llaves: 0
+Líneas: ~2.960 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
 Funciones globales clave:
   callClaude(system, content, onTokens, maxTok=1500)
   calcPartida(p) → {vRepos, ivaAmt, vReal}
-  getPartidas(s3) → rows filtradas por modo y cobertura
-  calcRegla(enc, s1) → regla proporcional
+  getPartidas(s3) → s3.partidas con cobertura (fuente única)
+  calcReglas(enc, s1) → {continente, contenido, capCont, vPreexCont, capCont2, vPreexContenido, infraCont, infraContenido}
+  calcRegla(enc, s1) → regla continente (compat)
+  reglaPartida(p, reglas, s3) → regla efectiva de la partida según garantía y toggle
+  sumAjustado(enc, s1, s3) → Σ V.Real × regla por partida
+  calcIndemnizacion(enc, s1, s3) → max(0, ajustado − franquicia)
+  fraseIndemn(s3, indemn) → frase de propuesta según modo y perceptor
   sumReal/sumRepos/sumIVA(rows)
   sbAuth(path, body) → Supabase Auth REST
   sbDb(path, method, body, token) → Supabase DB REST
@@ -103,8 +120,8 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
-- [ ] Validar la consulta meteo XEMA con un siniestro atmosférico real de Catalunya (fecha + dirección reales)
-- [ ] Confirmar que la estación elegida y los valores (racha/lluvia) cuadran con el evento
+- [ ] Probar en producción la nueva Sección 3 con un caso real (regla por bloque continente/contenido, modos presupuesto/factura, drag & drop)
+- [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
 

@@ -3,7 +3,7 @@ import {
   FileText, MapPin, AlertTriangle, List, FileCheck, DollarSign,
   Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft,
   Plus, X, Search, Home, Sparkles, Shield, Building2, Image,
-  FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2,
+  FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2, GripVertical,
 } from "lucide-react";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
@@ -178,22 +178,53 @@ const calcPartida = p => {
   const vReal  = vRepos*(1-(p.depr?(p.pctDepr||0):0)/100)+ivaAmt;
   return {vRepos, ivaAmt, vReal};
 };
-// Partidas activas según modo, excluyendo las sin cobertura
-const getPartidas = s3 => {
-  const rows = (s3?.modoValoracion==="factura") ? (s3?.pLibres||[]) : (s3?.partidas||[]);
-  return rows.filter(p=>p.cobertura!==false);
-};
+// Partidas activas (con cobertura). Fuente única de verdad: s3.partidas
+const getPartidas = s3 => (s3?.partidas||[]).filter(p=>p.cobertura!==false);
 const sumRepos = rows => rows.reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
 const sumIVA   = rows => rows.reduce((a,p)=>a+calcPartida(p).ivaAmt,0);
 const sumReal  = rows => rows.reduce((a,p)=>a+calcPartida(p).vReal,0);
-// Regla proporcional: 1 si primer riesgo u obras de reforma; si no, infraseguro
-const calcRegla = (enc, s1) => {
-  if(enc?.primerRiesgo || s1?.tipoContinente==="obrasReforma" || enc?.esHogar) return 1;
-  const capCont = parseCap(enc?.capitalContinente);
-  const prov = PROVINCIAS.find(p=>p.l===enc?.provincia||p.v===enc?.provincia);
-  const arqKey = s1?.tipoArqKey || "unif_aislada";
-  const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKey, s1?.calidad||"Media");
-  return vReal>0&&capCont>0&&capCont<vReal ? (capCont/vReal) : 1;
+// Reglas proporcionales por bloque (continente / contenido)
+//   regla = capital asegurado / valor preexistente  (solo si hay infraseguro)
+const calcReglas = (enc, s1) => {
+  enc=enc||{}; s1=s1||{};
+  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const arqKey = s1.tipoArqKey || "unif_aislada";
+  const primerRiesgo = enc.primerRiesgo || s1.tipoContinente==="obrasReforma" || enc.esHogar;
+  // Continente
+  const capCont = parseCap(s1.capContOverride!=null?s1.capContOverride:enc.capitalContinente);
+  const vPreexCalc = calcVPreexCont(s1.superficieConstruida, prov?.v||"00", arqKey, s1.calidad||"Media");
+  const vPreexCont = primerRiesgo ? capCont : vPreexCalc;
+  const reglaCont = (!primerRiesgo && vPreexCont>0 && capCont>0 && capCont<vPreexCont) ? (capCont/vPreexCont) : 1;
+  // Contenido
+  const capCont2 = parseCap(s1.capCont2Override!=null?s1.capCont2Override:enc.capitalContenido);
+  const vPreexContenido = s1.vPreexContenido!=null?parseCap(s1.vPreexContenido):capCont2;
+  const reglaContenido = (vPreexContenido>0 && capCont2>0 && capCont2<vPreexContenido) ? (capCont2/vPreexContenido) : 1;
+  return {continente:reglaCont, contenido:reglaContenido, capCont, vPreexCont, capCont2, vPreexContenido,
+    infraCont:(reglaCont<1)?((vPreexCont-capCont)/vPreexCont*100):0,
+    infraContenido:(reglaContenido<1)?((vPreexContenido-capCont2)/vPreexContenido*100):0};
+};
+// Compat: regla del continente (callers antiguos)
+const calcRegla = (enc, s1) => calcReglas(enc, s1).continente;
+// Regla efectiva de una partida según su garantía y si el bloque tiene la regla activada
+const reglaPartida = (p, reglas, s3) => {
+  const isCont = (p.garantia||"continente")==="contenido";
+  const on = isCont ? !!s3?.reglaContenido : !!s3?.reglaContinente;
+  return on ? (isCont?reglas.contenido:reglas.continente) : 1;
+};
+// Valor ajustado total (Σ V.Real × regla por partida) e indemnización
+const sumAjustado = (enc, s1, s3) => {
+  const reglas = calcReglas(enc, s1);
+  return getPartidas(s3).reduce((a,p)=>a+calcPartida(p).vReal*reglaPartida(p,reglas,s3),0);
+};
+const calcIndemnizacion = (enc, s1, s3) => Math.max(0, sumAjustado(enc,s1,s3)-parseCap(s3?.franquiciaVal||enc?.franquicia));
+// Frase de indemnización según modo de valoración y perceptor (particular/reparador)
+const fraseIndemn = (s3, indemn) => {
+  const modo = s3?.modoValoracion||"baremo";
+  if(modo==="baremo") return "";
+  const eur = fmt(indemn)+" €";
+  if(s3?.perceptorTipo==="reparador") return `Se propone indemnización de la siguiente manera:\nINDEMNIZACION:\nReparador: ${eur}`;
+  if(modo==="presupuesto") return `A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\nINDEMNIZACION:\nAsegurado: ${eur}`;
+  return `Se propone indemnización de la siguiente manera:\nINDEMNIZACION:\nAsegurado: ${eur} (IVA incl.)`;
 };
 
 const parseJSON = txt => {
@@ -993,7 +1024,10 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
   const regla = infraCont>0?(capCont/vReal):1;
   const partidas = s3?.partidas||[];
   const totalDano = sumReal(getPartidas(s3));
-  const indemn = Math.max(0,totalDano*regla-parseCap(s3?.franquiciaVal||enc.franquicia));
+  const ajustado = sumAjustado(enc,s1,s3);
+  const indemn = calcIndemnizacion(enc,s1,s3);
+  const showIVAp  = (s3?.modoValoracion||"baremo")!=="presupuesto";
+  const showDeprp = !((s3?.modoValoracion==="presupuesto"||s3?.modoValoracion==="factura")&&s3?.perceptorTipo==="reparador");
 
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
@@ -1110,11 +1144,11 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         {partidas.length>0
           ?<>
             {s3?.textoAI&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
-            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.tipoGarantia||"Fenómenos atmosféricos"} — {s3?.tipoGarantiaVal||"CONTINENTE"}</div>
+            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead><tr style={{background:C.accentLight}}>
-                {["Descripción-concepto","Uds","V.Unit.€","V.Repos.€","%IVA","IVA €","Depr","%Depr","V.Real €","V.Prop.€","Perceptor","Cob."].map(h=>(
-                  <th key={h} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
+                {["Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
+                  <th key={hi} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
@@ -1125,27 +1159,30 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{p.uds||1}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(p.p)}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(vr)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{p.iva??21}%</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(ivaAmt)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>
+                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.iva??21}%</td>}
+                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
+                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>}
+                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>}
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(vreal)}</td>
                     <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.green}}>{fmt(vreal)}</td>
+                    <td style={{padding:"5px 6px",textAlign:"center"}}>{p.garantia==="contenido"?"Contenido":"Continente"}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{p.perceptor||"Asegurado 1"}</td>
-                    <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura?"Sí":"No"}</td>
+                    <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura!==false?"Sí":"No"}</td>
                   </tr>);
                 })}
                 <tr style={{background:C.accentLight,fontWeight:700}}>
                   <td colSpan={3} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
                   <td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumRepos(getPartidas(s3)))} €</td>
-                  <td/><td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumIVA(getPartidas(s3)))} €</td>
-                  <td colSpan={2}/>
+                  {showIVAp&&<td/>}
+                  {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumIVA(getPartidas(s3)))} €</td>}
+                  {showDeprp&&<td colSpan={2}/>}
                   <td style={{padding:"7px 6px",textAlign:"right",color:C.accent}}>{fmtE(totalDano)}</td>
                   <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontSize:13}}>{fmtE(totalDano)}</td>
-                  <td colSpan={2}/>
+                  <td colSpan={3}/>
                 </tr>
               </tbody>
             </table>
+            {fraseIndemn(s3,indemn)&&<div style={{marginTop:12,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>{fraseIndemn(s3,indemn)}</div>}
           </>
           :<Empty msg="Completa la Sección 3 para ver la valoración de daños"/>}
       </Section>
@@ -1168,9 +1205,9 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                     <td style={{padding:"8px",fontWeight:600}}>{enc.garantia||"CONTINENTE"}</td>
                     <td style={{padding:"8px",textAlign:"right"}}>{fmtE(totalDano)}</td>
                     <td style={{padding:"8px",textAlign:"right"}}>{fmtE(capCont)}</td>
-                    <td style={{padding:"8px",textAlign:"right"}}>{regla<1?`${fmt(regla*100)}%`:"NO"}</td>
-                    <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{fmtE(totalDano*regla)}</td>
-                    <td style={{padding:"8px",textAlign:"right"}}>{fmtE(parseFloat(enc.franquicia||0))}</td>
+                    <td style={{padding:"8px",textAlign:"right"}}>{totalDano>0&&ajustado<totalDano?`${fmt(ajustado/totalDano*100)}%`:"NO"}</td>
+                    <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{fmtE(ajustado)}</td>
+                    <td style={{padding:"8px",textAlign:"right"}}>{fmtE(parseCap(s3?.franquiciaVal||enc.franquicia))}</td>
                     <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:C.green}}>{fmtE(indemn)}</td>
                   </tr>
                   <tr style={{background:C.accentLight,fontWeight:700}}>
@@ -1658,16 +1695,25 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 };
 
 // ─── SECCIÓN 3 ────────────────────────────────────────────────────────────────
-const Sec3 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave}) => {
+const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [saved,setSaved]         = useState(false);
+  const [dragIdx,setDragIdx]     = useState(null);
+  const [overIdx,setOverIdx]     = useState(null);
   const facRef                   = useRef();
   const s = f => v => onChange({...data,[f]:v});
 
   const partidas  = data.partidas||[];
-  const modoVal   = data.modoValoracion||"baremo";
+  const modoVal   = data.modoValoracion||"baremo";   // baremo | presupuesto | factura
   const facturas  = data.facturas||[];
+  const esBaremo  = modoVal==="baremo";
+  const esPresup  = modoVal==="presupuesto";
+  const esFactura = modoVal==="factura";
+  const docMode   = esPresup||esFactura;             // requiere adjuntar documento
+  const reparador = data.perceptorTipo==="reparador";
+  const showIVA   = !esPresup;                        // presupuesto: sin columna IVA
+  const showDepr  = !(docMode&&reparador);           // reparador: sin depreciación
 
   // Usa la fuente única global calcPartida
   const calc = calcPartida;
@@ -1675,10 +1721,28 @@ const Sec3 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave}) => {
   const totRepos = sumRepos(rowsActivas);
   const totIVA   = sumIVA(rowsActivas);
   const totReal  = sumReal(rowsActivas);
+  const reglas   = calcReglas(enc, s1);
+  const totAjustado = sumAjustado(enc, s1, data);
+  const indemn   = calcIndemnizacion(enc, s1, data);
 
   const updP = (i,f,v) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,[f]:v}:p)});
   const delP = i => onChange({...data,partidas:partidas.filter((_,idx)=>idx!==i)});
-  const addRow = () => { const ivaDef=modoVal==="factura"?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado 1",cobertura:true}]}); };
+  const addRow = () => { const ivaDef=esFactura?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado 1",garantia:"continente",cobertura:true}]}); };
+  // Reordenar filas manualmente (drag & drop)
+  const moveRow = (from,to) => {
+    if(from==null||to==null||from===to) return;
+    const arr=[...partidas]; const [m]=arr.splice(from,1); arr.splice(to,0,m);
+    onChange({...data,partidas:arr});
+  };
+  const setPerceptorTipo = t => onChange({...data,perceptorTipo:data.perceptorTipo===t?null:t});
+  // Auto-activar regla proporcional cuando se detecta infraseguro (editable después)
+  useEffect(()=>{
+    const patch={};
+    if(data.reglaContinente===undefined && reglas.infraCont>0) patch.reglaContinente=true;
+    if(data.reglaContenido===undefined && reglas.infraContenido>0) patch.reglaContenido=true;
+    if(Object.keys(patch).length) onChange({...data,...patch});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[reglas.infraCont,reglas.infraContenido]);
 
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
@@ -1767,25 +1831,30 @@ Devuelve SOLO:
     <div className="fade">
       <SecTitle n="3" label="Valoración de Daños" sub="Describe los daños y la IA creará la tabla de valoración automáticamente."/>
 
-      {/* PARÁMETROS DE GARANTÍA */}
+      {/* PARÁMETROS DE GARANTÍA — dos bloques */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Parámetros de Garantía</SectionLabel>
-        <Sel label="Tipo de garantía" value={data.tipoGarantiaVal} onChange={v=>{
-          const lim=v==="Continente"?(enc.capitalContinente||"0"):v==="Contenido"?(enc.capitalContenido||"0"):"0";
-          onChange({...data,tipoGarantiaVal:v,limiteGarantia:data.limiteGarantia||lim});
-        }} options={TIPOS_GARANTIA}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          {[
+            {tit:"Continente",cap:reglas.capCont,pre:reglas.vPreexCont,infra:reglas.infraCont,regla:reglas.continente,field:"reglaContinente",on:!!data.reglaContinente},
+            {tit:"Contenido", cap:reglas.capCont2,pre:reglas.vPreexContenido,infra:reglas.infraContenido,regla:reglas.contenido,field:"reglaContenido",on:!!data.reglaContenido},
+          ].map(b=>(
+            <div key={b.tit} style={{border:`1px solid ${b.infra>0?"#FECACA":C.border}`,borderRadius:8,padding:13,background:b.infra>0?C.redBg:C.bg}}>
+              <div style={{fontSize:11,fontWeight:700,color:b.infra>0?C.red:C.accent,marginBottom:9,textTransform:"uppercase",letterSpacing:".05em"}}>{b.tit}</div>
+              {[["Capital asegurado",fmtE(b.cap)],["Valor preexistente",fmtE(b.pre)],["Infraseguro",`${fmt(b.infra)} %`]].map(([k,v],idx)=>(
+                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:idx<2?`1px solid ${C.border}`:"none",fontSize:12}}>
+                  <span style={{color:C.muted}}>{k}</span><span style={{fontWeight:600,color:idx===2&&b.infra>0?C.red:C.ink}}>{v}</span>
+                </div>
+              ))}
+              <label style={{display:"flex",alignItems:"center",gap:8,marginTop:10,cursor:"pointer"}}>
+                <input type="checkbox" checked={b.on} onChange={e=>onChange({...data,[b.field]:e.target.checked})} style={{width:15,height:15,cursor:"pointer"}}/>
+                <span style={{fontSize:12,color:b.on?C.orange:C.muted}}>Aplicar regla proporcional{b.on&&b.regla<1?` (${fmt(b.regla*100)} %)`:""}</span>
+              </label>
+            </div>
+          ))}
+        </div>
         <Inp label="Concepto de garantía" value={data.conceptoGarantia} onChange={s("conceptoGarantia")}
           placeholder={enc.causa||"Fenómenos atmosféricos"} hint="Del encargo — editable"/>
-        <EuroInput label="Límite de garantía (€)" value={data.limiteGarantia||enc.capitalContinente} onChange={s("limiteGarantia")}/>
-        <div style={{display:"flex",gap:16,alignItems:"center",marginBottom:14}}>
-          <div>
-            <Lbl c="Regla proporcional"/>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
-              <input type="checkbox" checked={!!data.reglaProporcionl} onChange={e=>onChange({...data,reglaProporcionl:e.target.checked})} style={{width:16,height:16,cursor:"pointer"}}/>
-              <span style={{fontSize:12,color:data.reglaProporcionl?C.orange:C.muted}}>{data.reglaProporcionl?"Activada":"Desactivada"}</span>
-            </div>
-          </div>
-        </div>
         <EuroInput label="Franquicia (€)" value={data.franquiciaVal||enc.franquicia||"0"} onChange={s("franquiciaVal")}
           hint="De la póliza — editable"/>
       </Card>
@@ -1810,7 +1879,7 @@ Devuelve SOLO:
 
       {/* MODO DE VALORACIÓN */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[{v:"baremo",l:"📋 Por Baremo AXA 2025"},{v:"factura",l:"🧾 Por Factura / Presupuesto"}].map(m=>(
+        {[{v:"baremo",l:"📋 Por Baremo compañía"},{v:"presupuesto",l:"📄 Por Presupuesto"},{v:"factura",l:"🧾 Por Factura"}].map(m=>(
           <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
             style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
               background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
@@ -1819,14 +1888,29 @@ Devuelve SOLO:
         ))}
       </div>
 
+      {/* PERCEPTOR (solo presupuesto / factura) */}
+      {docMode&&<Card s={{marginBottom:14}}>
+        <SectionLabel>Perceptor de la indemnización</SectionLabel>
+        <div style={{display:"flex",gap:20}}>
+          {[{v:"particular",l:"Particular"},{v:"reparador",l:"Reparador"}].map(o=>(
+            <label key={o.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
+              fontWeight:data.perceptorTipo===o.v?700:400,color:data.perceptorTipo===o.v?C.accent:C.ink}}>
+              <input type="checkbox" checked={data.perceptorTipo===o.v} onChange={()=>setPerceptorTipo(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
+              {o.l}
+            </label>
+          ))}
+        </div>
+        {reparador&&<div style={{fontSize:11,color:C.muted,marginTop:8}}>Con perceptor Reparador no se aplica depreciación (columna oculta en la tabla).</div>}
+      </Card>}
+
       {/* FACTURAS / PRESUPUESTOS */}
-      {modoVal==="factura"&&<Card s={{marginBottom:14}}>
-        <SectionLabel>Facturas / Presupuestos</SectionLabel>
+      {docMode&&<Card s={{marginBottom:14}}>
+        <SectionLabel>{esFactura?"Facturas":"Presupuestos"}</SectionLabel>
         <div onClick={()=>facRef.current.click()}
           style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:"16px",textAlign:"center",
             cursor:"pointer",background:C.bg,marginBottom:10}}>
           <Upload size={20} style={{color:C.muted,marginBottom:6}}/>
-          <div style={{fontSize:12,fontWeight:600,color:C.ink}}>Adjuntar facturas o presupuestos</div>
+          <div style={{fontSize:12,fontWeight:600,color:C.ink}}>Adjuntar {esFactura?"facturas":"presupuestos"}</div>
           <div style={{fontSize:11,color:C.muted}}>PDF · Se adjuntarán automáticamente al informe final</div>
           <input ref={facRef} type="file" multiple accept=".pdf" style={{display:"none"}}
             onChange={e=>addFactura(e.target.files)}/>
@@ -1841,16 +1925,16 @@ Devuelve SOLO:
           </div>
         ))}
         {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
-          {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} factura{facturas.length>1?"s":""}</>}
+          {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
         </Btn>}
       </Card>}
 
       {/* TABLA DE VALORACIÓN */}
       <Card s={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <SectionLabel>{modoVal==="baremo"?"Tabla de Valoración — Baremo AXA 2025":"Tabla de Valoración — Factura/Presupuesto"}</SectionLabel>
+          <SectionLabel>{esBaremo?"Tabla de Valoración — Baremo compañía":esPresup?"Tabla de Valoración — Presupuesto":"Tabla de Valoración — Factura"}</SectionLabel>
           <div style={{display:"flex",gap:6}}>
-            {modoVal==="baremo"&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
+            {esBaremo&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
               {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla con IA</>}
             </Btn>}
             <Btn sm onClick={addRow}><Plus size={11}/>Fila</Btn>
@@ -1858,24 +1942,32 @@ Devuelve SOLO:
         </div>
 
         <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:10}}>
-          <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes
+          <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
         </div>
 
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:900}}>
             <thead><tr style={{background:C.accentLight}}>
-              {["Descripción-concepto","Uds","V.Unitario €","V.Repos €","%IVA","IVA €","Depr","%Depr","V.Real €","V.Propuesto €","Perceptor","Cob.",""].map(h=>(
-                <th key={h} style={{padding:"5px 5px",textAlign:h==="Descripción-concepto"||h===""?"left":"right",color:C.accent,fontWeight:700,whiteSpace:"nowrap",borderBottom:`2px solid ${C.accent}`}}>{h}</th>
+              {["","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","V.Propuesto €","Garantía","Perceptor","Cob.",""].map((h,hi)=>(
+                <th key={hi} style={{padding:"5px 5px",textAlign:h==="Descripción-concepto"||h===""?"left":"right",color:C.accent,fontWeight:700,whiteSpace:"nowrap",borderBottom:`2px solid ${C.accent}`}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {partidas.length===0&&<tr><td colSpan={13} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
-                {modoVal==="baremo"?"Describe los daños y pulsa «Generar tabla con IA»":"Adjunta facturas y extrae las partidas automáticamente"}
+              {partidas.length===0&&<tr><td colSpan={11+(showIVA?2:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
+                {esBaremo?"Describe los daños y pulsa «Generar tabla con IA»":"Adjunta el documento y extrae las partidas automáticamente"}
               </td></tr>}
               {partidas.map((p,i)=>{
                 const {vRepos,ivaAmt,vReal}=calc(p);
                 return (
-                  <tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":C.bg}}>
+                  <tr key={p.id||i}
+                    onDragOver={e=>{if(dragIdx!=null){e.preventDefault();setOverIdx(i);}}}
+                    onDrop={e=>{e.preventDefault();moveRow(dragIdx,i);setDragIdx(null);setOverIdx(null);}}
+                    style={{borderBottom:`1px solid ${C.border}`,opacity:dragIdx===i?0.4:1,
+                      background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:(i%2===0?"transparent":C.bg)}}>
+                    <td style={{padding:"3px 2px",textAlign:"center"}}>
+                      <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+                        style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
+                    </td>
                     <td style={{padding:"4px 5px",minWidth:180}}>
                       <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
                         style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
@@ -1883,14 +1975,20 @@ Devuelve SOLO:
                     <td style={{padding:"3px 4px"}}><InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44}/></td>
                     <td style={{padding:"3px 4px"}}><InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70}/></td>
                     <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600}}>{fmt(vRepos)}</td>
-                    <td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36}/></td>
-                    <td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(ivaAmt)}</td>
-                    <td style={{padding:"3px 4px",textAlign:"center"}}>
+                    {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36}/></td>}
+                    {showIVA&&<td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
+                    {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
                       <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
-                    </td>
-                    <td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36}/>}</td>
+                    </td>}
+                    {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36}/>}</td>}
                     <td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(vReal)}</td>
                     <td style={{padding:"4px 5px",textAlign:"right",fontWeight:700,color:C.green}}>{fmt(vReal)}</td>
+                    <td style={{padding:"3px 4px"}}>
+                      <select value={p.garantia||"continente"} onChange={e=>updP(i,"garantia",e.target.value)}
+                        style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
+                        <option value="continente">Continente</option><option value="contenido">Contenido</option>
+                      </select>
+                    </td>
                     <td style={{padding:"3px 4px"}}>
                       <select value={p.perceptor||"Asegurado 1"} onChange={e=>updP(i,"perceptor",e.target.value)}
                         style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
@@ -1898,27 +1996,38 @@ Devuelve SOLO:
                       </select>
                     </td>
                     <td style={{padding:"3px 4px",textAlign:"center"}}>
-                      <input type="checkbox" checked={p.cobertura!==false} onChange={e=>updP(i,"cobertura",e.target.checked)} style={{cursor:"pointer"}}/>
+                      <button onClick={()=>updP(i,"cobertura",p.cobertura===false)}
+                        style={{background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:11,fontFamily:"inherit",
+                          color:p.cobertura!==false?C.green:C.red}}>{p.cobertura!==false?"Sí":"No"}</button>
                     </td>
                     <td><button onClick={()=>delP(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
                   </tr>
                 );
               })}
               {partidas.length>0&&<tr style={{background:C.accentLight,fontWeight:700}}>
+                <td/>
                 <td style={{padding:"6px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
                 <td/>
                 <td/>
                 <td style={{padding:"6px 5px",textAlign:"right",color:C.accent}}>{fmt(totRepos)} €</td>
-                <td/>
-                <td style={{padding:"6px 5px",textAlign:"right",color:C.accent}}>{fmt(totIVA)} €</td>
-                <td colSpan={2}/>
+                {showIVA&&<td/>}
+                {showIVA&&<td style={{padding:"6px 5px",textAlign:"right",color:C.accent}}>{fmt(totIVA)} €</td>}
+                {showDepr&&<td/>}
+                {showDepr&&<td/>}
                 <td style={{padding:"6px 5px",textAlign:"right",color:C.accent,fontSize:12}}>{fmt(totReal)} €</td>
                 <td style={{padding:"6px 5px",textAlign:"right",color:C.accent,fontSize:13}}>{fmt(totReal)} €</td>
-                <td colSpan={3}/>
+                <td colSpan={4}/>
               </tr>}
             </tbody>
           </table>
         </div>
+
+        {/* FRASE DE INDEMNIZACIÓN */}
+        {docMode&&partidas.length>0&&fraseIndemn(data,indemn)&&(
+          <div style={{marginTop:14,background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:14,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>
+            {fraseIndemn(data,indemn)}
+          </div>
+        )}
       </Card>
 
       <NavBottom onPrev={onPrev} onSave={handleSave} onNext={onNext} saved={saved}
@@ -1934,11 +2043,19 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   const s = f => v => onChange({...data,[f]:v});
 
   const partidas = getPartidas(s3);
-  const totalDano = sumReal(partidas);
-  const capCont = parseCap(enc.capitalContinente);
-  const regla = calcRegla(enc, s1);
+  const reglas   = calcReglas(enc, s1);
+  // Daño por bloque
+  const dañoCont  = partidas.filter(p=>(p.garantia||"continente")!=="contenido").reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const dañoCont2 = partidas.filter(p=>p.garantia==="contenido").reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const reglaCEf  = s3?.reglaContinente?reglas.continente:1;
+  const reglaC2Ef = s3?.reglaContenido?reglas.contenido:1;
+  const ajustCont  = dañoCont*reglaCEf;
+  const ajustCont2 = dañoCont2*reglaC2Ef;
+  const totalDano = dañoCont+dañoCont2;
+  const ajustado  = ajustCont+ajustCont2;
   const franq = parseCap(s3?.franquiciaVal||enc.franquicia);
-  const indemn = Math.max(0,totalDano*regla-franq);
+  const indemn = Math.max(0,ajustado-franq);
+  const regla = totalDano>0?ajustado/totalDano:1;   // coeficiente global (para texto IA)
 
   // Auto-fill descripción cobertura from policy
   useEffect(()=>{
@@ -1993,21 +2110,26 @@ Analiza coberturas aplicables, posibles exclusiones y justifica la propuesta de 
               ))}
             </tr></thead>
             <tbody>
-              <tr style={{borderBottom:`1px solid ${C.border}`}}>
-                <td style={{padding:"8px",fontWeight:600}}>{enc.garantia||"CONTINENTE"} — {enc.causa||""}</td>
-                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(totalDano)}</td>
-                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(parseFloat(s3?.limiteGarantia||capCont))}</td>
-                <td style={{padding:"8px",textAlign:"right"}}>{regla<1?`${fmt(regla*100)}%`:"NO"}</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{fmtE(totalDano*regla)}</td>
-                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(franq)}</td>
-                <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:C.green}}>{fmtE(indemn)}</td>
-              </tr>
+              {[
+                {tit:"Continente",dano:dañoCont,lim:reglas.capCont,reglaOn:!!s3?.reglaContinente,regla:reglas.continente,ajust:ajustCont},
+                {tit:"Contenido", dano:dañoCont2,lim:reglas.capCont2,reglaOn:!!s3?.reglaContenido,regla:reglas.contenido,ajust:ajustCont2},
+              ].filter(b=>b.dano>0).map(b=>(
+                <tr key={b.tit} style={{borderBottom:`1px solid ${C.border}`}}>
+                  <td style={{padding:"8px",fontWeight:600}}>{b.tit} — {enc.garantia||enc.causa||""}</td>
+                  <td style={{padding:"8px",textAlign:"right"}}>{fmtE(b.dano)}</td>
+                  <td style={{padding:"8px",textAlign:"right"}}>{fmtE(b.lim)}</td>
+                  <td style={{padding:"8px",textAlign:"right"}}>{b.reglaOn&&b.regla<1?`${fmt(b.regla*100)}%`:"NO"}</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:600}}>{fmtE(b.ajust)}</td>
+                  <td style={{padding:"8px",textAlign:"right"}}>—</td>
+                  <td style={{padding:"8px",textAlign:"right",fontWeight:700,color:C.green}}>{fmtE(b.ajust)}</td>
+                </tr>
+              ))}
               <tr style={{background:C.accentLight,fontWeight:700}}>
                 <td style={{padding:"8px",color:C.accent}}>Total</td>
                 <td style={{padding:"8px",textAlign:"right"}}>{fmtE(totalDano)}</td>
                 <td/><td/>
-                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(totalDano*regla)}</td>
-                <td/>
+                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(ajustado)}</td>
+                <td style={{padding:"8px",textAlign:"right"}}>{fmtE(franq)}</td>
                 <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:14}}>{fmtE(indemn)}</td>
               </tr>
               <tr><td style={{padding:"6px 8px",fontSize:12,color:C.muted}}>Franquicia general</td><td colSpan={5}/><td style={{padding:"6px 8px",textAlign:"right",fontSize:12}}>{fmtE(franq)}</td></tr>
@@ -2018,6 +2140,9 @@ Analiza coberturas aplicables, posibles exclusiones y justifica la propuesta de 
           <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
           <div style={{fontFamily:"'DM Serif Display',serif",fontSize:30,color:C.green}}>{fmtE(indemn)}</div>
         </div>
+        {fraseIndemn(s3,indemn)&&(
+          <div style={{marginTop:12,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7,padding:"0 4px"}}>{fraseIndemn(s3,indemn)}</div>
+        )}
       </Card>
 
       {/* IA */}
@@ -2128,16 +2253,22 @@ const fmtPDF = n => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maxim
 
 const buildWordHTML = (cData) => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{};
-  const partidas=s3.partidas||[];
-  const totalDano=partidas.reduce((a,p)=>{const v=(p.uds||1)*(p.p||0);return a+v*(1-(p.depr?p.pctDepr||0:0)/100)+v*((p.iva||21)/100);},0);
-  const capCont=parseFloat(enc.capitalContinente||0);
-  const franq=parseFloat(s3.franquiciaVal||enc.franquicia||0);
-  const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const arqKeyW=s1.tipoArqKey||'unif_aislada';
-  const vRealC=enc.primerRiesgo?capCont:calcVPreexCont(s1.superficieConstruida,prov?.v||'00',arqKeyW,s1.calidad||'Media');
-  const regla=!enc.primerRiesgo&&vRealC>0&&capCont>0&&capCont<vRealC?(capCont/vRealC):1;
-  const indemn=Math.max(0,totalDano*regla-franq);
-  const capCont2=parseFloat(enc.capitalContenido||0);
+  const partidas=getPartidas(s3);
+  const totalDano=sumReal(partidas);
+  const reglas=calcReglas(enc,s1);
+  const franq=parseCap(s3.franquiciaVal||enc.franquicia);
+  const capCont=reglas.capCont, vRealC=reglas.vPreexCont, capCont2=reglas.capCont2;
+  const ajustado=sumAjustado(enc,s1,s3);
+  const indemn=calcIndemnizacion(enc,s1,s3);
+  const regla=totalDano>0?ajustado/totalDano:1;
+  const modo=s3.modoValoracion||'baremo';
+  const showIVAw=modo!=='presupuesto';
+  const showDeprw=!((modo==='presupuesto'||modo==='factura')&&s3.perceptorTipo==='reparador');
+  // Daño y valor ajustado por bloque
+  const dCont=partidas.filter(p=>(p.garantia||'continente')!=='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const dCont2=partidas.filter(p=>p.garantia==='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const aCont=dCont*(s3.reglaContinente?reglas.continente:1);
+  const aCont2=dCont2*(s3.reglaContenido?reglas.contenido:1);
   const riesgoLines=enc.tipoEncargo==='INSTANT_PAYMENT'
     ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
     :[`El riesgo asegurado se corresponde con: ${s1.tipoRiesgo||'—'}.`,
@@ -2147,10 +2278,23 @@ const buildWordHTML = (cData) => {
       `El estado general del riesgo asegurado se encuentra según nuestro criterio: ${s1.estado||'—'}`,
       `Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||'—'}`,
       `Referencia catastral del inmueble: ${s1.refCatastral||''}`];
+  const wTh=['Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const rowPart=partidas.map(p=>{
-    const vr=(p.uds||1)*(p.p||0);const iv=vr*((p.iva||21)/100);const vreal=vr*(1-(p.depr?p.pctDepr||0:0)/100)+iv;
-    return `<tr><td>${p.desc||''}</td><td>${p.uds||1}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td><td>${p.iva??21}%</td><td>${fmtPDF(iv)}</td><td>${p.depr?'SI':'NO'}</td><td>${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td><td>${fmtPDF(vreal)}</td><td>${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado 1'}</td><td>${p.cobertura!==false?'Si':'No'}</td></tr>`;
+    const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
+    return `<tr><td>${p.desc||''}</td><td>${p.uds||1}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
+      +(showIVAw?`<td>${p.iva??0}%</td><td>${fmtPDF(iv)}</td>`:'')
+      +(showDeprw?`<td>${p.depr?'SI':'NO'}</td><td>${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
+      +`<td>${fmtPDF(vreal)}</td><td>${fmtPDF(vreal)}</td><td>${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
+  const wSub=`<tr class='subtotal'><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td>`
+    +(showIVAw?`<td></td><td>${fmtPDF(sumIVA(partidas))} €</td>`:'')
+    +(showDeprw?`<td></td><td></td>`:'')
+    +`<td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
+  const wFrase=fraseIndemn(s3,indemn);
+  const wGarRows=[
+    {tit:'Continente',dano:dCont,lim:capCont,on:s3.reglaContinente,regla:reglas.continente,ajust:aCont},
+    {tit:'Contenido', dano:dCont2,lim:capCont2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aCont2},
+  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}.<br/>${enc.garantia||''}<br/>${enc.causa||''}</td><td>${fmtPDF(b.dano)} €</td><td>${fmtPDF(b.lim)} €</td><td>${b.on&&b.regla<1?fmtPDF(b.regla*100)+'%':'NO'}</td><td>${fmtPDF(b.ajust)} €</td><td>—</td><td>${fmtPDF(b.ajust)} €</td></tr>`).join('');
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
@@ -2210,14 +2354,14 @@ const buildWordHTML = (cData) => {
 <table class='cap-table'><tr><th colspan='2'>CONTINENTE</th></tr>
 <tr><td>VALOR ASEGURADO</td><td>${fmtPDF(capCont)} €</td></tr>
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(vRealC)} €</td></tr>
-<tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(regla<1?((vRealC-capCont)/vRealC*100):0)} %</b></td></tr></table>
+<tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraCont)} %</b></td></tr></table>
 <br/>
 <b>CONTENIDO:</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial.</p>
 <table class='cap-table'><tr><th colspan='2'>CONTENIDO</th></tr>
 <tr><td>VALOR ASEGURADO</td><td>${fmtPDF(capCont2)} €</td></tr>
-<tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(capCont2)} €</td></tr>
-<tr><td><b>INFRASEGURO</b></td><td><b>0,00 %</b></td></tr></table>
+<tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
+<tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 ${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
@@ -2230,20 +2374,22 @@ ${meteoHTML(s2.meteo, enc, '')}
 <h2>3. VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${s3.textoAI?'<p>'+s3.textoAI+'</p>':''}
-${partidas.length>0?`<h3 style='text-align:center'>${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}. ${s3.tipoGarantiaVal||'CONTINENTE'}</h3>
-<table><tr><th>Descripción-concepto</th><th>Uds</th><th>V.Unit.</th><th>V.Repos.</th><th>%IVA</th><th>IVA</th><th>Depr</th><th>%Depr</th><th>V.Real</th><th>V.Prop.</th><th>Perceptor</th><th>Cob.</th></tr>
+${partidas.length>0?`<h3 style='text-align:center'>${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}</h3>
+<table><tr>${wTh}</tr>
 ${rowPart}
-<tr class='subtotal'><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td><td></td><td>${fmtPDF(sumIVA(partidas))} €</td><td></td><td></td><td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td></tr></table>`:''}
+${wSub}</table>
+${wFrase?`<p style='white-space:pre-wrap'>${wFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 <p>${(s4.aiText||'').replace(/\n/g,'<br/>')}</p>
 ${partidas.length>0?`<h3 style='text-align:center'>Resumen por garantías. Propuesta de indemnización</h3>
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
-<tr><td>${s3.tipoGarantiaVal||'CONTINENTE'}.<br/>${enc.garantia||''}<br/>${enc.causa||''}</td><td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(capCont)} €</td><td>${regla<1?fmtPDF(regla*100)+'%':'NO'}</td><td>${fmtPDF(totalDano*regla)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
-<tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(totalDano*regla)} €</td><td></td><td>${fmtPDF(indemn)} €</td></tr>
+${wGarRows}
+<tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(ajustado)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
 <tr><td>Franquicia general</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
-<div class='total-box'>Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(indemn)} €</div>`:''}
+<div class='total-box'>Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(indemn)} €</div>
+${wFrase?`<p style='white-space:pre-wrap'>${wFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <br/><br/>
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style='margin-top:16pt'>En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
@@ -2274,20 +2420,42 @@ const exportPDF = (cData, dniPerito='') => {
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
   const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-  const capC=parseCap(enc.capitalContinente), capC2=parseCap(enc.capitalContenido);
-  const vRC=(enc.primerRiesgo||s1.tipoContinente==='obrasReforma'||enc.esHogar)?capC:calcVPreexCont(s1.superficieConstruida,prov?.v||'00',s1.tipoArqKey||'unif_aislada',s1.calidad||'Media');
-  const reg=calcRegla(enc,s1);
-  const inf=reg<1?((vRC-capC)/vRC*100):0;
+  const reglas=calcReglas(enc,s1);
+  const capC=reglas.capCont, capC2=reglas.capCont2, vRC=reglas.vPreexCont;
+  const ajustado=sumAjustado(enc,s1,s3);
+  const ind=calcIndemnizacion(enc,s1,s3);
+  const reg=totalDano>0?ajustado/totalDano:1;
+  const inf=reglas.infraCont;
   const fr=parseCap(s3.franquiciaVal||enc.franquicia);
-  const ind=Math.max(0,totalDano*reg-fr);
+  const modo=s3.modoValoracion||'baremo';
+  const showIVAd=modo!=='presupuesto';
+  const showDeprd=!((modo==='presupuesto'||modo==='factura')&&s3.perceptorTipo==='reparador');
   const today=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
   const allFotos=anexos?.fotos||[];
   const allFac=[...(anexos?.facturas||[]),...(s3?.facturas||[])];
+  // Daño y valor ajustado por bloque
+  const dC=partidas.filter(p=>(p.garantia||'continente')!=='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const dC2=partidas.filter(p=>p.garantia==='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
+  const aC=dC*(s3.reglaContinente?reglas.continente:1);
+  const aC2=dC2*(s3.reglaContenido?reglas.contenido:1);
 
+  const dTh=['Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const rowPart=partidas.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
-    return `<tr><td>${p.desc||''}</td><td style="text-align:right">${p.uds||1}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td><td style="text-align:right">${p.iva??0}%</td><td style="text-align:right">${fmtPDF(iv)}</td><td style="text-align:center">${p.depr?'SI':'NO'}</td><td style="text-align:right">${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td><td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:right">${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado 1'}</td><td style="text-align:center">${p.cobertura!==false?'Si':'No'}</td></tr>`;
+    return `<tr><td>${p.desc||''}</td><td style="text-align:right">${p.uds||1}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
+      +(showIVAd?`<td style="text-align:right">${p.iva??0}%</td><td style="text-align:right">${fmtPDF(iv)}</td>`:'')
+      +(showDeprd?`<td style="text-align:center">${p.depr?'SI':'NO'}</td><td style="text-align:right">${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
+      +`<td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:center">${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
+  const dSub=`<tr class="subtotal"><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(partidas))} €</td>`
+    +(showIVAd?`<td></td><td style="text-align:right">${fmtPDF(sumIVA(partidas))} €</td>`:'')
+    +(showDeprd?`<td></td><td></td>`:'')
+    +`<td style="text-align:right">${fmtPDF(totalDano)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
+  const dFrase=fraseIndemn(s3,ind);
+  const dGarRows=[
+    {tit:'Continente',dano:dC,lim:capC,on:s3.reglaContinente,regla:reglas.continente,ajust:aC},
+    {tit:'Contenido', dano:dC2,lim:capC2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aC2},
+  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}. ${enc.garantia||''}. ${enc.causa||''}</td><td style="text-align:right">${fmtPDF(b.dano)} €</td><td style="text-align:right">${fmtPDF(b.lim)} €</td><td style="text-align:right">${b.on&&b.regla<1?fmtPDF(b.regla*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td><td style="text-align:right">—</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td></tr>`).join('');
 
   const rLines=enc.tipoEncargo==='INSTANT_PAYMENT'
     ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
@@ -2365,7 +2533,7 @@ const exportPDF = (cData, dniPerito='') => {
 <br/>
 <p style="font-weight:bold">CONTENIDO:</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
-<table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>0,00 %</strong></td></tr></table>
+<table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 ${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
@@ -2378,20 +2546,22 @@ ${meteoHTML(s2.meteo, enc, 'data')}
 <h2>3.&nbsp;&nbsp;&nbsp;VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${s3.textoAI?`<p>${s3.textoAI.replace(/\n/g,'<br/>')}</p>`:''}
-${partidas.length>0?`<h3 style="text-align:center">${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}. ${s3.tipoGarantiaVal||'CONTINENTE'}</h3>
-<table class="data"><thead><tr><th>Descripción-concepto</th><th>Uds</th><th>V.Unit.</th><th>V.Repos.</th><th>%IVA</th><th>IVA</th><th>Depr</th><th>%Depr</th><th>V.Real</th><th>V.Prop.</th><th>Perceptor</th><th>Cob.</th></tr></thead><tbody>
+${partidas.length>0?`<h3 style="text-align:center">${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}</h3>
+<table class="data"><thead><tr>${dTh}</tr></thead><tbody>
 ${rowPart}
-<tr class="subtotal"><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td><td></td><td>${fmtPDF(sumIVA(partidas))} €</td><td></td><td></td><td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td></tr></tbody></table>`:''}
+${dSub}</tbody></table>
+${dFrase?`<p style="white-space:pre-wrap;margin-top:8pt">${dFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${s4.aiText?`<p>${s4.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style="text-align:center">Resumen por garantías. Propuesta de indemnización</h3>
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
-<tr><td>${(s3.tipoGarantiaVal||'CONTINENTE')+'. '+(enc.garantia||'')+'. '+(enc.causa||'')}</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td style="text-align:right">${fmtPDF(capC)} €</td><td style="text-align:right">${reg<1?fmtPDF(reg*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(totalDano*reg)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right"><strong>${fmtPDF(ind)} €</strong></td></tr>
-<tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(totalDano*reg)} €</td><td></td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
+${dGarRows}
+<tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(ajustado)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
 <tr><td colspan="6">Franquicia general</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
-<div class="total-box">Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(ind)} €</div>`:''}
+<div class="total-box">Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(ind)} €</div>
+${dFrase?`<p style="white-space:pre-wrap;margin-top:8pt">${dFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <br/><br/>
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style="margin-top:12pt">En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${today}</p>
@@ -2619,7 +2789,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} {...commonProps}/>;
-      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} {...commonProps}/>;
+      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave}/>;
       default: return null;

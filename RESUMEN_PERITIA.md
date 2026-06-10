@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~2.650 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~2.960 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -113,29 +113,38 @@ Subtotal    = Σ V.Propuesto (solo items con cobertura = Sí)
 **Funciones de cálculo globales (fuente única de verdad):**
 ```javascript
 calcPartida(p)                        → {vRepos, ivaAmt, vReal}  // p.iva??0
-getPartidas(s3)                       → filtra por modo (baremo/factura) y cobertura
-calcRegla(enc,s1)                     → 1 si primerRiesgo/obrasReforma/Hogar; si no, infraseguro
+getPartidas(s3)                       → s3.partidas con cobertura (fuente única)
+calcReglas(enc,s1)                    → {continente, contenido, capCont, vPreexCont, capCont2, vPreexContenido, infraCont, infraContenido}
+calcRegla(enc,s1)                     → regla del continente (compat)
+reglaPartida(p,reglas,s3)             → regla efectiva de la partida (según garantía y toggle del bloque)
+sumAjustado(enc,s1,s3)                → Σ V.Real × regla por partida
+calcIndemnizacion(enc,s1,s3)          → MAX(0, ajustado − franquicia)
+fraseIndemn(s3,indemn)                → frase de propuesta según modo y perceptor
 sumReal/sumRepos/sumIVA(rows)
 getModuloArq(provCode, arqKey, cal)   → €/m² de TABLAS_ARQ
 getFactorArq(arqKey)                  → 1.486 | 1.618 | 1.366
 calcVPreexCont(m2, prov, arqKey, cal) → valor preexistente continente completo
 ```
 
-**Modos de valoración Sec3:**
-- **Por Baremo AXA 2025** — IA selecciona partidas desde la descripción; IVA = 0%
-- **Por Factura / Presupuesto** — adjuntar PDFs, la IA extrae líneas con IVA del documento
+**Modos de valoración Sec3 (orden):**
+- **Por Baremo compañía** — IA selecciona partidas desde la descripción; IVA = 0%; sin frase de indemnización
+- **Por Presupuesto** — adjuntar PDFs; columna IVA oculta; frase "a la espera de aportación de la factura…"
+- **Por Factura** — adjuntar PDFs; la IA extrae líneas con IVA del documento; frase "…(IVA incl.)"
 
-**Regla proporcional:**
+**Perceptor (presupuesto / factura):** checkbox exclusivo Particular / Reparador. Con Reparador no hay depreciación (columna oculta) y la frase usa "Reparador:".
+
+**Regla proporcional por bloque (continente / contenido):**
 ```
-primerRiesgo = true             →  regla = 1 (sin infraseguro)
-tipoContinente = "obrasReforma" →  regla = 1
-esHogar = true                  →  regla = 1
-continenteCompleto              →  regla = Asegurado / Preexistente
+Cada partida lleva garantia = "continente" | "contenido".
+regla del bloque = capital asegurado del bloque / valor preexistente del bloque
+                   (solo si hay infraseguro y el toggle del bloque está activo)
+primerRiesgo / obrasReforma / esHogar → continente sin infraseguro → regla = 1
 ```
 
 **Fórmula de indemnización:**
 ```
-Indemnización = MAX(0, Subtotal × Regla proporcional − Franquicia)
+Valor ajustado = Σ por partida ( V.Real × regla del bloque de la partida )
+Indemnización  = MAX(0, Valor ajustado − Franquicia)
 ```
 
 **Verificado contra informes reales:**
@@ -211,6 +220,9 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Sec 0 — Datos del Encargo (editable) | ✅ |
 | Sec 1 — Riesgo + auto-fill póliza + arquitectura 3 niveles | ✅ |
 | Sec 2–4 + Anexos | ✅ |
+| Sec 3 — Regla proporcional por bloque (continente/contenido) | ✅ |
+| Sec 3 — Modos Baremo / Presupuesto / Factura + perceptor | ✅ |
+| Sec 3 — Frase de indemnización automática + drag & drop de filas | ✅ |
 | Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |
 | Fórmula de cálculo auditada y verificada | ✅ |
 | Preview live del informe | ✅ |
