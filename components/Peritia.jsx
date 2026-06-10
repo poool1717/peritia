@@ -1744,6 +1744,17 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[reglas.infraCont,reglas.infraContenido]);
 
+  // Auto-rellenar concepto de garantía y franquicia desde encargo/póliza (editable después)
+  useEffect(()=>{
+    const patch={};
+    if(!data.conceptoGarantia && (enc?.garantia||enc?.causa))
+      patch.conceptoGarantia = enc.garantia||enc.causa;
+    if(!data.franquiciaVal && enc?.franquicia)
+      patch.franquiciaVal = enc.franquicia;
+    if(Object.keys(patch).length) onChange({...data,...patch});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[enc?.garantia,enc?.causa,enc?.franquicia]);
+
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   // ── AI: mejorar texto descripción ────────────────────────────────────────
