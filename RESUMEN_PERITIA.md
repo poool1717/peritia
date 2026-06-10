@@ -37,15 +37,17 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 **Proxy seguro:** `pages/api/claude.js` — inyecta `ANTHROPIC_API_KEY`, añade `anthropic-beta: pdfs-2024-09-25` automáticamente si la petición contiene un PDF, garantiza `max_tokens` y modelo `claude-sonnet-4-6`.
 
+**Proxy meteo:** `pages/api/meteocat.js` — consulta datos abiertos XEMA (Socrata: estaciones `yqwd-vj5e`, medidos `nzvn-apee`) + geocodificación Nominatim. Recibe dirección + fecha, devuelve estación más cercana y resumen del día (racha máx, viento medio, lluvia máx/h y total). Sin clave de pago. Solo Catalunya.
+
 ---
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla`
 
 ---
 
-## Llamadas a la IA (10 en total)
+## Llamadas a la IA (11 en total)
 
 | # | Dónde | Qué hace | max_tokens |
 |---|---|---|---|
@@ -55,10 +57,11 @@ App (Root) — auth state (user, token, sidebarOpen)
 | 4 | Sec1 | Genera texto pericial sección 1 (PERITACION) | 1500 |
 | 5 | Sec1 | Mejora texto documental (INSTANT PAYMENT) | 1500 |
 | 6 | Sec2 | Mejora texto de causas y circunstancias | 1500 |
-| 7 | Sec3 | Genera tabla de daños desde descripción + Baremo AXA | 2000 |
-| 8 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
-| 9 | Sec4 | Genera análisis de cobertura e indemnización | 1500 |
-| 10 | Sec4 | Genera descripción de cobertura desde póliza | 1500 |
+| 7 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
+| 8 | Sec3 | Genera tabla de daños desde descripción + Baremo AXA | 2000 |
+| 9 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
+| 10 | Sec4 | Genera análisis de cobertura e indemnización | 1500 |
+| 11 | Sec4 | Genera descripción de cobertura desde póliza | 1500 |
 
 ---
 
