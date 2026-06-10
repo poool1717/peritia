@@ -1247,13 +1247,19 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
               <div key={g.label} style={{marginBottom:10}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>- {g.label}. {g.label}</div>
                 {g.label==="Reportaje fotográfico"
-                  ?<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-                    {allFotos.map(f=>(
-                      <div key={f.id} style={{borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
-                        <img src={f.url} alt={f.caption} style={{width:"100%",height:80,objectFit:"cover",display:"block"}}/>
+                  ?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                    {allFotos.map(f=>{
+                      const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
+                      return (
+                      <div key={f.id} style={{borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`,background:"#f5f5f5"}}>
+                        {isp
+                          ?<iframe src={f.url} title={f.name} style={{width:"100%",height:80,border:"none",pointerEvents:"none",display:"block"}}/>
+                          :<img src={f.url} alt={f.caption} style={{width:"100%",height:"auto",maxHeight:120,objectFit:"contain",display:"block"}}/>
+                        }
                         {f.caption&&<div style={{fontSize:9,padding:"3px 5px",color:C.muted,textAlign:"center"}}>{f.caption}</div>}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   :<div style={{fontSize:12,color:C.muted}}>
                     {g.items.map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
@@ -2227,19 +2233,28 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
     {id:"meteosim", icon:Image,      label:"Info Meteosim"},
     {id:"facturas", icon:Receipt,    label:"Facturas / Presupuestos"},
   ];
-  const [tab,setTab] = useState("fotos");
-  const [saved,setSaved] = useState(false);
+  const [tab,setTab]       = useState("fotos");
+  const [saved,setSaved]   = useState(false);
+  const [dragging,setDrag] = useState(false);
   const fRef = useRef();
   const bucket = data[tab]||[];
   const CATS = ["Daño general","Zona afectada","Vista exterior","Vista interior","Daño específico","Estado previo","Documento"];
 
+  const isPDF = item => !!(item.type?.includes('pdf') || item.url?.startsWith('data:application/pdf'));
+
   const addFiles = files => {
-    Promise.all(Array.from(files).map(f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r({id:Date.now()+Math.random(),name:f.name,url:e.target.result,caption:"",cat:"Daño general"});fr.readAsDataURL(f);}))).then(news=>onChange({...data,[tab]:[...bucket,...news]}));
+    Promise.all(Array.from(files).map(f=>new Promise(r=>{
+      const fr=new FileReader();
+      fr.onload=e=>r({id:Date.now()+Math.random(),name:f.name,url:e.target.result,type:f.type||"",caption:"",cat:"Daño general"});
+      fr.readAsDataURL(f);
+    }))).then(news=>onChange({...data,[tab]:[...bucket,...news]}));
   };
   const updI=(id,k,v)=>onChange({...data,[tab]:bucket.map(i=>i.id===id?{...i,[k]:v}:i)});
   const delI=id=>onChange({...data,[tab]:bucket.filter(i=>i.id!==id)});
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
   const total = tabs.reduce((a,t)=>a+(data[t.id]||[]).length,0);
+
+  const handleDrop = e => { e.preventDefault(); setDrag(false); addFiles(e.dataTransfer.files); };
 
   return (
     <div className="fade">
@@ -2260,21 +2275,35 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
         })}
       </div>
 
-      <div onClick={()=>fRef.current.click()} style={{border:`2px dashed ${C.border}`,borderRadius:10,padding:28,
-        textAlign:"center",cursor:"pointer",background:C.bg,marginBottom:14}}>
-        <Upload size={24} style={{color:C.muted,marginBottom:7}}/>
-        <div style={{fontSize:13,fontWeight:600,color:C.ink}}>Arrastra archivos o haz clic para seleccionar</div>
+      <div
+        onClick={()=>fRef.current.click()}
+        onDragOver={e=>{e.preventDefault();setDrag(true);}}
+        onDragEnter={e=>{e.preventDefault();setDrag(true);}}
+        onDragLeave={()=>setDrag(false)}
+        onDrop={handleDrop}
+        style={{border:`2px dashed ${dragging?C.accent:C.border}`,borderRadius:10,padding:28,
+          textAlign:"center",cursor:"pointer",background:dragging?C.accentLight:C.bg,
+          marginBottom:14,transition:"background .12s,border-color .12s"}}>
+        <Upload size={24} style={{color:dragging?C.accent:C.muted,marginBottom:7}}/>
+        <div style={{fontSize:13,fontWeight:600,color:dragging?C.accent:C.ink}}>
+          {dragging?"Suelta aquí para añadir":"Arrastra archivos o haz clic para seleccionar"}
+        </div>
         <div style={{fontSize:12,color:C.muted,marginTop:2}}>Imágenes y PDFs</div>
         <input ref={fRef} type="file" multiple accept="image/*,.pdf" style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
       </div>
 
       {bucket.length>0
-        ?<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+        ?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
           {bucket.map(item=>(
             <div key={item.id} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
-              <div style={{position:"relative"}}>
-                <img src={item.url} alt={item.caption} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
-                <button onClick={()=>delI(item.id)} style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",width:22,height:22,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{position:"relative",background:"#f5f5f5"}}>
+                {isPDF(item)
+                  ?<iframe src={item.url} title={item.name}
+                      style={{width:"100%",height:200,border:"none",pointerEvents:"none",display:"block"}}/>
+                  :<img src={item.url} alt={item.caption}
+                      style={{width:"100%",height:"auto",maxHeight:260,objectFit:"contain",display:"block"}}/>
+                }
+                <button onClick={e=>{e.stopPropagation();delI(item.id);}} style={{position:"absolute",top:5,right:5,background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",width:22,height:22,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}}>
                   <X size={10}/>
                 </button>
               </div>
@@ -2519,7 +2548,13 @@ const exportPDF = (cData, dniPerito='') => {
     ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
     :['El riesgo asegurado se corresponde con: '+(s1.tipoRiesgo||'—')+'.','La fecha de construcción es del año '+(s1.anoConstruccion||'—')+'.','Cuenta con una superficie construida de '+(s1.superficieConstruida||'—')+' M2 en total','Acabados son de calidad: '+(s1.calidad||'—'),'El estado general del riesgo asegurado se encuentra según nuestro criterio: '+(s1.estado||'—'),'Localización del riesgo: el riesgo está situado en '+(enc.lugarIntervencion||'—'),'Referencia catastral del inmueble: '+(s1.refCatastral||'')];
 
-  const fotoImgs=allFotos.map((f,i)=>`<div style="display:inline-block;width:47%;margin:${i%2===0?'0 2% 10px 0':'0 0 10px 2%'};vertical-align:top"><img src="${f.url}" style="width:100%;height:160px;object-fit:cover;border:1px solid #ddd"/>${f.caption?'<div style="font-size:7pt;text-align:center;color:#666;margin-top:2pt">'+f.caption+'</div>':''}</div>`).join('');
+  const fotoImgs=allFotos.map((f,i)=>{
+    const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
+    const media=isp
+      ?`<iframe src="${f.url}" style="width:100%;height:180px;border:none;display:block"></iframe>`
+      :`<img src="${f.url}" style="width:100%;height:auto;max-height:220px;object-fit:contain;display:block;border:1px solid #ddd"/>`;
+    return `<div style="display:inline-block;width:47%;margin:${i%2===0?'0 2% 10px 0':'0 0 10px 2%'};vertical-align:top">${media}${f.caption?'<div style="font-size:7pt;text-align:center;color:#666;margin-top:2pt">'+f.caption+'</div>':''}</div>`;
+  }).join('');
 
   const html=`<!DOCTYPE html><html>
 <head><meta charset="utf-8"/><title>Informe Pericial ${enc.numReferencia||''}</title>
@@ -2557,7 +2592,8 @@ const exportPDF = (cData, dniPerito='') => {
   .firma-table td{vertical-align:top;font-style:italic;font-size:9pt}
   .anex-foto{display:flex;flex-wrap:wrap;gap:8pt}
   .anex-foto-item{width:calc(50% - 4pt)}
-  .anex-foto-item img{width:100%;height:150pt;object-fit:cover;border:0.3pt solid #ddd}
+  .anex-foto-item img{width:100%;height:auto;max-height:200pt;object-fit:contain;border:0.3pt solid #ddd;display:block}
+  .anex-foto-item iframe{width:100%;height:200pt;border:none;display:block}
   .anex-foto-item .cap{font-size:7pt;text-align:center;color:#666;margin-top:2pt}
   @media print{
     .hdr{position:fixed;top:0;left:0;right:0;background:white;padding:5mm 20mm 3mm}
@@ -2640,7 +2676,7 @@ ${allFac.length?'<p>- Factura.</p>':''}
 ${allFotos.length?`<div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2 style="text-align:center">Reportaje fotográfico.</h2>
-<div class="anex-foto">${allFotos.map(f=>`<div class="anex-foto-item"><img src="${f.url}" onerror="this.style.display='none'"/>${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`).join('')}</div>`:''}
+<div class="anex-foto">${allFotos.map(f=>{const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));return `<div class="anex-foto-item">${isp?`<iframe src="${f.url}" style="width:100%;height:200pt;border:none;display:block"></iframe>`:`<img src="${f.url}" onerror="this.style.display='none'"/>`}${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`;}).join('')}</div>`:''}
 `:''}
 <script>window.onload=()=>{window.print();}</script>
 </body></html>`;

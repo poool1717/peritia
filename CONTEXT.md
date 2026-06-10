@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 10 junio 2026 (sesión 5 — Sección 4 renovada: textos automáticos, descripción cobertura desde póliza, propuesta indemnización estructurada)
+**Última actualización:** 10 junio 2026 (sesión 5 — Mejoras en Anexos: drag & drop, PDFs, imágenes sin recorte)
 
 ---
 
@@ -127,6 +127,7 @@ Datos hardcodeados:
   - Descripción de cobertura extraída automáticamente de la póliza (garantías contratadas según causa/cobertura afectada). Editable.
   - Eliminado bloque "Redacción IA — Sección 4".
   - Propuesta de indemnización estructurada y automática: presupuesto → "A la espera de factura… Asegurado: €"; factura+particular → "Asegurado: € (IVA incl.)"; reparador → "Reparador: €"; sin cobertura → "NO se propone indemnización". Editable con botón Restaurar.
+- [x] **Anexos renovados (sesión 5):** drag & drop real en la zona de carga (feedback visual al arrastrar); PDFs se cargan y muestran correctamente con iframe; imágenes muestran tamaño completo sin recorte (objectFit contain). Actualizado en editor, preview, exportación PDF y Word.
 - [ ] Probar en producción la Sec3 y Sec4 renovadas con un caso real
 - [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
