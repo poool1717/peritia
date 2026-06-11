@@ -1168,7 +1168,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
               <tbody>
                 {getPartidas(s3).map((p,i)=>{
                   const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
-                  return (<tr key={i} style={{borderBottom:`1px solid ${C.border}`}}>
+                  return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`}}>
                     <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{p.uds||1}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(p.p)}</td>
@@ -1324,7 +1324,10 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
     if(!data.ubicacion && enc.ubicacionVivienda) upd.ubicacion = enc.ubicacionVivienda;
     if(!data.calidad && enc.calidadPóliza) upd.calidad = enc.calidadPóliza;
     if(Object.keys(upd).length > 0) onChange({...data,...upd});
-  },[]);
+    // Depende de los campos de origen de la póliza: si la extracción llega
+    // después del primer render, el auto-relleno se dispara igualmente. Las
+    // guardas !data.X evitan sobrescribir ediciones del perito.
+  },[enc.tipoVivienda, enc.usoVivienda, enc.ubicacionVivienda, enc.calidadPóliza]);
 
   // Auto-init instant text
   useEffect(()=>{
@@ -1332,7 +1335,9 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
       const loc = enc.lugarIntervencion||enc.municipio||"";
       onChange({...data, textoInstant: `Localización del riesgo: el riesgo está situado en ${loc}. Este siniestro se ha gestionado documentalmente.`});
     }
-  },[esInstant]);
+    // Incluye la localización de origen: si llega tras el primer render, el
+    // texto se inicializa igualmente (la guarda !data.textoInstant evita repetir).
+  },[esInstant, enc.lugarIntervencion, enc.municipio]);
 
   const genTexto = async () => {
     setAiLoad(true);
