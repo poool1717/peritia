@@ -88,6 +88,8 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | `sbDb` caía al anon key sin sesión válida (`token\|\|SB_KEY`) | Fallback inseguro: operaba como anónimo sin user_id | `sbDb` rechaza la operación si falta token |
 | Guardado "optimista" que podía mentir | `saveToSb` no comprobaba el resultado; la UI mostraba "guardado" tras 1,2 s fijos | `saveToSb` confirma el PATCH, reintenta una vez y expone `saveState`; indicador real en la barra del editor |
 | La IA fallaba en silencio (campo vacío sin explicación) | `parseJSON` devolvía `{}` al no poder interpretar la respuesta | `parseJSON` marca `_parseError`; helper `iaError` + alerts en Sec1/Sec3 |
+| Auto-relleno de Sec1 no se aplicaba si la póliza llegaba tras el render | `useEffect` con deps `[]`/`[esInstant]` solo corría al montar | Deps basadas en los campos de origen `enc.*`; guardas `!data.X` evitan sobrescribir |
+| `key={i}` en tabla de vista previa de partidas | Índice como key podía causar bugs al reordenar/borrar | `key={p.id||i}` |
 
 ---
 
@@ -136,7 +138,9 @@ Datos hardcodeados:
   - Propuesta de indemnización estructurada y automática: presupuesto → "A la espera de factura… Asegurado: €"; factura+particular → "Asegurado: € (IVA incl.)"; reparador → "Reparador: €"; sin cobertura → "NO se propone indemnización". Editable con botón Restaurar.
 - [x] **Anexos renovados (sesión 5):** drag & drop real en la zona de carga (feedback visual al arrastrar); PDFs se cargan y muestran correctamente con iframe; imágenes muestran tamaño completo sin recorte (objectFit contain). Actualizado en editor, preview, exportación PDF y Word.
 - [ ] Probar en producción la Sec3 y Sec4 renovadas con un caso real
-- [ ] **Pendientes de la auditoría (sesión 6) — opcionales:** activar "Leaked Password Protection" en Supabase (1 clic); dividir `Peritia.jsx` (3.107 líneas) en módulos por sección; cambiar `key={i}` por `key={p.id}` en tablas de partidas; fijar dependencias de `useEffect` (Sec1 líneas ~1300); validar respuestas de IA con esquema (zod) en más puntos
+- [x] **Auditoría sesión 6 — punto 1:** "Leaked Password Protection" activado en Supabase (Attack Protection)
+- [x] **Auditoría sesión 6 — punto 6:** `key={p.id||i}` en la tabla de vista previa de Sec3 (la editable ya lo tenía); dependencias de los `useEffect` de auto-relleno de Sec1 ahora basadas en los campos de origen (`enc.*`) para reaccionar a la extracción asíncrona de la póliza sin bucles
+- [ ] **Pendiente de la auditoría — opcional (sesión dedicada):** dividir `Peritia.jsx` (3.107 líneas) en módulos por sección (punto 5, refactor grande); validar respuestas de IA con esquema (zod) en más puntos
 - [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
