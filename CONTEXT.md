@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 10 junio 2026 (sesión 5 — Mejoras en Anexos: drag & drop, PDFs, imágenes sin recorte)
+**Última actualización:** 11 junio 2026 (sesión 6 — Auditoría técnica + endurecimiento: auth segura, guardado verificado, avisos de IA)
 
 ---
 
@@ -37,6 +37,10 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] Botón Guardar eliminado de Sec1 (guardado automático)
 - [x] handleDone resiliente (abre editor aunque Supabase falle)
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
+- [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
+  - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
+  - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
+  - **Avisos de IA:** `parseJSON` marca respuestas no interpretables con `_parseError` (en vez de `{}` silencioso); nuevo helper `iaError(parsed)`. Sec3 (generar partidas / extraer facturas) y Sec1 (texto descriptivo) avisan al usuario cuando la IA no devuelve datos válidos.
 - [x] **Sección 2 — Verificación meteorológica automática (XEMA / Meteocat):** en siniestros atmosféricos, botón que localiza la estación XEMA más cercana al lugar del siniestro, consulta viento y lluvia del día del siniestro y los compara con los umbrales de la póliza. Genera tabla de datos + párrafo pericial redactado por IA. Tabla y texto se incrustan en el informe (preview, Word y PDF) y en el índice de anexos. Fuente: datos abiertos de la Generalitat (Socrata), gratis y sin clave de pago.
 - [x] **Sección 3 — Valoración renovada (sesión 5):**
   - Parámetros de garantía en **dos bloques (Continente / Contenido)**, cada uno con capital asegurado, valor preexistente, infraseguro y toggle de regla proporcional.
@@ -81,13 +85,16 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | Tipos arquitectura insuficientes (solo hotel/local) | MOD_ARQ tenía 2 tipos × 7 provincias | TABLAS_ARQ con 63 tipos × 6 provincias extraídos del Excel tablas_calculo_2025 |
 | Subtotal de la tabla de valoración no sumaba (modo factura) | `getPartidas` leía `s3.pLibres` (vacío) cuando el modo era factura, pero las partidas se guardaban en `s3.partidas` | `getPartidas` lee siempre `s3.partidas` (fuente única) |
 | Regla proporcional no distinguía continente de contenido | `calcRegla` devolvía un único coeficiente del continente | Nuevo `calcReglas` devuelve regla por bloque; cada partida lleva su `garantia` y aplica la regla correspondiente |
+| `sbDb` caía al anon key sin sesión válida (`token\|\|SB_KEY`) | Fallback inseguro: operaba como anónimo sin user_id | `sbDb` rechaza la operación si falta token |
+| Guardado "optimista" que podía mentir | `saveToSb` no comprobaba el resultado; la UI mostraba "guardado" tras 1,2 s fijos | `saveToSb` confirma el PATCH, reintenta una vez y expone `saveState`; indicador real en la barra del editor |
+| La IA fallaba en silencio (campo vacío sin explicación) | `parseJSON` devolvía `{}` al no poder interpretar la respuesta | `parseJSON` marca `_parseError`; helper `iaError` + alerts en Sec1/Sec3 |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~2.960 · Balance llaves: 0
+Líneas: ~3.107 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
@@ -129,6 +136,7 @@ Datos hardcodeados:
   - Propuesta de indemnización estructurada y automática: presupuesto → "A la espera de factura… Asegurado: €"; factura+particular → "Asegurado: € (IVA incl.)"; reparador → "Reparador: €"; sin cobertura → "NO se propone indemnización". Editable con botón Restaurar.
 - [x] **Anexos renovados (sesión 5):** drag & drop real en la zona de carga (feedback visual al arrastrar); PDFs se cargan y muestran correctamente con iframe; imágenes muestran tamaño completo sin recorte (objectFit contain). Actualizado en editor, preview, exportación PDF y Word.
 - [ ] Probar en producción la Sec3 y Sec4 renovadas con un caso real
+- [ ] **Pendientes de la auditoría (sesión 6) — opcionales:** activar "Leaked Password Protection" en Supabase (1 clic); dividir `Peritia.jsx` (3.107 líneas) en módulos por sección; cambiar `key={i}` por `key={p.id}` en tablas de partidas; fijar dependencias de `useEffect` (Sec1 líneas ~1300); validar respuestas de IA con esquema (zod) en más puntos
 - [ ] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
