@@ -156,10 +156,13 @@ const sbAuth = async (path, body) => {
 };
 
 const sbDb = async (path, method='GET', body=null, token='') => {
+  // Sin sesión válida no se opera contra la BD: rechazamos en lugar de
+  // caer al anon key, que daría una identidad anónima sin user_id.
+  if(!token){ console.error("sbDb: sin token de sesión, operación cancelada"); return null; }
   const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
     method, headers:{
       'Content-Type':'application/json', 'apikey':SB_KEY,
-      'Authorization':`Bearer ${token||SB_KEY}`,
+      'Authorization':`Bearer ${token}`,
       'Prefer':'return=representation'
     },
     body: body ? JSON.stringify(body) : undefined
@@ -233,7 +236,18 @@ const parseJSON = txt => {
     const m=txt.match(p);
     if(m){try{return JSON.parse(m[1]||m[0]);}catch{}}
   }
-  return {};
+  // No se pudo interpretar como JSON: lo marcamos en vez de devolver {} en
+  // silencio, para que quien llama pueda avisar al usuario.
+  return {_parseError:true};
+};
+
+// Devuelve un mensaje para el usuario si la respuesta de la IA no es usable,
+// o null si es válida. Cubre errores de API y respuestas no interpretables.
+const iaError = parsed => {
+  if(!parsed || typeof parsed!=="object") return "La IA no devolvió una respuesta válida.";
+  if(parsed._apiError) return `Error de la API de IA (${parsed._status||"?"}): ${parsed._msg||"sin detalle"}.`;
+  if(parsed._parseError) return "La IA devolvió una respuesta que no se pudo interpretar. Vuelve a intentarlo.";
+  return null;
 };
 
 // ─── METEO XEMA (datos abiertos Meteocat) ────────────────────────────────────
@@ -1335,9 +1349,13 @@ REF.CATASTRAL: ${data.refCatastral||"No aportada"}
 CONTINENTE: Asegurado ${fmtE(capCont)} / Preexistente ${fmtE(vPre)} / Infraseguro ${vPre>capCont&&capCont>0?((vPre-capCont)/vPre*100).toFixed(2):"0,00"}%
 Redacta en viñetas, siguiendo el estilo de un informe pericial real.`,
       onTokens
-    ).catch(()=>"Error al conectar con la IA.");
-    onChange({...data,aiText:text,aiEdited:false,aiApplied:false});
+    ).catch(()=>'{"_apiError":true}');
     setAiLoad(false);
+    if(!text || text.includes('"_apiError"')){
+      alert("No se pudo generar el texto: la IA no respondió correctamente. Inténtalo de nuevo.");
+      return;
+    }
+    onChange({...data,aiText:text,aiEdited:false,aiApplied:false});
   };
 
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
@@ -1808,6 +1826,8 @@ Devuelve SOLO:
       onTokens, 2000
     ).catch(()=>'{"partidas":[]}');
     const j = parseJSON(raw);
+    const err = iaError(j);
+    if(err){ setGenLoad(false); alert(err); return; }
     if(j.partidas?.length>0){
       // Merge baremo price from BAREMO array
       const rows = j.partidas.map(p=>{
@@ -1815,6 +1835,8 @@ Devuelve SOLO:
         return {...p, id:Date.now()+Math.random(), p:ref?ref.p:p.p, desc:ref?ref.desc:p.desc, iva:0, depr:p.depr||false, pctDepr:p.pctDepr||0, cobertura:p.cobertura!==false};
       });
       onChange({...data,partidas:rows});
+    } else {
+      alert("La IA no encontró partidas en la descripción de daños. Revisa el texto e inténtalo de nuevo.");
     }
     setGenLoad(false);
   };
@@ -1825,6 +1847,7 @@ Devuelve SOLO:
     setGenLoad(true);
     const toB64 = f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(',')[1]);fr.readAsDataURL(f);});
     let all=[];
+    let hadError=false;
     for(const fac of facturas){
       if(!fac.file) continue;
       const b64 = await toB64(fac.file);
@@ -1836,9 +1859,12 @@ Devuelve SOLO:
         onTokens, 2000
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
-      if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random()}))];
+      if(iaError(j)) hadError=true;
+      else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random()}))];
     }
     if(all.length>0) onChange({...data,partidas:all});
+    else if(hadError) alert("La IA no pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.");
+    else alert("No se encontraron líneas en las facturas adjuntas.");
     setGenLoad(false);
   };
 
@@ -2860,7 +2886,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen}) => {
+const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen,onFlushSave,saveState}) => {
   const [sec,setSec]         = useState("informe");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
@@ -2874,7 +2900,14 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const goNext = () => { if(curIdx<secIds.length-1) setSec(secIds[curIdx+1]); };
   const goPrev = () => { if(curIdx>0) setSec(secIds[curIdx-1]); };
 
-  const handleSave = () => { setSaving(true); setTimeout(()=>setSaving(false),1200); };
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if(onFlushSave) await onFlushSave();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const commonProps = {onNext:goNext,onPrev:goPrev,onSave:handleSave,onTokens:addTokens};
 
@@ -2910,6 +2943,9 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           <div style={{color:"rgba(255,255,255,.4)",fontSize:10}}>{cData.encargo?.compania||""} · {cData.encargo?.numReferencia||""}</div>
         </div>
         <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
+          {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:11,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
+          {saveState==="saved" && <div style={{color:C.green,fontSize:11,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
+          {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
           <div style={{textAlign:"right"}}>
             <div style={{color:"rgba(255,255,255,.35)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo IA</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:11,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
@@ -2981,6 +3017,7 @@ export default function App(){
   const [active,setActive] = useState(null);
   const [sbLoading,setSbLoading]   = useState(false);
   const [sidebarOpen,setSidebarOpen] = useState(true);
+  const [saveState,setSaveState]   = useState("idle"); // idle | saving | saved | error
   const sbSaveTimer = useRef(null);
 
   // Cargar informes del usuario desde Supabase
@@ -3015,14 +3052,26 @@ export default function App(){
 
   const openCase  = c => { setActive(c); setView("editor"); };
 
-  const saveToSb = (u) => {
-    if(!u._sbId||!token) return;
-    sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', {
+  // Guarda en Supabase y confirma el resultado. Reintenta una vez ante un
+  // fallo transitorio (red/servidor). Devuelve true si se guardó de verdad.
+  const saveToSb = async (u) => {
+    if(!u._sbId||!token) return false;
+    const payload = {
       encargo:u.encargo||{}, s1:u.s1||{}, s2:u.s2||{}, s3:u.s3||{}, s4:u.s4||{},
       anexos:u.anexos||{}, estado:u.estado||'borrador',
       num_referencia:u.encargo?.numReferencia||'',
       compania:u.encargo?.compania||'', asegurado:u.encargo?.asegurado||''
-    }, token);
+    };
+    setSaveState("saving");
+    let res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
+    if(!res){
+      await new Promise(r=>setTimeout(r,2000));
+      res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
+    }
+    const ok = !!res;
+    setSaveState(ok?"saved":"error");
+    if(ok) setTimeout(()=>setSaveState(s=>s==="saved"?"idle":s),2500);
+    return ok;
   };
 
   const updateCase = u => {
@@ -3031,6 +3080,13 @@ export default function App(){
       clearTimeout(sbSaveTimer.current);
       sbSaveTimer.current = setTimeout(() => saveToSb(u), 5000);
     }
+  };
+
+  // Guardado inmediato (botón "Guardar cambios"): cancela el debounce y
+  // persiste ya, devolviendo el resultado real para reflejarlo en la UI.
+  const flushSave = () => {
+    clearTimeout(sbSaveTimer.current);
+    return saveToSb(active);
   };
 
   const deleteCase = async id => {
@@ -3042,7 +3098,7 @@ export default function App(){
 
   if(!user) return <LoginScreen onAuth={handleAuth}/>;
   if(view==="upload") return <UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/>;
-  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>;
+  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState}/>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
     <link rel="stylesheet" href={FONT}/>
