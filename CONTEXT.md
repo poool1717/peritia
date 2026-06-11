@@ -12,6 +12,8 @@ login → subida PDFs → extracción IA → editor → guardar → exportar PDF
 
 La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
 
+**Sesión 6 (auditoría técnica):** revisión completa de seguridad, fiabilidad y mantenibilidad. Aplicados en producción los puntos 1–4 y 6: protección de contraseñas filtradas (Supabase), auth sin fallback inseguro, guardado verificado con reintento e indicador visible, avisos al usuario cuando la IA falla, keys estables en tablas de partidas y dependencias correctas en los `useEffect` de auto-relleno de Sec1. Queda pendiente para una sesión dedicada el punto 5 (dividir `Peritia.jsx`, 3.107 líneas, en módulos por sección — refactor grande).
+
 ---
 
 ## Lo que está completado y funcionando
