@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.100 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.277 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -58,7 +58,7 @@ App (Root) — auth state (user, token, sidebarOpen)
 | 5 | Sec1 | Mejora texto documental (INSTANT PAYMENT) | 1500 |
 | 6 | Sec2 | Mejora texto de causas y circunstancias | 1500 |
 | 7 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
-| 8 | Sec3 | Genera tabla de daños desde descripción + Baremo AXA | 2000 |
+| 8 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) | 2000 |
 | 9 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
 
 > **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
@@ -129,7 +129,7 @@ sec4IndemnAuto(s3, indemn)            → propuesta de indemnización estructura
 ```
 
 **Modos de valoración Sec3 (orden):**
-- **Por Baremo compañía** — IA selecciona partidas desde la descripción; IVA = 0%; sin frase de indemnización
+- **A modo informativo** (antes "Por Baremo") — IA selecciona partidas del baremo por oficio según tipo de daño y condición de activación; IVA = 0%; columna "Oficio"; "Costos indirectos" = 8% del subtotal
 - **Por Presupuesto** — adjuntar PDFs; columna IVA oculta; frase "a la espera de aportación de la factura…"
 - **Por Factura** — adjuntar PDFs; la IA extrae líneas con IVA del documento; frase "…(IVA incl.)"
 
@@ -154,7 +154,7 @@ Indemnización  = MAX(0, Valor ajustado − Franquicia)
 Texto de valoración (sec4IntroAuto, según modo Sec3):
   Presupuesto → "Procedemos a realizar valoración… en base al presupuesto aportado…"
   Factura     → "Procedemos a realizar valoración… en base a la factura aportada…"
-  Baremo      → "A la espera de aportación de presupuestos o facturas… valoración unilateral… en base a baremo."
+  A modo informativo → "A la espera de aportación de presupuestos o facturas… valoración unilateral a modo informativo." + propuesta de indemnización (Asegurado)
 
 Descripción de la cobertura:
   Extraída de la póliza (enc.descripciones) cruzando garantía afectada / causa.
@@ -211,7 +211,7 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 
 ## Datos de referencia integrados
 
-**Baremo AXA 2025** — 22 partidas (IVA = 0%): Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
+**Baremo por oficio** (sesión 7) — 47 partidas (IVA = 0%): Albañilería, Pintura, Lampistería, Electricidad, Carpintería, Cerrajería, Limpieza, Auxiliares. Cada partida lleva precio base, tipo de daño y condición de activación. "Costos indirectos" = 8% del subtotal (automático).
 
 **TABLAS_ARQ 2025** — 63 tipos de arquitectura × 6 provincias (Baleares, Barcelona, Girona, Lleida, Tarragona, Otras) × 3 calidades (Básica/Media/Alta). Fuente: Excel tablas_calculo_2025. "Otras" = media de las 5 provincias. Reemplaza el antiguo MOD_ARQ.
 

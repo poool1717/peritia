@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 11 junio 2026 (sesión 6 — Auditoría técnica + endurecimiento: auth segura, guardado verificado, avisos de IA)
+**Última actualización:** 14 junio 2026 (sesión 7 — Optimizaciones tras pruebas con siniestros reales: Sec 0–4 + baremos nuevos + meteo)
 
 ---
 
@@ -13,6 +13,14 @@ login → subida PDFs → extracción IA → editor → guardar → exportar PDF
 La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
 
 **Sesión 6 (auditoría técnica):** revisión completa de seguridad, fiabilidad y mantenibilidad. Aplicados en producción los puntos 1–4 y 6: protección de contraseñas filtradas (Supabase), auth sin fallback inseguro, guardado verificado con reintento e indicador visible, avisos al usuario cuando la IA falla, keys estables en tablas de partidas y dependencias correctas en los `useEffect` de auto-relleno de Sec1. Queda pendiente para una sesión dedicada el punto 5 (dividir `Peritia.jsx`, 3.107 líneas, en módulos por sección — refactor grande).
+
+**Sesión 7 (optimizaciones tras siniestros reales):** ronda de mejoras pedidas por el perito tras probar casos reales, repartidas por todas las secciones. Compila limpio (`next build` OK). Resumen:
+- **Sec 0:** causas de empresa (humo, choque, vandalismo, atmosféricos, etc.) → garantía "Riesgos Extensivos" automática; campo "Nº exp. interno" renombrado a "Nº de Encargo"; "Franquicia general" renombrada a "Franquicia" y ahora toma el valor de la franquicia de la cobertura afectada (extracción por cobertura desde la póliza: `franquicias{}`); extracción de valor nuevo (continente/contenido) y % de depreciación de la póliza.
+- **Sec 1:** estado del riesgo "Regular" → "Usado"; "tablas 2025" → "tablas"; redacción IA en viñetas cortas y simplificadas.
+- **Sec 2:** la verificación meteorológica XEMA solo aparece si la garantía afectada es Atmosféricos o Riesgos Extensivos; el umbral se evalúa según la causa (viento/lluvia/pedrisco); tabla meteo nueva (Temperatura ºC, Humedad rel. %, Racha máx. diaria, Intensidad máx. precipitación; fuera Viento medio, Lluvia máx y Lluvia total); proxy `meteocat.js` devuelve tempMax/humitatMax (variables XEMA 32/33). Contenido a 0 € se muestra como 0,00 € sin alerta de "no detectado".
+- **Sec 3:** baremos AXA sustituidos por los baremos por oficio (ALBAÑILERÍA, PINTURA, LAMPISTERÍA, ELECTRICIDAD, CARPINTERÍA, CERRAJERÍA, LIMPIEZA, AUXILIARES); la IA selecciona partidas por tipo de daño y condición de activación; "Costos indirectos" = 8% del subtotal (automático); columna nueva "Oficio" (mayúsculas); perceptores Asegurado/Reparador + perjudicados nombrados; bloque "¿Hay perjudicados?" (Sí/No + nombres); "Por baremo" → "A modo informativo"; depreciación de póliza aplicada a partidas si hay valor nuevo.
+- **Sec 4:** "en base a baremo" → "a modo informativo"; descripción de cobertura copia el texto exacto de la póliza mapeando el nombre comercial al código (RGEXT = Riesgos Extensivos); propuesta de indemnización ahora se genera y actualiza automáticamente (también en modo informativo).
+- **Informe:** foto de la cartografía catastral (primera imagen del anexo Info Catastral) tras la referencia catastral, en vista previa, Word y PDF.
 
 ---
 
@@ -92,13 +100,16 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 | La IA fallaba en silencio (campo vacío sin explicación) | `parseJSON` devolvía `{}` al no poder interpretar la respuesta | `parseJSON` marca `_parseError`; helper `iaError` + alerts en Sec1/Sec3 |
 | Auto-relleno de Sec1 no se aplicaba si la póliza llegaba tras el render | `useEffect` con deps `[]`/`[esInstant]` solo corría al montar | Deps basadas en los campos de origen `enc.*`; guardas `!data.X` evitan sobrescribir |
 | `key={i}` en tabla de vista previa de partidas | Índice como key podía causar bugs al reordenar/borrar | `key={p.id||i}` |
+| Propuesta de indemnización no se generaba automáticamente | El `useEffect` de Sec4 tenía deps `[]` (solo al montar) y en baremo devolvía `""` | Regenera con deps `[modoVal,indemn,perceptorTipo,partidas]` mientras no se edite a mano (`textoIndemnEdited`); el modo informativo también eleva propuesta |
+| Descripción de cobertura no encontraba Riesgos Extensivos | Se buscaba `enc.descripciones[nombreComercial]` pero las claves son códigos (RGEXT, DAGUA…) | Mapeo nombre→código en Sec4 (Riesgos Extensivos → RGEXT) antes de copiar el texto exacto |
+| Verificación meteo aparecía en siniestros no atmosféricos | `esSiniestroAtmosferico` miraba causa/descripción además de la garantía | Ahora se limita a la GARANTÍA afectada (Atmosféricos o Riesgos Extensivos); el umbral se evalúa según la causa |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~3.107 · Balance llaves: 0
+Líneas: ~3.277 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
@@ -121,7 +132,7 @@ Constantes:
   SB_KEY = "eyJhbGci...TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw"
 
 Datos hardcodeados:
-  BAREMO[] — 22 partidas AXA 2025 (IVA=0%)
+  BAREMO[] — 47 partidas por oficio (IVA=0%); campos oficio/desc/u/p/rend/dano/cond; "Costos indirectos" = 8% del total (indirecto:true)
   MOD_ARQ{} — módulos arquitectura por provincia y calidad
   PROVINCIAS[] — lista provincias con código
   COMPANIAS[] — 14 aseguradoras compatibles
@@ -162,10 +173,12 @@ Datos hardcodeados:
 
 ---
 
-## Datos de referencia — Baremo AXA 2025
+## Datos de referencia — Baremo por oficio (sesión 7)
 
-22 partidas con precio por m² o unidad. IVA siempre 0% en modo baremo.
-Categorías: Pintura, Albañilería, Fontanería, Electricidad, Carpintería, Cristalería, Loza, Otros.
+47 partidas con precio base por m²/ml/u. IVA siempre 0% en modo "a modo informativo".
+Oficios: Albañilería, Pintura, Lampistería, Electricidad, Carpintería, Cerrajería, Limpieza, Auxiliares.
+Cada partida lleva tipo de daño y condición de activación (la IA las usa para auto-seleccionar).
+"Costos indirectos" (Auxiliares) = 8% del subtotal de las demás partidas (cálculo automático, `indirecto:true`).
 
 ## Datos de referencia — Módulos arquitectura
 

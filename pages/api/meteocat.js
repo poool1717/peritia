@@ -17,6 +17,8 @@ const DS_MESURADES = 'nzvn-apee';
 const VAR_VENT_MITJA = '30';  // Velocitat del vent a 10 m (mitjana) — m/s
 const VAR_PRECIP     = '35';  // Precipitació — mm (= l/m²)
 const VAR_RATXA      = '50';  // Ratxa màxima del vent a 10 m — m/s
+const VAR_TEMP       = '32';  // Temperatura — ºC
+const VAR_HUMITAT    = '33';  // Humitat relativa — %
 
 // Cache de estaciones en memoria (se conserva mientras la lambda está caliente)
 let _estacionsCache = null;
@@ -103,7 +105,7 @@ const resumirDia = async (codi, fecha) => {
   const rows = await fetchJSON(url).catch(() => []);
   if (!rows || !rows.length) return null;
 
-  const vMitja = [], vRatxa = [], precipPorHora = {};
+  const vMitja = [], vRatxa = [], temps = [], humitats = [], precipPorHora = {};
   let precipTotal = 0, ratxaHora = null, ratxaMax = -1, nVent = 0, nPrecip = 0;
 
   for (const r of rows) {
@@ -120,6 +122,8 @@ const resumirDia = async (codi, fecha) => {
       const h = (r.data_lectura || '').slice(0, 13); // agrupa por hora natural
       precipPorHora[h] = (precipPorHora[h] || 0) + val;
     }
+    else if (cv === VAR_TEMP) temps.push(val);
+    else if (cv === VAR_HUMITAT) humitats.push(val);
   }
   if (nVent === 0 && nPrecip === 0) return null;
 
@@ -134,6 +138,9 @@ const resumirDia = async (codi, fecha) => {
     vientoMedioMax: r1(msToKmh(maxMitja)),
     precipTotal: r1(precipTotal),
     precipMaxHoraria: r1(precipMaxHoraria),
+    tempMax: temps.length ? r1(Math.max(...temps)) : null,
+    tempMin: temps.length ? r1(Math.min(...temps)) : null,
+    humitatMax: humitats.length ? r1(Math.max(...humitats)) : null,
     tieneVent: nVent > 0,
     tienePrecip: nPrecip > 0,
   };
