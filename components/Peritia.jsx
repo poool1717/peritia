@@ -19,30 +19,69 @@ const C = {
 };
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
+// Baremo de reparaciones (precios base sin IVA). Campos:
+//   oficio · desc (partida) · u (unidad) · p (precio base €) · rend (rendimiento ud/h)
+//   dano (tipo de daño) · cond (condición de activación) · det (descripción)
+// La partida "Costos indirectos" lleva indirecto:true → su importe = 8% del subtotal.
 const BAREMO = [
-  {g:"Pintura",      cod:"PIN-01",desc:"Pintado paramentos verticales",      u:"m²", p:8.50},
-  {g:"Pintura",      cod:"PIN-02",desc:"Pintado de techos",                   u:"m²", p:10.20},
-  {g:"Pintura",      cod:"PIN-03",desc:"Papel pintado — colocación",          u:"m²", p:15.80},
-  {g:"Albañilería",  cod:"ALB-01",desc:"Tabique ladrillo hueco sencillo",     u:"m²", p:38.50},
-  {g:"Albañilería",  cod:"ALB-02",desc:"Guarnecido y enlucido de yeso",       u:"m²", p:12.40},
-  {g:"Albañilería",  cod:"ALB-03",desc:"Solado baldosa cerámica",             u:"m²", p:32.00},
-  {g:"Albañilería",  cod:"ALB-04",desc:"Alicatado azulejo",                   u:"m²", p:35.00},
-  {g:"Albañilería",  cod:"ALB-05",desc:"Falso techo de escayola",             u:"m²", p:28.00},
-  {g:"Fontanería",   cod:"FON-01",desc:"Localización y reparación de fuga",   u:"ud", p:185.00},
-  {g:"Fontanería",   cod:"FON-02",desc:"Sustitución tubería cobre (ml)",      u:"ml", p:22.50},
-  {g:"Fontanería",   cod:"FON-03",desc:"Grifo monomando — sustitución",       u:"ud", p:95.00},
-  {g:"Electricidad", cod:"ELE-01",desc:"Punto de luz completo",               u:"ud", p:65.00},
-  {g:"Electricidad", cod:"ELE-02",desc:"Toma de corriente doble",             u:"ud", p:55.00},
-  {g:"Electricidad", cod:"ELE-03",desc:"Cuadro eléctrico — sustitución",      u:"ud", p:380.00},
-  {g:"Carpintería",  cod:"CAR-01",desc:"Puerta de paso interior",             u:"ud", p:285.00},
-  {g:"Carpintería",  cod:"CAR-02",desc:"Ventana aluminio RPT 100×120cm",      u:"ud", p:320.00},
-  {g:"Cristalería",  cod:"CRI-01",desc:"Vidrio simple hasta 1m²",             u:"ud", p:55.00},
-  {g:"Cristalería",  cod:"CRI-02",desc:"Doble acristalamiento 100×120cm",     u:"ud", p:145.00},
-  {g:"Loza",         cod:"LOZ-01",desc:"Inodoro — sustitución completa",      u:"ud", p:320.00},
-  {g:"Loza",         cod:"LOZ-02",desc:"Lavabo — sustitución completa",       u:"ud", p:185.00},
-  {g:"Otros",        cod:"OTR-01",desc:"Cuadro / obra de arte — reposición",  u:"ud", p:150.00},
-  {g:"Otros",        cod:"OTR-02",desc:"Persiana enrollable — sustitución",   u:"ud", p:165.00},
+  // ── ALBAÑILERÍA ──
+  {oficio:"ALBAÑILERÍA",desc:"Demolición de pavimento existente",u:"m²",p:18,rend:8,dano:"Sustitución de baldosa",cond:"Siempre",det:"Retirada de pavimento hasta soporte"},
+  {oficio:"ALBAÑILERÍA",desc:"Demolición de revestimiento vertical",u:"m²",p:16,rend:7,dano:"Humedad",cond:"Si hay azulejo",det:"Picado de azulejo en paredes"},
+  {oficio:"ALBAÑILERÍA",desc:"Picado de enlucido",u:"m²",p:12,rend:10,dano:"Humedad",cond:"Siempre",det:"Retirada de yeso deteriorado"},
+  {oficio:"ALBAÑILERÍA",desc:"Repicado y saneado",u:"m²",p:14,rend:8,dano:"Humedad",cond:"Siempre",det:"Saneado por humedad"},
+  {oficio:"ALBAÑILERÍA",desc:"Enlucido con mortero",u:"m²",p:18,rend:6,dano:"Humedad / Rotura de tubería",cond:"Siempre",det:"Regularización de superficies"},
+  {oficio:"ALBAÑILERÍA",desc:"Formación de pavimento",u:"m²",p:22,rend:5,dano:"Sustitución de baldosa",cond:"Si procede",det:"Capa de mortero y preparación"},
+  {oficio:"ALBAÑILERÍA",desc:"Suministro baldosa cerámica",u:"m²",p:20,rend:null,dano:"Sustitución de baldosa",cond:"Siempre",det:"Material cerámico estándar"},
+  {oficio:"ALBAÑILERÍA",desc:"Colocación baldosa cerámica",u:"m²",p:28,rend:5,dano:"Sustitución de baldosa",cond:"Siempre",det:"Instalación y rejuntado"},
+  {oficio:"ALBAÑILERÍA",desc:"Reparación de agujero en pared",u:"u",p:25,rend:4,dano:"Daño menor",cond:"Si procede",det:"Pequeña reparación puntual"},
+  {oficio:"ALBAÑILERÍA",desc:"Cierre de cata en pladur",u:"u",p:45,rend:2,dano:"Rotura de tubería",cond:"Si se abre pared",det:"Cierre de registro"},
+  {oficio:"ALBAÑILERÍA",desc:"Gestión de escombros",u:"u",p:35,rend:null,dano:"Humedad / Baldosa / Tubería",cond:"Si hay retirada",det:"Retirada y transporte"},
+  {oficio:"ALBAÑILERÍA",desc:"Protecciones previas",u:"u",p:20,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Plásticos, cintas, cubiertas"},
+  {oficio:"ALBAÑILERÍA",desc:"Desplazamiento albañil",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento del operario"},
+  // ── PINTURA ──
+  {oficio:"PINTURA",desc:"Preparación de superficies",u:"m²",p:6,rend:15,dano:"Humedad / Reparaciones",cond:"Siempre",det:"Lijado y masillado"},
+  {oficio:"PINTURA",desc:"Pintura plástica en paredes",u:"m²",p:10,rend:18,dano:"Humedad / Tubería / Reparaciones",cond:"Siempre",det:"Dos manos"},
+  {oficio:"PINTURA",desc:"Pintura en techo",u:"m²",p:11,rend:16,dano:"Humedad",cond:"Si afecta techo",det:"Dos manos"},
+  {oficio:"PINTURA",desc:"Esmaltado de carpintería",u:"m²",p:22,rend:6,dano:"Daño carpintería",cond:"Si procede",det:"Puertas, marcos, rodapiés"},
+  {oficio:"PINTURA",desc:"Pintura puerta de entrada",u:"u",p:45,rend:2,dano:"Daño carpintería",cond:"Si procede",det:"Interior/exterior"},
+  {oficio:"PINTURA",desc:"Reparación de pequeñas fisuras",u:"u",p:18,rend:5,dano:"Daño menor",cond:"Si procede",det:"Masilla y retoque"},
+  // ── LAMPISTERÍA ──
+  {oficio:"LAMPISTERÍA",desc:"Localización de fuga",u:"u",p:45,rend:1,dano:"Rotura de tubería",cond:"Siempre",det:"Pruebas y detección"},
+  {oficio:"LAMPISTERÍA",desc:"Sustitución de tubería",u:"ml",p:28,rend:3,dano:"Rotura de tubería",cond:"Siempre",det:"Tubería + accesorios"},
+  {oficio:"LAMPISTERÍA",desc:"Reparación de sifón/desagüe",u:"u",p:35,rend:2,dano:"Daño fontanería",cond:"Si procede",det:"Sustitución parcial"},
+  {oficio:"LAMPISTERÍA",desc:"Sustitución de grifo",u:"u",p:65,rend:2,dano:"Daño fontanería",cond:"Si procede",det:"Material e instalación"},
+  {oficio:"LAMPISTERÍA",desc:"Prueba de estanqueidad",u:"u",p:25,rend:2,dano:"Rotura de tubería",cond:"Siempre",det:"Comprobación final"},
+  {oficio:"LAMPISTERÍA",desc:"Desplazamiento fontanero",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento del operario"},
+  // ── ELECTRICIDAD ──
+  {oficio:"ELECTRICIDAD",desc:"Sustitución de mecanismo eléctrico",u:"u",p:22,rend:6,dano:"Daño eléctrico",cond:"Siempre",det:"Interruptor o enchufe"},
+  {oficio:"ELECTRICIDAD",desc:"Reparación punto de luz",u:"u",p:35,rend:3,dano:"Daño eléctrico",cond:"Si procede",det:"Cableado y conexión"},
+  {oficio:"ELECTRICIDAD",desc:"Sustitución de luminaria",u:"u",p:55,rend:2,dano:"Daño eléctrico",cond:"Si procede",det:"Material e instalación"},
+  {oficio:"ELECTRICIDAD",desc:"Revisión instalación eléctrica",u:"u",p:40,rend:2,dano:"Daño eléctrico",cond:"Si hay riesgo",det:"Comprobación general"},
+  {oficio:"ELECTRICIDAD",desc:"Desplazamiento electricista",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento del operario"},
+  // ── CARPINTERÍA ──
+  {oficio:"CARPINTERÍA",desc:"Desmontaje de puerta",u:"u",p:25,rend:3,dano:"Daño carpintería",cond:"Si se sustituye",det:"Retirada de hoja y herrajes"},
+  {oficio:"CARPINTERÍA",desc:"Suministro de puerta",u:"u",p:95,rend:null,dano:"Daño carpintería",cond:"Si no es reparable",det:"Material estándar"},
+  {oficio:"CARPINTERÍA",desc:"Montaje de puerta",u:"u",p:65,rend:2,dano:"Daño carpintería",cond:"Si se sustituye",det:"Instalación completa"},
+  {oficio:"CARPINTERÍA",desc:"Reparación de marco",u:"u",p:35,rend:2,dano:"Daño carpintería",cond:"Si es reparable",det:"Ajustes y refuerzos"},
+  {oficio:"CARPINTERÍA",desc:"Sustitución de cerradura",u:"u",p:55,rend:2,dano:"Daño carpintería",cond:"Si está dañada",det:"Cerradura completa + instalación"},
+  {oficio:"CARPINTERÍA",desc:"Ajustes de carpintería",u:"u",p:25,rend:3,dano:"Daño carpintería",cond:"Si procede",det:"Revisión general"},
+  {oficio:"CARPINTERÍA",desc:"Desplazamiento carpintero",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento del operario"},
+  // ── CERRAJERÍA ──
+  {oficio:"CERRAJERÍA",desc:"Apertura de puerta",u:"u",p:65,rend:1,dano:"Apertura urgente",cond:"Siempre",det:"Intervención urgente"},
+  {oficio:"CERRAJERÍA",desc:"Sustitución de bombín",u:"u",p:45,rend:2,dano:"Apertura urgente",cond:"Si se rompe",det:"Material e instalación"},
+  {oficio:"CERRAJERÍA",desc:"Reparación de cierre",u:"u",p:30,rend:2,dano:"Daño cerrajería",cond:"Si procede",det:"Ajustes y engrase"},
+  {oficio:"CERRAJERÍA",desc:"Desplazamiento cerrajero",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento del operario"},
+  // ── LIMPIEZA ──
+  {oficio:"LIMPIEZA",desc:"Limpieza final de obra",u:"u",p:45,rend:null,dano:"Cualquier siniestro",cond:"Si procede",det:"Retirada de polvo y restos"},
+  {oficio:"LIMPIEZA",desc:"Limpieza por siniestro",u:"u",p:55,rend:null,dano:"Siniestro con suciedad",cond:"Siempre",det:"Agua, barro, hollín"},
+  {oficio:"LIMPIEZA",desc:"Desinfección",u:"u",p:35,rend:null,dano:"Aguas sucias",cond:"Si procede",det:"Tratamiento químico"},
+  // ── AUXILIARES ──
+  {oficio:"AUXILIARES",desc:"Desplazamiento general",u:"u",p:25,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Desplazamiento aplicable a cualquier oficio"},
+  {oficio:"AUXILIARES",desc:"Medios auxiliares",u:"u",p:15,rend:null,dano:"Cualquier siniestro",cond:"Si procede",det:"Escaleras, herramientas, EPIs"},
+  {oficio:"AUXILIARES",desc:"Costos indirectos",u:"u",p:0,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Gestión, coordinación (8% del total)",indirecto:true},
 ];
+// % de costes indirectos sobre el subtotal de las demás partidas
+const PCT_INDIRECTO = 8;
 
 // Tablas módulos arquitectura 2025 — [Básica, Media, Alta] €/m²
 const TABLAS_ARQ = {
@@ -181,8 +220,14 @@ const calcPartida = p => {
   const vReal  = vRepos*(1-(p.depr?(p.pctDepr||0):0)/100)+ivaAmt;
   return {vRepos, ivaAmt, vReal};
 };
-// Partidas activas (con cobertura). Fuente única de verdad: s3.partidas
-const getPartidas = s3 => (s3?.partidas||[]).filter(p=>p.cobertura!==false);
+// Resuelve el importe de las partidas de "costes indirectos" (indirecto:true):
+// su precio = PCT_INDIRECTO % del subtotal de reposición de las demás partidas.
+const resolvePartidas = rows => {
+  const baseRepos = rows.filter(p=>!p.indirecto).reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
+  return rows.map(p=>p.indirecto?{...p,uds:1,p:+(baseRepos*PCT_INDIRECTO/100).toFixed(2)}:p);
+};
+// Partidas activas (con cobertura), con costes indirectos ya calculados. Fuente única: s3.partidas
+const getPartidas = s3 => resolvePartidas((s3?.partidas||[]).filter(p=>p.cobertura!==false));
 const sumRepos = rows => rows.reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
 const sumIVA   = rows => rows.reduce((a,p)=>a+calcPartida(p).ivaAmt,0);
 const sumReal  = rows => rows.reduce((a,p)=>a+calcPartida(p).vReal,0);
@@ -252,9 +297,20 @@ const iaError = parsed => {
 
 // ─── METEO XEMA (datos abiertos Meteocat) ────────────────────────────────────
 // Detecta si el siniestro es de tipo atmosférico (viento, lluvia, pedrisco, nieve…)
+// Solo se considera atmosférico (y se muestra la verificación XEMA) cuando la
+// GARANTÍA AFECTADA es Atmosféricos o Riesgos Extensivos (criterio del perito).
 const esSiniestroAtmosferico = enc => {
-  const t = `${enc?.garantia||""} ${enc?.causa||""} ${enc?.coberturaInferida||""} ${enc?.descripcionSiniestro||""}`.toLowerCase();
-  return /atmosf|viento|vent\b|pedrisco|granizo|lluvia|pluja|nieve|neu\b|temporal|tormenta|tempesta|r[aá]fag|ratxa/.test(t);
+  const g = `${enc?.garantia||""} ${enc?.coberturaInferida||""}`.toLowerCase();
+  return /atmosf|extensiv|rgext/.test(g);
+};
+// Causas atmosféricas presentes según el encargo (para evaluar el umbral correcto)
+const causasMeteo = enc => {
+  const t = `${enc?.causa||""} ${enc?.descripcionSiniestro||""} ${enc?.garantia||""}`.toLowerCase();
+  return {
+    viento:   /viento|vent\b|r[aá]fag|ratxa|temporal|vendaval/.test(t),
+    lluvia:   /lluvia|pluja|precipitaci|agua de lluvia|inundaci|tromba/.test(t),
+    pedrisco: /pedrisco|granizo|calamarsa/.test(t),
+  };
 };
 // Llama al proxy /api/meteocat con los datos del encargo
 const fetchMeteoXEMA = async enc => {
@@ -267,22 +323,30 @@ const fetchMeteoXEMA = async enc => {
   });
   return res.json();
 };
-// ¿Los valores medidos superan los umbrales de la póliza?
+// ¿Los valores medidos superan los umbrales de la póliza? Se evalúa SOLO el
+// umbral correspondiente a la causa del siniestro (viento / lluvia / pedrisco).
 const meteoSupera = (m, enc) => {
+  const c = causasMeteo(enc);
+  const anyCausa = c.viento||c.lluvia||c.pedrisco;
   const uv = parseFloat(enc?.umbralViento)||0, ul = parseFloat(enc?.umbralLluvia)||0;
-  const sv = uv>0 && (m?.rachaMax>=uv), sl = ul>0 && (m?.precipMaxHoraria>=ul);
+  const evalViento = (anyCausa? c.viento : true) && uv>0;
+  const evalLluvia = (anyCausa? (c.lluvia||c.pedrisco) : true) && ul>0;
+  const sv = evalViento && (m?.rachaMax>=uv);
+  const sl = evalLluvia && (m?.precipMaxHoraria>=ul);
   let label = "—";
-  if(uv>0||ul>0) label = sv&&sl?"Sí (viento y lluvia)":sv?"Sí (viento)":sl?"Sí (lluvia)":"No";
-  return {sv, sl, label, hayUmbral:(uv>0||ul>0)};
+  if(evalViento||evalLluvia) label = sv&&sl?"Sí (viento y lluvia)":sv?"Sí (viento)":sl?"Sí (lluvia)":"No";
+  return {sv, sl, label, hayUmbral:(evalViento||evalLluvia)};
 };
 // Tabla de datos meteo (React) — reutilizada en Sec2 y en el preview del informe
 const MeteoTabla = ({m, enc}) => {
   if(!m) return null;
   const sup = meteoSupera(m, enc);
   const alerta = sup.sv||sup.sl;
+  const dash = v => (v||v===0)?v:"—";
   const cols = [["Estación",m.estacio||"—"],["Dist.",`${m.distanciaKm} km`],
-    ["Racha máx.",`${m.rachaMax} km/h`],["Viento medio",`${m.vientoMedioMax} km/h`],
-    ["Lluvia máx/h",`${m.precipMaxHoraria} l/m²`],["Lluvia total",`${m.precipTotal} l/m²`],
+    ["Temperatura",`${dash(m.tempMax)} ºC`],["Humedad rel.",`${dash(m.humitatMax)} %`],
+    ["Racha máx. diaria",`${m.rachaMax} km/h`],
+    ["Int. máx. precip.",`${m.precipMaxHoraria} l/m²·h`],
     ["¿Supera umbral?",sup.label]];
   return (
     <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:8}}>
@@ -305,8 +369,8 @@ const meteoHTML = (m, enc, cls="") => {
   const td = (v,al="left") => `<td style="text-align:${al}">${v}</td>`;
   return `<h3>2.2. Verificación meteorológica (estación automática XEMA):</h3>
 ${m.texto?`<p>${String(m.texto).replace(/\n/g,'<br/>')}</p>`:''}
-<table${cls?` class="${cls}"`:''}><thead><tr><th>Estación</th><th>Dist.</th><th>Racha máx.</th><th>Viento medio</th><th>Lluvia máx/h</th><th>Lluvia total</th><th>¿Supera umbral?</th></tr></thead><tbody>
-<tr>${td(m.estacio||'—')}${td(m.distanciaKm+' km','right')}${td(m.rachaMax+' km/h','right')}${td(m.vientoMedioMax+' km/h','right')}${td(m.precipMaxHoraria+' l/m²','right')}${td(m.precipTotal+' l/m²','right')}${td(sup.label,'center')}</tr>
+<table${cls?` class="${cls}"`:''}><thead><tr><th>Estación</th><th>Dist.</th><th>Temperatura</th><th>Humedad rel.</th><th>Racha máx. diaria</th><th>Int. máx. precip.</th><th>¿Supera umbral?</th></tr></thead><tbody>
+<tr>${td(m.estacio||'—')}${td(m.distanciaKm+' km','right')}${td(((m.tempMax??'—'))+' ºC','right')}${td(((m.humitatMax??'—'))+' %','right')}${td(m.rachaMax+' km/h','right')}${td(m.precipMaxHoraria+' l/m²·h','right')}${td(sup.label,'center')}</tr>
 </tbody></table>
 <p style="font-style:italic;font-size:8pt;color:#666">Fuente: Servei Meteorològic de Catalunya — Xarxa d'Estacions Meteorològiques Automàtiques (XEMA). Datos abiertos de la Generalitat de Catalunya${m.consultadoEl?`. Consulta: ${m.consultadoEl}`:''}.</p>`;
 };
@@ -827,7 +891,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setMsg("Leyendo poliza de seguro...");
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
-      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
+      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"franquicias\": {\n    \"INCEN\": \"franquicia de la cobertura incendio en euros, solo numero. Si no tiene 0\",\n    \"DAGUA\": \"franquicia danos por agua en euros\",\n    \"RGEXT\": \"franquicia riesgos extensivos en euros\",\n    \"ROBO\": \"franquicia robo en euros\",\n    \"DELEC\": \"franquicia danos electricos en euros\",\n    \"RCEXP\": \"franquicia responsabilidad civil explotacion en euros\",\n    \"RCLOC\": \"franquicia responsabilidad civil locatario en euros\"\n  },\n  \"valorNuevoContinente\": true si el continente se asegura a valor de reposicion a nuevo false si no,\n  \"valorNuevoContenido\": true si el contenido se asegura a valor de reposicion a nuevo false si no,\n  \"depreciacionPoliza\": \"porcentaje de depreciacion que la poliza aplica a los bienes en la valoracion, solo numero. Si no aparece 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
       const praw = await callClaude(
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
@@ -862,13 +926,27 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     if(!cobFinal2) cobFinal2 = inferidaDeCausa;
     const ramoU = (enc.ramo||"").toUpperCase();
     const esHogarEnc = ramoU.includes("HOGAR")||ramoU.includes("VIVIENDA");
+    // En pólizas de EMPRESA, estas causas se cubren bajo "Riesgos Extensivos".
+    const RGEXT_RE = /humo|choque|veh[ií]cul|aeronave|ondas?\s*s[oó]nic|s[oó]nic|vandal|tumultuar|huelga|derrame|escape|material\s*fundido|lluvia|viento|pedrisco|granizo|nieve|inundaci|impacto|desperfecto/;
+    const textoCausa = `${enc.causa||""} ${enc.descripcionSiniestro||""} ${enc.coberturaInferida||""}`.toLowerCase();
+    if(!esHogarEnc && RGEXT_RE.test(textoCausa)) cobFinal2 = "Riesgos Extensivos";
+    // Franquicia específica de la cobertura afectada (si la póliza la detalla)
+    const NOMBRE_COD = {"riesgos extensivos":"RGEXT","atmosféricos":"RGEXT","atmosfericos":"RGEXT","daños por agua":"DAGUA","danos por agua":"DAGUA","incendio":"INCEN","robo":"ROBO","daños eléctricos":"DELEC","danos electricos":"DELEC","rc explotación":"RCEXP","rc explotacion":"RCEXP","responsabilidad civil":"RCEXP","rc locatario":"RCLOC"};
+    const codGar = NOMBRE_COD[(cobFinal2||"").toLowerCase().trim()] || "";
+    const franquiciaFinal = (codGar && pol.franquicias && (codGar in pol.franquicias) && pol.franquicias[codGar]!=="")
+      ? parseCap(pol.franquicias[codGar])
+      : (parseCap(pol.franquicia||enc.franquicia)||0);
     const capCPol = parseCap(pol.capitalContinente||enc.capitalContinente);
     const normD = r => { const m=(r||"").match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); return m?m[1].padStart(2,"0")+"/"+m[2].padStart(2,"0")+"/"+m[3]:r||""; };
     const bestCap2 = (a,b) => { const vb=parseCap(b); if(vb>0)return String(vb); const va=parseCap(a); if(va>0)return String(va); return ""; };
     setData({...enc,
       capitalContinente:        esHogarEnc?(capCPol>0?String(capCPol):""):bestCap2(enc.capitalContinente,pol.capitalContinente),
       capitalContenido:         bestCap2(enc.capitalContenido, pol.capitalContenido),
-      franquicia:               String(parseCap(pol.franquicia||enc.franquicia)||0),
+      franquicia:               String(franquiciaFinal),
+      franquicias:              pol.franquicias||{},
+      valorNuevoContinente:     pol.valorNuevoContinente||false,
+      valorNuevoContenido:      pol.valorNuevoContenido||false,
+      depreciacionPoliza:       String(parseCap(pol.depreciacionPoliza)||0),
       garantia:                 cobFinal2,
       garantiasActivas:         pol.garantiasActivas||enc.garantia||"",
       condicionesEspeciales:    pol.condicionesEspeciales||"",
@@ -978,7 +1056,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <Inp label="Producto contratado ✨" value={data.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa" hint={data.polizaAdjunta?"Extraído de la póliza":"Adjunta la póliza para extraer automáticamente"}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Causa ✨" value={data.causa} onChange={s("causa")}/>
-            <Inp label="Nº Exp. Interno ✨" value={data.numExpInterno} onChange={s("numExpInterno")}/>
+            <Inp label="Nº de Encargo ✨" value={data.numExpInterno} onChange={s("numExpInterno")}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Fecha Encargo ✨" value={data.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
@@ -1014,7 +1092,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
               hint={data.polizaAdjunta?"Extraído de la póliza":"Introduce el valor de la póliza"}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <EuroInput label="Franquicia general" value={data.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay franquicia"/>
+            <EuroInput label="Franquicia" value={data.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay franquicia"/>
             <Inp label="Fecha efecto póliza ✨" value={data.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
           </div>
         </Card>
@@ -1072,7 +1150,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
           {[["Compañía",enc.compania],["Nº Referencia",enc.numReferencia],["Nº Póliza",enc.numPoliza],
             ["Ramo",enc.ramo],["Garantía",enc.garantia],["Importe líquido",totalDano>0?fmtE(totalDano):null],
-            ["Fecha Encargo",enc.fechaEncargo],["Fecha Siniestro",enc.fechaSiniestro],["Nº Exp. Interno",enc.numExpInterno],
+            ["Fecha Encargo",enc.fechaEncargo],["Fecha Siniestro",enc.fechaSiniestro],["Nº de Encargo",enc.numExpInterno],
           ].map(([k,v])=>(
             <div key={k} style={{borderBottom:`1px solid ${C.border}`,paddingBottom:7}}>
               <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>{k}</div>
@@ -1121,6 +1199,14 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                 ["Ref. catastral",s1.refCatastral]
               ].filter(([,v])=>v).map(([k,v])=><InfoRow key={k} label={k} val={k==="Superficie construida"?s1.superficieConstruida+" m²":v}/>)}
             </div>
+            {(()=>{
+              const cat = (anexos?.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
+              return cat?<div style={{marginBottom:12}}>
+                <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Cartografía catastral</div>
+                <img src={cat.url} alt="Catastro" style={{maxWidth:"100%",maxHeight:260,objectFit:"contain",border:`1px solid ${C.border}`,borderRadius:6,display:"block"}}/>
+                {cat.caption&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>{cat.caption}</div>}
+              </div>:null;
+            })()}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[["CONTINENTE",capCont,vReal,infraCont],["CONTENIDO",parseFloat(enc.capitalContenido||0),parseFloat(enc.capitalContenido||0),0]].map(([t,aseg,prev,infra])=>(
                 <div key={t} style={{background:infra>0?C.redBg:C.greenBg,border:`1px solid ${infra>0?"#FECACA":"#A7F3D0"}`,borderRadius:7,padding:12}}>
@@ -1161,14 +1247,15 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead><tr style={{background:C.accentLight}}>
-                {["Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
-                  <th key={hi} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
+                {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
+                  <th key={hi} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
                 {getPartidas(s3).map((p,i)=>{
                   const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
                   return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`}}>
+                    <td style={{padding:"5px 6px",fontSize:11,textTransform:"uppercase"}}>{p.oficio||""}</td>
                     <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{p.uds||1}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(p.p)}</td>
@@ -1185,7 +1272,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                   </tr>);
                 })}
                 <tr style={{background:C.accentLight,fontWeight:700}}>
-                  <td colSpan={3} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
+                  <td colSpan={4} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
                   <td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumRepos(getPartidas(s3)))} €</td>
                   {showIVAp&&<td/>}
                   {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumIVA(getPartidas(s3)))} €</td>}
@@ -1346,13 +1433,17 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
     const vPre = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
     const capCont = parseCap(data.capContOverride!=null?data.capContOverride:enc.capitalContinente);
     const text = await callClaude(
-      "Perito de seguros. Redacta en estilo técnico pericial, conciso. Sin título de apartado.",
-      `Sección 1.1 "Descripción del Riesgo" de un informe pericial:
-TIPO VIVIENDA: ${data.tipoVivienda||data.tipoRiesgo||""} · USO: ${data.usoVivienda||""} · UBICACIÓN: ${data.ubicacion||enc.lugarIntervencion||""}, ${enc.provincia||""}
-SUPERFICIE: ${data.superficieConstruida||"—"} m² · AÑO: ${data.anoConstruccion||"—"} · CALIDAD: ${data.calidad||"Media"} · ESTADO: ${data.estado||"—"}
-REF.CATASTRAL: ${data.refCatastral||"No aportada"}
-CONTINENTE: Asegurado ${fmtE(capCont)} / Preexistente ${fmtE(vPre)} / Infraseguro ${vPre>capCont&&capCont>0?((vPre-capCont)/vPre*100).toFixed(2):"0,00"}%
-Redacta en viñetas, siguiendo el estilo de un informe pericial real.`,
+      "Perito de seguros. Redacta la descripción del riesgo en VIÑETAS cortas (una idea por línea, empezando con guion). Estilo pericial, conciso, sin párrafos largos ni título de apartado.",
+      `Redacta la descripción del riesgo en viñetas breves (máximo una línea cada una), siguiendo este formato de informe pericial real:
+- El riesgo asegurado se corresponde con: ${data.tipoVivienda||data.tipoRiesgo||"—"}.
+- Uso: ${data.usoVivienda||"—"}.
+- Año de construcción: ${data.anoConstruccion||"—"}.
+- Superficie construida: ${data.superficieConstruida||"—"} m².
+- Calidad de los acabados: ${data.calidad||"Media"}.
+- Estado general del riesgo: ${data.estado||"—"}.
+- Localización: ${data.ubicacion||enc.lugarIntervencion||"—"}, ${enc.provincia||""}.
+- Referencia catastral: ${data.refCatastral||"No aportada"}.
+Devuelve SOLO las viñetas reescritas de forma natural y profesional, sin añadir introducción ni conclusiones ni datos económicos.`,
       onTokens
     ).catch(()=>'{"_apiError":true}');
     setAiLoad(false);
@@ -1447,7 +1538,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           </div>}
         </div>
         <Sel label="Estado general del riesgo ✏️ (rellenar tras visita)" value={data.estado} onChange={s("estado")}
-          options={["Nuevo","Buen estado","Reformado","Regular","Deteriorado"]}/>
+          options={["Nuevo","Buen estado","Reformado","Usado","Deteriorado"]}/>
         {!data.estado&&<div style={{fontSize:11,color:C.orange,marginTop:-10,marginBottom:10}}>⚠ Pendiente de rellenar tras la visita presencial</div>}
       </Card>
 
@@ -1500,7 +1591,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
               {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} (factor completo) = <b style={{color:C.ink,fontSize:13}}>{fmtE(vPreexCalc)}</b>
             </div>
             <div style={{fontSize:10,color:C.muted,marginTop:3}}>
-              Factor incluye: gastos generales (13%), SS (1%), BI (6%), IVA, honorarios y tasas — según tablas 2025
+              Factor incluye: gastos generales (13%), SS (1%), BI (6%), IVA, honorarios y tasas — según tablas
             </div>
           </div>
         )}
@@ -1559,12 +1650,9 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       {/* CONTENIDO */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Contenido</SectionLabel>
-        {capCont2===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
-          <b>⚠ Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
-        </div>}
-        <EuroInput label="Capital asegurado contenido (de la póliza)" value={data.capCont2Override!=null?data.capCont2Override:enc.capitalContenido}
+        <EuroInput label="Capital asegurado contenido (de la póliza)" value={data.capCont2Override!=null?data.capCont2Override:(enc.capitalContenido||0)}
           onChange={v=>onChange({...data,capCont2Override:v})}
-          hint="Introduce el valor que figura en la póliza"/>
+          hint="Si la póliza no asegura contenido, déjalo en 0,00 €"/>
         <div style={{marginBottom:12}}>
           <Lbl c="Valor preexistente del contenido (editable)"/>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Por defecto igual al capital asegurado. Puedes ajustarlo si es necesario.</div>
@@ -1757,6 +1845,8 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   // Usa la fuente única global calcPartida
   const calc = calcPartida;
   const rowsActivas = getPartidas(data);
+  // Subtotal de reposición de las partidas con cobertura SIN los costes indirectos
+  const baseReposCov = sumRepos((partidas||[]).filter(x=>!x.indirecto&&x.cobertura!==false));
   const totRepos = sumRepos(rowsActivas);
   const totIVA   = sumIVA(rowsActivas);
   const totReal  = sumReal(rowsActivas);
@@ -1766,7 +1856,7 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
 
   const updP = (i,f,v) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,[f]:v}:p)});
   const delP = i => onChange({...data,partidas:partidas.filter((_,idx)=>idx!==i)});
-  const addRow = () => { const ivaDef=esFactura?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado 1",garantia:"continente",cobertura:true}]}); };
+  const addRow = () => { const ivaDef=esFactura?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),oficio:"",desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado",garantia:"continente",cobertura:true}]}); };
   // Reordenar filas manualmente (drag & drop)
   const moveRow = (from,to) => {
     if(from==null||to==null||from===to) return;
@@ -1774,6 +1864,14 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
     onChange({...data,partidas:arr});
   };
   const setPerceptorTipo = t => onChange({...data,perceptorTipo:data.perceptorTipo===t?null:t});
+  // Perjudicados (opcional): el perito los nombra y se añaden como perceptores
+  const perjudicados = data.perjudicados||[];
+  const addPerjudicado = () => onChange({...data,perjudicados:[...perjudicados,{id:Date.now()+Math.random(),nombre:""}]});
+  const updPerjudicado = (id,v) => onChange({...data,perjudicados:perjudicados.map(p=>p.id===id?{...p,nombre:v}:p)});
+  const delPerjudicado = id => onChange({...data,perjudicados:perjudicados.filter(p=>p.id!==id)});
+  const setHayPerjudicados = v => onChange({...data,hayPerjudicados:v,perjudicados:v&&perjudicados.length===0?[{id:Date.now()+Math.random(),nombre:""}]:perjudicados});
+  // Opciones del campo Perceptor: Asegurado · (perjudicados nombrados) · Reparador
+  const perceptorOpciones = ["Asegurado",...(data.hayPerjudicados?perjudicados.map(p=>p.nombre).filter(Boolean):[]),"Reparador"];
   // Auto-activar regla proporcional cuando se detecta infraseguro (editable después)
   useEffect(()=>{
     const patch={};
@@ -1816,28 +1914,43 @@ TEXTO: "${data.textoRaw}"`,
     const desc = data.textoAI||data.textoRaw;
     if(!desc) return;
     setGenLoad(true);
-    const baremoCtx = BAREMO.map(b=>`${b.cod}|${b.g}|${b.desc}|${b.u}|${fmt(b.p)}€`).join('\n');
+    const deprPct = parseFloat(enc.depreciacionPoliza)||0;
+    const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
-      `Selecciona partidas del baremo según los daños descritos y estima cantidades razonables.
+      `Selecciona del baremo SOLO las partidas necesarias para reparar los daños descritos. Usa las columnas "daño" (tipo de daño cubierto) y "cond" (condición de activación) para decidir qué partidas aplican. Estima cantidades (uds) razonables.
 DAÑOS: ${desc}
 CAUSA: ${enc.causa||""} | RIESGO: ${enc.lugarIntervencion||""}
 
-BAREMO AXA 2025 (cod|grupo|descripción|ud|precio):
+BAREMO (oficio|partida|unidad|precio|daño|condición):
 ${baremoCtx}
 
-Devuelve SOLO:
-{"partidas":[{"cod":"","desc":"","uds":1,"p":0,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado 1","cobertura":true}]}`,
+Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y su oficio:
+{"partidas":[{"oficio":"","desc":"","uds":1,"garantia":"continente","cobertura":true}]}`,
       onTokens, 2000
     ).catch(()=>'{"partidas":[]}');
     const j = parseJSON(raw);
     const err = iaError(j);
     if(err){ setGenLoad(false); alert(err); return; }
     if(j.partidas?.length>0){
-      // Merge baremo price from BAREMO array
+      // Merge desde el BAREMO (precio, unidad, oficio) buscando por el texto de la partida
       const rows = j.partidas.map(p=>{
-        const ref = BAREMO.find(b=>b.cod===p.cod);
-        return {...p, id:Date.now()+Math.random(), p:ref?ref.p:p.p, desc:ref?ref.desc:p.desc, iva:0, depr:p.depr||false, pctDepr:p.pctDepr||0, cobertura:p.cobertura!==false};
+        const t = String(p.desc||"").toLowerCase().trim();
+        const ref = BAREMO.find(b=>b.desc.toLowerCase()===t) || BAREMO.find(b=>t&&(t.includes(b.desc.toLowerCase())||b.desc.toLowerCase().includes(t)));
+        const garantia = p.garantia==="contenido"?"contenido":"continente";
+        // Depreciación de la póliza si el bien se asegura a valor nuevo
+        const aplicaDepr = deprPct>0 && (garantia==="contenido"?!!enc.valorNuevoContenido:!!enc.valorNuevoContinente);
+        return {
+          id:Date.now()+Math.random(),
+          oficio: ref?ref.oficio:(p.oficio||""),
+          desc: ref?ref.desc:p.desc,
+          uds: p.uds||1,
+          p: ref?(ref.indirecto?0:ref.p):(p.p||0),
+          indirecto: ref?!!ref.indirecto:false,
+          u: ref?ref.u:"",
+          iva:0, depr:aplicaDepr, pctDepr:aplicaDepr?deprPct:0,
+          perceptor:"Asegurado", garantia, cobertura:true,
+        };
       });
       onChange({...data,partidas:rows});
     } else {
@@ -1860,7 +1973,7 @@ Devuelve SOLO:
         "Extractor de facturas/presupuestos. SOLO JSON válido.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
          {type:"text",text:`Extrae todas las líneas de esta factura o presupuesto. Devuelve SOLO:
-{"partidas":[{"desc":"descripción","uds":1,"p":0.00,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado 1","cobertura":true}]}`}],
+{"partidas":[{"oficio":"","desc":"descripción","uds":1,"p":0.00,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado","cobertura":true}]}`}],
         onTokens, 2000
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
@@ -1915,6 +2028,11 @@ Devuelve SOLO:
           placeholder={enc.causa||"Fenómenos atmosféricos"} hint="Del encargo — editable"/>
         <EuroInput label="Franquicia (€)" value={data.franquiciaVal||enc.franquicia||"0"} onChange={s("franquiciaVal")}
           hint="De la póliza — editable"/>
+        {(parseFloat(enc.depreciacionPoliza)||0)>0&&(enc.valorNuevoContinente||enc.valorNuevoContenido)&&(
+          <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginTop:4}}>
+            <b>ℹ Valor nuevo en póliza.</b> Se aplicará una depreciación del <b>{fmt(parseFloat(enc.depreciacionPoliza))} %</b> a las partidas de {[enc.valorNuevoContinente&&"continente",enc.valorNuevoContenido&&"contenido"].filter(Boolean).join(" y ")} al generar la tabla con IA.
+          </div>
+        )}
       </Card>
 
       {/* DESCRIPCIÓN DE DAÑOS */}
@@ -1937,7 +2055,7 @@ Devuelve SOLO:
 
       {/* MODO DE VALORACIÓN */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[{v:"baremo",l:"📋 Por Baremo compañía"},{v:"presupuesto",l:"📄 Por Presupuesto"},{v:"factura",l:"🧾 Por Factura"}].map(m=>(
+        {[{v:"baremo",l:"📋 A modo informativo"},{v:"presupuesto",l:"📄 Por Presupuesto"},{v:"factura",l:"🧾 Por Factura"}].map(m=>(
           <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
             style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
               background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
@@ -1987,10 +2105,36 @@ Devuelve SOLO:
         </Btn>}
       </Card>}
 
+      {/* PERJUDICADOS */}
+      <Card s={{marginBottom:14}}>
+        <SectionLabel>¿Hay perjudicados?</SectionLabel>
+        <div style={{display:"flex",gap:20,marginBottom:data.hayPerjudicados?12:0}}>
+          {[{v:true,l:"Sí"},{v:false,l:"No"}].map(o=>(
+            <label key={String(o.v)} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
+              fontWeight:!!data.hayPerjudicados===o.v?700:400,color:!!data.hayPerjudicados===o.v?C.accent:C.ink}}>
+              <input type="checkbox" checked={!!data.hayPerjudicados===o.v} onChange={()=>setHayPerjudicados(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
+              {o.l}
+            </label>
+          ))}
+        </div>
+        {data.hayPerjudicados&&<>
+          <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Nombra cada perjudicado para identificarlo. Aparecerán como opción en el campo «Perceptor» de la tabla.</div>
+          {perjudicados.map((pj,idx)=>(
+            <div key={pj.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <input value={pj.nombre||""} onChange={e=>updPerjudicado(pj.id,e.target.value)}
+                placeholder={`Perjudicado ${idx+1} — nombre`}
+                style={{...inpStyle(false),flex:1,marginBottom:0}}/>
+              <button onClick={()=>delPerjudicado(pj.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={14}/></button>
+            </div>
+          ))}
+          <Btn sm onClick={addPerjudicado}><Plus size={11}/>Añadir perjudicado</Btn>
+        </>}
+      </Card>
+
       {/* TABLA DE VALORACIÓN */}
       <Card s={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <SectionLabel>{esBaremo?"Tabla de Valoración — Baremo compañía":esPresup?"Tabla de Valoración — Presupuesto":"Tabla de Valoración — Factura"}</SectionLabel>
+          <SectionLabel>{esBaremo?"Tabla de Valoración — A modo informativo":esPresup?"Tabla de Valoración — Presupuesto":"Tabla de Valoración — Factura"}</SectionLabel>
           <div style={{display:"flex",gap:6}}>
             {esBaremo&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
               {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla con IA</>}
@@ -2006,16 +2150,17 @@ Devuelve SOLO:
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:900}}>
             <thead><tr style={{background:C.accentLight}}>
-              {["","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","V.Propuesto €","Garantía","Perceptor","Cob.",""].map((h,hi)=>(
-                <th key={hi} style={{padding:"5px 5px",textAlign:h==="Descripción-concepto"||h===""?"left":"right",color:C.accent,fontWeight:700,whiteSpace:"nowrap",borderBottom:`2px solid ${C.accent}`}}>{h}</th>
+              {["","Oficio","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","V.Propuesto €","Garantía","Perceptor","Cob.",""].map((h,hi)=>(
+                <th key={hi} style={{padding:"5px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:C.accent,fontWeight:700,whiteSpace:"nowrap",borderBottom:`2px solid ${C.accent}`}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {partidas.length===0&&<tr><td colSpan={11+(showIVA?2:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
+              {partidas.length===0&&<tr><td colSpan={12+(showIVA?2:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
                 {esBaremo?"Describe los daños y pulsa «Generar tabla con IA»":"Adjunta el documento y extrae las partidas automáticamente"}
               </td></tr>}
               {partidas.map((p,i)=>{
-                const {vRepos,ivaAmt,vReal}=calc(p);
+                const pr = p.indirecto?{...p,uds:1,p:+(baseReposCov*PCT_INDIRECTO/100).toFixed(2)}:p;
+                const {vRepos,ivaAmt,vReal}=calc(pr);
                 return (
                   <tr key={p.id||i}
                     onDragOver={e=>{if(dragIdx!=null){e.preventDefault();setOverIdx(i);}}}
@@ -2026,12 +2171,16 @@ Devuelve SOLO:
                       <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
                         style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
                     </td>
+                    <td style={{padding:"4px 5px",minWidth:90}}>
+                      <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
+                        style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit",textTransform:"uppercase"}}/>
+                    </td>
                     <td style={{padding:"4px 5px",minWidth:180}}>
                       <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
                         style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
                     </td>
-                    <td style={{padding:"3px 4px"}}><InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44}/></td>
-                    <td style={{padding:"3px 4px"}}><InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70}/></td>
+                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right"}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44}/>}</td>
+                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal">{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70}/>}</td>
                     <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600}}>{fmt(vRepos)}</td>
                     {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36}/></td>}
                     {showIVA&&<td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
@@ -2048,9 +2197,9 @@ Devuelve SOLO:
                       </select>
                     </td>
                     <td style={{padding:"3px 4px"}}>
-                      <select value={p.perceptor||"Asegurado 1"} onChange={e=>updP(i,"perceptor",e.target.value)}
+                      <select value={p.perceptor||"Asegurado"} onChange={e=>updP(i,"perceptor",e.target.value)}
                         style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
-                        <option>Asegurado 1</option><option>Asegurado 2</option><option>Perjudicado 1</option><option>Perjudicado 2</option>
+                        {[...new Set([...perceptorOpciones,p.perceptor].filter(Boolean))].map(o=><option key={o} value={o}>{o}</option>)}
                       </select>
                     </td>
                     <td style={{padding:"3px 4px",textAlign:"center"}}>
@@ -2063,6 +2212,7 @@ Devuelve SOLO:
                 );
               })}
               {partidas.length>0&&<tr style={{background:C.accentLight,fontWeight:700}}>
+                <td/>
                 <td/>
                 <td style={{padding:"6px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
                 <td/>
@@ -2098,7 +2248,7 @@ Devuelve SOLO:
 const SEC4_INTROS = [
   "Procedemos a realizar valoración correspondiente, en base al presupuesto aportado por el asegurado.",
   "Procedemos a realizar valoración correspondiente, en base a la factura aportada por el asegurado.",
-  "A la espera de aportación de presupuestos o facturas procedemos a realizar, valoración unilateral a modo informativo en base a baremo.",
+  "A la espera de aportación de presupuestos o facturas procedemos a realizar valoración unilateral a modo informativo.",
 ];
 
 const sec4IntroAuto = modo =>
@@ -2118,7 +2268,8 @@ const sec4IndemnAuto = (s3, indemn) => {
     return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nReparador: ${eur}`;
   if(modo==="factura")
     return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur} (IVA incl.)`;
-  return "";
+  // Modo "a modo informativo" (baremo): también se eleva propuesta
+  return `Se propone indemnización a modo informativo de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur}`;
 };
 
 const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
@@ -2139,15 +2290,22 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   const indemn     = Math.max(0,ajustado-franq);
   const modoVal    = s3?.modoValoracion||"baremo";
 
-  // Auto-fill descripción cobertura desde póliza (garantías contratadas)
+  // Auto-fill descripción cobertura desde la póliza: copia el texto EXACTO de la
+  // cobertura afectada. Mapea el nombre comercial al código de la póliza (RGEXT, etc.).
   useEffect(()=>{
     if(!data.descripcionCobertura&&enc.descripciones){
+      const COD = {"riesgos extensivos":"RGEXT","atmosféricos":"RGEXT","atmosfericos":"RGEXT","daños por agua":"DAGUA","danos por agua":"DAGUA","incendio":"INCEN","robo":"ROBO","daños eléctricos":"DELEC","danos electricos":"DELEC","rc explotación":"RCEXP","rc explotacion":"RCEXP","responsabilidad civil":"RCEXP","rc locatario":"RCLOC"};
       const gars = (enc.garantia||enc.causa||"").split(/[;,]+/).map(g=>g.trim()).filter(Boolean);
-      const desc = gars.map(g=>enc.descripciones[g]||enc.descripciones[Object.keys(enc.descripciones).find(k=>k.toLowerCase().includes(g.toLowerCase()))||""]).filter(Boolean).join("\n\n");
+      const desc = gars.map(g=>{
+        const code = COD[g.toLowerCase()];
+        return (code&&enc.descripciones[code])
+          || enc.descripciones[g]
+          || enc.descripciones[Object.keys(enc.descripciones).find(k=>k.toLowerCase().includes(g.toLowerCase()))||""];
+      }).filter(Boolean).join("\n\n");
       if(desc) onChange({...data,descripcionCobertura:desc});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[enc?.garantia,enc?.causa]);
+  },[enc?.garantia,enc?.causa,enc?.descripciones]);
 
   // Auto-fill texto intro (actualiza si el usuario no lo ha personalizado)
   useEffect(()=>{
@@ -2156,11 +2314,12 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[modoVal]);
 
-  // Auto-fill texto indemnización (solo en primer acceso)
+  // Auto-genera la propuesta de indemnización y la mantiene actualizada mientras
+  // el perito no la edite a mano (textoIndemnEdited). Reacciona al modo, importe y perceptor.
   useEffect(()=>{
-    if(!data.textoIndemn) onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)});
+    if(!data.textoIndemnEdited) onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+  },[modoVal,indemn,s3?.perceptorTipo,s3?.partidas]);
 
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
@@ -2228,7 +2387,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
                 <td style={{padding:"8px",textAlign:"right"}}>{fmtE(franq)}</td>
                 <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:14}}>{fmtE(indemn)}</td>
               </tr>
-              <tr><td style={{padding:"6px 8px",fontSize:12,color:C.muted}}>Franquicia general</td><td colSpan={5}/><td style={{padding:"6px 8px",textAlign:"right",fontSize:12}}>{fmtE(franq)}</td></tr>
+              <tr><td style={{padding:"6px 8px",fontSize:12,color:C.muted}}>Franquicia</td><td colSpan={5}/><td style={{padding:"6px 8px",textAlign:"right",fontSize:12}}>{fmtE(franq)}</td></tr>
             </tbody>
           </table>
         </div>
@@ -2242,10 +2401,10 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
       <Card s={{marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
           <SectionLabel>Propuesta de Indemnización</SectionLabel>
-          <RestoreBtn onClick={()=>onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)})}/>
+          <RestoreBtn onClick={()=>onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn),textoIndemnEdited:false})}/>
         </div>
         <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según modo, perceptor y cobertura. Editable.</div>
-        <Txt value={data.textoIndemn||sec4IndemnAuto(s3,indemn)} onChange={s("textoIndemn")}
+        <Txt value={data.textoIndemn||sec4IndemnAuto(s3,indemn)} onChange={v=>onChange({...data,textoIndemn:v,textoIndemnEdited:true})}
           rows={sec4IndemnAuto(s3,indemn)==="NO se propone indemnización."?2:5}
           placeholder="Completar la Sección 3 para generar la propuesta automáticamente…"/>
       </Card>
@@ -2363,7 +2522,9 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
 const fmtPDF = n => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
 
 const buildWordHTML = (cData) => {
-  const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{};
+  const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
+  const catastroImg=(anexos.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
+  const catastroHTML=catastroImg?`<p style='font-size:8.5pt;color:#666;margin:6pt 0 2pt'>Cartografía catastral:</p><img src='${catastroImg.url}' style='max-width:60%;max-height:240pt;border:1px solid #ccc'/>`:'';
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
   const reglas=calcReglas(enc,s1);
@@ -2389,15 +2550,15 @@ const buildWordHTML = (cData) => {
       `El estado general del riesgo asegurado se encuentra según nuestro criterio: ${s1.estado||'—'}`,
       `Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||'—'}`,
       `Referencia catastral del inmueble: ${s1.refCatastral||''}`];
-  const wTh=['Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
+  const wTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const rowPart=partidas.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
-    return `<tr><td>${p.desc||''}</td><td>${p.uds||1}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
+    return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td>${p.uds||1}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
       +(showIVAw?`<td>${p.iva??0}%</td><td>${fmtPDF(iv)}</td>`:'')
       +(showDeprw?`<td>${p.depr?'SI':'NO'}</td><td>${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
       +`<td>${fmtPDF(vreal)}</td><td>${fmtPDF(vreal)}</td><td>${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
-  const wSub=`<tr class='subtotal'><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td>`
+  const wSub=`<tr class='subtotal'><td></td><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td>`
     +(showIVAw?`<td></td><td>${fmtPDF(sumIVA(partidas))} €</td>`:'')
     +(showDeprw?`<td></td><td></td>`:'')
     +`<td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
@@ -2448,7 +2609,7 @@ const buildWordHTML = (cData) => {
 </tr><tr>
   <td><span class='field-label'>Fecha Encargo</span><span class='field-value'>${enc.fechaEncargo||'—'}</span></td>
   <td><span class='field-label'>Fecha Siniestro</span><span class='field-value'>${enc.fechaSiniestro||'—'}</span></td>
-  <td><span class='field-label'>Nº Exp interno</span><span class='field-value'>${enc.numExpInterno||'—'}</span></td>
+  <td><span class='field-label'>Nº de Encargo</span><span class='field-value'>${enc.numExpInterno||'—'}</span></td>
 </tr></table>
 <p><span class='field-label'>Lugar intervención (Provincia)</span><span class='field-value'>${enc.lugarIntervencion||'—'}</span></p>
 <p><span class='field-label'>Asegurado</span><span class='field-value'>${enc.asegurado||'—'}</span></p>
@@ -2462,6 +2623,7 @@ const buildWordHTML = (cData) => {
 <h2>1. VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
+${catastroHTML}
 <br/>
 <b>CONTINENTE / OBRAS DE REFORMA</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -2502,7 +2664,7 @@ ${partidas.length>0?`<h3 style='text-align:center'>Resumen por garantías. Propu
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
 ${wGarRows}
 <tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(ajustado)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
-<tr><td>Franquicia general</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
+<tr><td>Franquicia</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
 <div class='total-box'>Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(indemn)} €</div>`:''}
 ${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
@@ -2548,21 +2710,23 @@ const exportPDF = (cData, dniPerito='') => {
   const today=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
   const allFotos=anexos?.fotos||[];
   const allFac=[...(anexos?.facturas||[]),...(s3?.facturas||[])];
+  const catastroImg=(anexos?.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
+  const catastroHTML=catastroImg?`<p style="font-size:8.5pt;color:#666;margin:6pt 0 2pt">Cartografía catastral:</p><img src="${catastroImg.url}" style="max-width:60%;max-height:240pt;border:0.3pt solid #ccc;display:block" onerror="this.style.display='none'"/>`:'';
   // Daño y valor ajustado por bloque
   const dC=partidas.filter(p=>(p.garantia||'continente')!=='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
   const dC2=partidas.filter(p=>p.garantia==='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
   const aC=dC*(s3.reglaContinente?reglas.continente:1);
   const aC2=dC2*(s3.reglaContenido?reglas.contenido:1);
 
-  const dTh=['Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
+  const dTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const rowPart=partidas.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
-    return `<tr><td>${p.desc||''}</td><td style="text-align:right">${p.uds||1}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
+    return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td style="text-align:right">${p.uds||1}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
       +(showIVAd?`<td style="text-align:right">${p.iva??0}%</td><td style="text-align:right">${fmtPDF(iv)}</td>`:'')
       +(showDeprd?`<td style="text-align:center">${p.depr?'SI':'NO'}</td><td style="text-align:right">${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
       +`<td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:center">${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
-  const dSub=`<tr class="subtotal"><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(partidas))} €</td>`
+  const dSub=`<tr class="subtotal"><td></td><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(partidas))} €</td>`
     +(showIVAd?`<td></td><td style="text-align:right">${fmtPDF(sumIVA(partidas))} €</td>`:'')
     +(showDeprd?`<td></td><td></td>`:'')
     +`<td style="text-align:right">${fmtPDF(totalDano)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
@@ -2638,7 +2802,7 @@ const exportPDF = (cData, dniPerito='') => {
 <h1>INFORME PERICIAL</h1>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Compañía</span><span class="fv">${enc.compania||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Referencia</span><span class="fv">${enc.numReferencia||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Póliza</span><span class="fv">${enc.numPoliza||'—'}</span></div></div></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Ramo</span><span class="fv">${enc.ramo||'—'}</span></div><div class="grid3-cell"><span class="fl">Garantía</span><span class="fv">${enc.garantia||'—'}</span></div><div class="grid3-cell"><span class="fl">Importe líquido siniestro</span><span class="fv">${fmtPDF(totalDano)} €</span></div></div></div>
-<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Fecha Encargo</span><span class="fv">${enc.fechaEncargo||'—'}</span></div><div class="grid3-cell"><span class="fl">Fecha Siniestro</span><span class="fv">${enc.fechaSiniestro||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Exp interno</span><span class="fv">${enc.numExpInterno||'—'}</span></div></div></div>
+<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Fecha Encargo</span><span class="fv">${enc.fechaEncargo||'—'}</span></div><div class="grid3-cell"><span class="fl">Fecha Siniestro</span><span class="fv">${enc.fechaSiniestro||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº de Encargo</span><span class="fv">${enc.numExpInterno||'—'}</span></div></div></div>
 <div style="margin-bottom:6pt"><span class="fl">Lugar intervención (Provincia)</span><span class="fv">${enc.lugarIntervencion||'—'}</span></div>
 <div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${enc.asegurado||'—'}</span></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${enc.perito||'—'}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${enc.telPerito||'—'}</span></div></div></div>
@@ -2651,6 +2815,7 @@ const exportPDF = (cData, dniPerito='') => {
 <h2>1.&nbsp;&nbsp;&nbsp;VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
+${catastroHTML}
 <h3>Estudios de los capitales Asegurados:</h3>
 <p style="font-weight:bold">CONTINENTE / OBRAS DE REFORMA</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -2685,7 +2850,7 @@ ${partidas.length>0?`<h3 style="text-align:center">Resumen por garantías. Propu
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
 ${dGarRows}
 <tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(ajustado)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
-<tr><td colspan="6">Franquicia general</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
+<tr><td colspan="6">Franquicia</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
 <div class="total-box">Total propuesta de indemnización &nbsp;&nbsp;${fmtPDF(ind)} €</div>`:''}
 ${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
@@ -2827,7 +2992,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
         <Inp label="Producto contratado" value={enc.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Causa" value={enc.causa} onChange={s("causa")}/>
-          <Inp label="Nº Exp. Interno" value={enc.numExpInterno} onChange={s("numExpInterno")}/>
+          <Inp label="Nº de Encargo" value={enc.numExpInterno} onChange={s("numExpInterno")}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Fecha Encargo" value={enc.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
@@ -2863,7 +3028,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
             hint={enc.polizaAdjunta?"Extraído de la póliza":""}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <EuroInput label="Franquicia general" value={enc.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay"/>
+          <EuroInput label="Franquicia" value={enc.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay"/>
           <Inp label="Fecha efecto póliza" value={enc.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
