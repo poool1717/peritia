@@ -3092,7 +3092,7 @@ ${allFotos.length?`<div class="page-break"></div>
 };
 
 
-const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
+const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
   const [dni,setDni]         = useState(cData.encargo?.dniPerito||'');
   const [perito,setPerito]   = useState(cData.encargo?.perito||'');
   const [telPerito,setTel]   = useState(cData.encargo?.telPerito||'');
@@ -3106,12 +3106,12 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
 
   const handlePDF = () => {
     setErr('');
-    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); }
+    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); onExported?.(); }
     catch(e){ setErr('Error al generar PDF. Activa las ventanas emergentes del navegador.'); console.error(e); }
   };
   const handleWord = () => {
     setWrdLoad(true); setErr('');
-    try{ exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); }
+    try{ exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); onExported?.(); }
     catch(e){ setErr('Error al generar Word.'); console.error(e); }
     setWrdLoad(false);
   };
@@ -3256,7 +3256,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen,onFlushSave,saveState}) => {
+const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
   const [sec,setSec]         = useState("informe");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
@@ -3375,7 +3375,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         </div>
       </div>
 
-      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }}/>}
+      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }} onExported={onExported}/>}
       <link rel="stylesheet" href={FONT}/>
       <style>{css}</style>
     </div>
@@ -3475,6 +3475,23 @@ export default function App(){
     return saveToSb(active);
   };
 
+  // Marca el expediente como exportado (PDF o Word, cualquiera de las dos)
+  // reutilizando el mismo mecanismo de guardado que el autosave (saveToSb
+  // sobre informes.estado). Un fallo de red no interrumpe la exportación:
+  // el documento ya se generó en el cliente antes de llamar a esta función;
+  // aquí solo queda reflejado en saveState ("error"), igual que el autosave.
+  const markExported = async () => {
+    if(!active) return;
+    const updated = {...active, estado:'exportado'};
+    setActive(updated);
+    setCases(p=>p.map(c=>c.id===updated.id?updated:c));
+    if(updated._sbId&&token){
+      clearTimeout(sbSaveTimer.current);
+      dirtyRef.current = true;
+      await saveToSb(updated);
+    }
+  };
+
   const deleteCase = async id => {
     const cas = cases.find(c=>c.id===id);
     if(cas?._sbId&&token) await sbDb(`informes?id=eq.${cas._sbId}`,'DELETE',null,token);
@@ -3484,7 +3501,7 @@ export default function App(){
 
   if(!user) return <LoginScreen onAuth={handleAuth}/>;
   if(view==="upload") return <UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/>;
-  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState}/>;
+  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
     <link rel="stylesheet" href={FONT}/>

@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 7 julio 2026 (sesión 9 — rama `staging`: rediseño visual frontend, PR de diseño)
+**Última actualización:** 7 julio 2026 (sesión 9 — rama `staging`: rediseño visual frontend + estado "exportado" al exportar)
 
 ---
 
@@ -38,6 +38,14 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - **Campos verificados en el código real (no asumidos):** `encargo.ramo` existe pero es **texto libre**, no un enum cerrado a HOGAR/EMPRESA — el filtro de la tabla se construye con los valores reales presentes en los expedientes cargados, no con una lista fija. `encargo.tipoEncargo` sí es cerrado (`PERITACION`/`INSTANT_PAYMENT`, verificado en `SecEncargo`). `encargo.provincia` es el campo real de ubicación (se usó en vez de `lugarIntervencion`, que es la dirección completa). `informes.estado` existe en Supabase (`borrador`/`completado`/`exportado`) pero solo tiene 3 valores, no incluye un estado "Pendiente revisión" — se derivó así: `estado==='exportado'` → **Finalizado**; si no y `done===4/4` → **Pendiente revisión**; si no → **En curso**. `informes.updated_at` existe en Supabase pero no se cargaba al frontend (el `.map()` de `loadCases` lo descartaba); se añadió `updatedAt:r.updated_at` a la carga para poder mostrar la columna "Últ. modificación" — es el único cambio fuera de `components/Peritia.jsx` puramente visual, y no toca ninguna función de cálculo.
 - **Pendiente:** drawer de filtros en móvil (deliberadamente fuera de alcance de esta sesión). Verificación de los casos oracle (463,59 € / 1.291,47 €) hecha por revisión de código (cero cambios en las funciones de cálculo) y probando manualmente la tabla de Sección 3 con datos de ejemplo (10 uds × 18 €/ud + 21% IVA = 217,80 €, correcto); no se pudo repetir el flujo de login real contra Supabase de producción para una comparación pixel a pixel con `peritia-git-staging-pol-myprojects.vercel.app` porque este entorno no dispone de credenciales de un usuario de prueba.
 
+**Sesión 9b (rama `staging` — marcar expediente como exportado, cambio de lógica autorizado):** al exportar PDF o Word (cualquiera de las dos), el expediente pasa a `estado='exportado'` en Supabase. No toca `calcReglas`/`reglaPartida`/`sumAjustado`/`calcIndemnizacion` ni `exportWord`/`exportPDF` (la generación del documento en sí es idéntica). Compila limpio (`next build` OK), balance de llaves = 0.
+- **Mecanismo reutilizado, no inventado:** se añadió `markExported()` en `App` (junto a `updateCase`/`flushSave`, mismo patrón), que actualiza `active`/`cases` en memoria y llama a `saveToSb` — la misma función PATCH que ya usa el autoguardado — con `{...active, estado:'exportado'}`. No se creó ningún endpoint ni mecanismo de escritura nuevo.
+- **RLS verificada, no modificada:** la tabla `informes` tiene una única policy `informes_own` (`ALL`, `user_id = auth.uid()`) que ya cubre `UPDATE`; es la misma policy bajo la que ya escribe el autoguardado, así que el `PATCH` de `estado` no requiere ningún cambio de RLS.
+- **Disparo:** `ExportModal` recibe una nueva prop `onExported`, encadenada desde `ReportEditor` (nueva prop, mismo nombre) hasta `App`. Se llama tras `exportPDF(...)` y tras `exportWord(...)`, siempre después de que el documento ya se generó/descargó en el cliente — nunca antes ni de forma bloqueante.
+- **Fallo de red no bloquea la exportación:** `onExported` no se espera (`await`) desde los manejadores de los botones, así que un fallo de `saveToSb` no impide ni retrasa la descarga/apertura del documento. El resultado queda reflejado en `saveState` ("error"), el mismo indicador que ya usa el autoguardado en la barra del editor — no se ha añadido ningún aviso nuevo.
+- **Verificado:** con un arnés de pruebas temporal (no incluido en el commit) se confirmó que tanto "Generar PDF" como "Generar Word" disparan `onExported` correctamente antes de descartar el arnés.
+- **Archivos tocados:** solo `components/Peritia.jsx` (además de este `CONTEXT.md`).
+
 ---
 
 ## Lo que está completado y funcionando
@@ -66,6 +74,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - [x] **Validación de inputs en Sec3 (sesión 8, `staging`):** `clampField`/`sanP` acotan uds, precio, IVA y %depreciación (0–100) tanto en la edición manual como en las partidas generadas por IA, para que un valor fuera de rango no corrompa la indemnización propuesta.
 - [x] **Accesibilidad y responsive (sesión 8, `staging`):** foco visible por teclado, inputs sin zoom automático de iOS en móvil, tablas de preview con scroll horizontal en pantallas estrechas, sidebar cerrado por defecto en móvil/tablet, `aria-label` en los botones de solo icono.
 - [x] **Rediseño visual frontend (sesión 9, `staging`):** paleta y tipografía renovadas (`Source Serif 4` + `IBM Plex Mono`), sidebar del Dashboard con apertura/cierre por botones independientes, vista de tabla de expedientes con filtros y orden (por defecto sobre la lista de tarjetas, que se conserva intacta en móvil), rail de navegación del editor con folios numerados, tabla de valoración de Sección 3 con estilo "ledger". Solo estilos/estructura — cero cambios en `calcReglas`/`reglaPartida`/`sumAjustado`/`calcIndemnizacion`/`pages/api/claude.js`.
+- [x] **Expediente marcado como exportado (sesión 9b, `staging`):** al generar PDF o Word desde el editor, el expediente pasa a `informes.estado='exportado'` reutilizando el mismo `saveToSb` del autoguardado; se refleja al instante en la tabla del Dashboard ("Finalizado") sin recargar.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
