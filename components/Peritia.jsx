@@ -415,6 +415,16 @@ const css = `
     td input,td select{font-size:11px!important}
     .tbl-scroll{display:block;overflow-x:auto}
     ::-webkit-scrollbar{width:8px}
+    .editor-topbar{flex-wrap:wrap;height:auto;padding:8px 12px}
+    .editor-actions{width:100%;justify-content:flex-end;margin-top:6px}
+  }
+  .sidebar-backdrop{display:none}
+  .sidebar-close{display:none}
+  @media(max-width:1023px){
+    .app-sidebar{position:fixed!important;top:0;left:0;bottom:0;width:min(220px,85vw)!important;z-index:50;transform:translateX(-100%);transition:transform .2s ease}
+    .app-sidebar.sb-open{transform:translateX(0);box-shadow:2px 0 20px rgba(0,0,0,.25)}
+    .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:45}
+    .sidebar-close{display:flex}
   }
 `;
 
@@ -635,50 +645,49 @@ const LoginScreen = ({onAuth}) => {
   };
 
   return (
-    <div style={{minHeight:'100vh',background:'#F8F5F0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <link rel="stylesheet" href={FONT}/>
-      <div style={{width:380,background:'#fff',borderRadius:16,padding:40,boxShadow:'0 8px 40px rgba(0,0,0,.1)'}}>
+      <div style={{width:380,background:C.white,borderRadius:12,padding:40,boxShadow:'0 8px 40px rgba(0,0,0,.1)'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
-          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:400,color:'#1A1714',letterSpacing:'-.02em'}}>
-            PERIT<span style={{color:'#9B2226'}}>.IA</span>
+          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:400,color:C.ink,letterSpacing:'-.02em'}}>
+            PERIT<span style={{color:C.accent}}>.IA</span>
           </div>
-          <div style={{fontSize:12,color:'#888',marginTop:4}}>
+          <div style={{fontSize:12,color:C.muted,marginTop:4}}>
             {mode==='login'?'Accede a tu cuenta':'Crea tu cuenta'}
           </div>
         </div>
 
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:600,color:'#555',marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Email</div>
+          <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Email</div>
           <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             placeholder="perito@ejemplo.com"
-            style={{width:'100%',padding:'10px 13px',border:'1px solid #ddd',borderRadius:8,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',outline:'none'}}/>
+            style={inpStyle(false)}/>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:11,fontWeight:600,color:'#555',marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Contraseña</div>
+          <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Contraseña</div>
           <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             placeholder="••••••••"
-            style={{width:'100%',padding:'10px 13px',border:'1px solid #ddd',borderRadius:8,fontSize:14,fontFamily:'inherit',boxSizing:'border-box',outline:'none'}}/>
+            style={inpStyle(false)}/>
         </div>
 
-        {emailSent&&<div style={{background:'#F0FDF4',border:'1px solid #A7F3D0',borderRadius:7,padding:'10px 14px',fontSize:13,color:'#065F46',marginBottom:14,lineHeight:1.6}}>
+        {emailSent&&<div style={{background:C.greenBg,border:'1px solid #A7F3D0',borderRadius:7,padding:'10px 14px',fontSize:13,color:C.green,marginBottom:14,lineHeight:1.6}}>
           <b>✉️ Revisa tu correo</b><br/>
           Te hemos enviado un email de confirmación a <b>{email}</b>.<br/>
-          Confirma tu cuenta y luego <button onClick={()=>{setMode('login');setEmailSent(false);}} style={{background:'none',border:'none',color:'#9B2226',cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>inicia sesión</button>.
+          Confirma tu cuenta y luego <button onClick={()=>{setMode('login');setEmailSent(false);}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>inicia sesión</button>.
         </div>}
 
-        {err&&<div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:'#B91C1C',marginBottom:14}}>{err}</div>}
+        {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
 
-        {!emailSent&&<button onClick={submit} disabled={load}
-          style={{width:'100%',padding:'11px 0',background:load?'#ccc':'#9B2226',color:'#fff',border:'none',borderRadius:9,fontSize:14,fontWeight:700,cursor:load?'not-allowed':'pointer',fontFamily:'inherit',transition:'background .2s'}}>
+        {!emailSent&&<Btn primary full disabled={load} onClick={submit}>
           {load?'Conectando…':mode==='login'?'Entrar':'Crear cuenta'}
-        </button>}
+        </Btn>}
 
-        <div style={{textAlign:'center',marginTop:16,fontSize:13,color:'#888'}}>
+        <div style={{textAlign:'center',marginTop:16,fontSize:13,color:C.muted}}>
           {mode==='login'?'¿No tienes cuenta? ':'¿Ya tienes cuenta? '}
           <button onClick={()=>{setMode(mode==='login'?'signup':'login');setErr('');}}
-            style={{background:'none',border:'none',color:'#9B2226',cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>
+            style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>
             {mode==='login'?'Regístrate':'Inicia sesión'}
           </button>
         </div>
@@ -693,10 +702,17 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
     <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
 
       {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
+      {sidebarOpen&&<div className="sidebar-backdrop" onClick={()=>setSidebarOpen(false)}/>}
+      <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"} style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
         transition:"width .2s ease",display:"flex",flexDirection:"column"}}>
         {sidebarOpen&&<>
-          <div style={{padding:"22px 16px 10px"}}><Logo/></div>
+          <div style={{padding:"22px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <Logo/>
+            <button className="sidebar-close" onClick={()=>setSidebarOpen(false)} aria-label="Cerrar menú"
+              style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:5,cursor:"pointer",color:"#fff",alignItems:"center",justifyContent:"center"}}>
+              <X size={14}/>
+            </button>
+          </div>
           <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"0 16px 10px"}}/>
           <div style={{padding:"4px 8px",flex:1}}>
             <button onClick={onNew} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
@@ -3114,7 +3130,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* TOP BAR */}
-      <div style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
+      <div className="editor-topbar" style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
         <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
           <Home size={12}/>Inicio
         </button>
@@ -3127,7 +3143,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           <div style={{color:"#fff",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cData.encargo?.asegurado||"Nuevo informe"}</div>
           <div style={{color:"rgba(255,255,255,.4)",fontSize:10}}>{cData.encargo?.compania||""} · {cData.encargo?.numReferencia||""}</div>
         </div>
-        <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
+        <div className="editor-actions" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
           {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:11,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
           {saveState==="saved" && <div style={{color:C.green,fontSize:11,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
           {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
@@ -3147,8 +3163,15 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* SIDEBAR */}
-        <div style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
+        {sidebarOpen&&<div className="sidebar-backdrop" onClick={()=>setSidebarOpen(false)}/>}
+        <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"} style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
           {sidebarOpen&&<>
+          <div className="sidebar-close" style={{justifyContent:"flex-end",padding:"0 10px 6px"}}>
+            <button onClick={()=>setSidebarOpen(false)} aria-label="Cerrar menú"
+              style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:5,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <X size={14}/>
+            </button>
+          </div>
           {SECCIONES.map(item=>{
             const Icon=item.icon;
             const isActive=sec===item.id;
