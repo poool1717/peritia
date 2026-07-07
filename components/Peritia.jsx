@@ -417,6 +417,7 @@ const css = `
     ::-webkit-scrollbar{width:8px}
     .editor-topbar{flex-wrap:wrap;height:auto;padding:8px 12px}
     .editor-actions{width:100%;justify-content:flex-end;margin-top:6px}
+    .grid2,.grid3{grid-template-columns:1fr!important}
   }
   .sidebar-backdrop{display:none}
   .sidebar-close{display:none}
@@ -647,7 +648,7 @@ const LoginScreen = ({onAuth}) => {
   return (
     <div style={{minHeight:'100vh',background:C.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <link rel="stylesheet" href={FONT}/>
-      <div style={{width:380,background:C.white,borderRadius:12,padding:40,boxShadow:'0 8px 40px rgba(0,0,0,.1)'}}>
+      <div style={{width:380,maxWidth:'calc(100vw - 32px)',background:C.white,borderRadius:12,padding:40,boxShadow:'0 8px 40px rgba(0,0,0,.1)'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
           <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:400,color:C.ink,letterSpacing:'-.02em'}}>
             PERIT<span style={{color:C.accent}}>.IA</span>
@@ -1000,7 +1001,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
   if(step==="upload") return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg}}>
-      <div style={{width:580,background:C.white,borderRadius:14,padding:38,border:`1px solid ${C.border}`}}>
+      <div style={{width:580,maxWidth:'calc(100vw - 32px)',background:C.white,borderRadius:14,padding:38,border:`1px solid ${C.border}`}}>
         <div style={{textAlign:"center",marginBottom:24}}>
           <div style={{width:48,height:48,background:`linear-gradient(135deg,${C.accent},#C1494E)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
             <Sparkles size={22} style={{color:"#fff"}}/>
@@ -1008,7 +1009,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:22,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
           <p style={{color:C.muted,fontSize:13}}>Adjunta el encargo y la póliza. La IA extraerá todos los datos automáticamente.</p>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           <div>
             <div style={{fontSize:11,fontWeight:700,color:C.ink,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Hoja de Encargo <span style={{color:C.accent}}>*</span></div>
             <DropZone label="Adjuntar encargo" sublabel="PDF de la compañía" icon={FileText} file={encFile} onFile={setEncFile} badge="Obligatorio"/>
@@ -1070,20 +1071,20 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
               <div style={{fontSize:11,color:C.orange,marginTop:3}}>Valor extraído: "{data.compania}" — selecciona manualmente</div>
             }
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Nº Siniestro / Referencia ✨" value={data.numReferencia} onChange={s("numReferencia")} required/>
             <Inp label="Nº Póliza ✨" value={data.numPoliza} onChange={s("numPoliza")}/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Ramo ✨" value={data.ramo} onChange={s("ramo")}/>
             <Inp label="Garantía afectada ✨" value={data.garantia} onChange={s("garantia")}/>
           </div>
           <Inp label="Producto contratado ✨" value={data.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa" hint={data.polizaAdjunta?"Extraído de la póliza":"Adjunta la póliza para extraer automáticamente"}/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Causa ✨" value={data.causa} onChange={s("causa")}/>
             <Inp label="Nº de Encargo ✨" value={data.numExpInterno} onChange={s("numExpInterno")}/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Fecha Encargo ✨" value={data.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
             <Inp label="Fecha Siniestro ✨" value={data.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
           </div>
@@ -1091,12 +1092,12 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
         <Card s={{marginBottom:12}}>
           <SectionLabel>📍 Asegurado y Localización</SectionLabel>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Asegurado / Tomador ✨" value={data.asegurado} onChange={s("asegurado")} required/>
             <Inp label="NIF / CIF ✨" value={data.nifAsegurado} onChange={s("nifAsegurado")}/>
           </div>
           <Inp label="Lugar de intervención ✨" value={data.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
             <Inp label="Código postal ✨" value={data.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
             <Inp label="Municipio ✨" value={data.municipio} onChange={s("municipio")} placeholder="Ej: Palamós"/>
             <Inp label="Provincia ✨" value={data.provincia} onChange={s("provincia")} placeholder="Ej: Girona"/>
@@ -1105,7 +1106,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
         <Card s={{marginBottom:12}}>
           <SectionLabel>💰 Capitales Asegurados {data.polizaAdjunta&&<span style={{color:C.green,fontWeight:400}}>✨ de la póliza</span>}</SectionLabel>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div>
               <EuroInput label="Capital Continente" value={data.capitalContinente} onChange={s("capitalContinente")}
                 hint={data.tipoContinentePoliza?"Tipo: "+data.tipoContinentePoliza:data.polizaAdjunta?"Extraído de la póliza":"Introduce el valor de la póliza"}/>
@@ -1116,7 +1117,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <EuroInput label="Capital Contenido" value={data.capitalContenido} onChange={s("capitalContenido")}
               hint={data.polizaAdjunta?"Extraído de la póliza":"Introduce el valor de la póliza"}/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <EuroInput label="Franquicia" value={data.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay franquicia"/>
             <Inp label="Fecha efecto póliza ✨" value={data.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
           </div>
@@ -1172,7 +1173,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           <div style={{fontFamily:"'DM Serif Display',serif",fontSize:24,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
           <div style={{fontSize:11,color:C.muted,letterSpacing:".1em",textTransform:"uppercase",marginTop:3}}>Intervención Pericial No Auto</div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
+        <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
           {[["Compañía",enc.compania],["Nº Referencia",enc.numReferencia],["Nº Póliza",enc.numPoliza],
             ["Ramo",enc.ramo],["Garantía",enc.garantia],["Importe líquido",totalDano>0?fmtE(totalDano):null],
             ["Fecha Encargo",enc.fechaEncargo],["Fecha Siniestro",enc.fechaSiniestro],["Nº de Encargo",enc.numExpInterno],
@@ -1184,7 +1185,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ))}
         </div>
         <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(enc.provincia?`, ${enc.provincia}`:"")}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
           <InfoRow label="Asegurado" val={enc.asegurado}/>
           <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
         </div>
@@ -1232,7 +1233,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                 {cat.caption&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>{cat.caption}</div>}
               </div>:null;
             })()}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[["CONTINENTE",capCont,vReal,infraCont],["CONTENIDO",parseFloat(enc.capitalContenido||0),parseFloat(enc.capitalContenido||0),0]].map(([t,aseg,prev,infra])=>(
                 <div key={t} style={{background:infra>0?C.redBg:C.greenBg,border:`1px solid ${infra>0?"#FECACA":"#A7F3D0"}`,borderRadius:7,padding:12}}>
                   <div style={{fontSize:10,fontWeight:700,color:infra>0?C.red:C.green,marginBottom:7,textTransform:"uppercase"}}>{t}</div>
@@ -1373,7 +1374,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
               <div key={g.label} style={{marginBottom:10}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>- {g.label}. {g.label}</div>
                 {g.label==="Reportaje fotográfico"
-                  ?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  ?<div className="grid3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                     {allFotos.map(f=>{
                       const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
                       return (
@@ -1635,7 +1636,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           🗺️ Abrir Catastro — buscar inmueble
         </a>
         <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG" hint="Cópiala del Catastro (20 caracteres)"/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Superficie construida (m²)" value={data.superficieConstruida} onChange={s("superficieConstruida")} type="number" hint="Del Catastro"/>
           <Inp label="Año de construcción" value={data.anoConstruccion} onChange={s("anoConstruccion")} type="number" hint="Del Catastro"/>
         </div>
@@ -2036,7 +2037,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       {/* PARÁMETROS DE GARANTÍA — dos bloques */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Parámetros de Garantía</SectionLabel>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
           {[
             {tit:"Continente",cap:reglas.capCont,pre:reglas.vPreexCont,infra:reglas.infraCont,regla:reglas.continente,field:"reglaContinente",on:!!data.reglaContinente},
             {tit:"Contenido", cap:reglas.capCont2,pre:reglas.vPreexContenido,infra:reglas.infraContenido,regla:reglas.contenido,field:"reglaContenido",on:!!data.reglaContenido},
@@ -2514,7 +2515,7 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
       </div>
 
       {bucket.length>0
-        ?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+        ?<div className="grid3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
           {bucket.map(item=>(
             <div key={item.id} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:9,overflow:"hidden"}}>
               <div style={{position:"relative",background:"#f5f5f5"}}>
@@ -2949,12 +2950,12 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div style={{background:C.white,borderRadius:12,padding:30,width:420,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+      <div style={{background:C.white,borderRadius:12,padding:30,width:420,maxWidth:'calc(100vw - 32px)',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
           <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
           <div>
             <Lbl c="Nombre del Perito"/>
             <input value={perito} onChange={e=>setPerito(e.target.value)} placeholder="Nombre completo"
@@ -3012,20 +3013,20 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
             {COMPANIAS.map(c=><option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Nº Referencia / Siniestro" value={enc.numReferencia} onChange={s("numReferencia")} required/>
           <Inp label="Nº Póliza" value={enc.numPoliza} onChange={s("numPoliza")}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Ramo" value={enc.ramo} onChange={s("ramo")}/>
           <Inp label="Garantía afectada" value={enc.garantia} onChange={s("garantia")}/>
         </div>
         <Inp label="Producto contratado" value={enc.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa"/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Causa" value={enc.causa} onChange={s("causa")}/>
           <Inp label="Nº de Encargo" value={enc.numExpInterno} onChange={s("numExpInterno")}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Fecha Encargo" value={enc.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
           <Inp label="Fecha Siniestro" value={enc.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
         </div>
@@ -3033,12 +3034,12 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
 
       <Card s={{marginBottom:12}}>
         <SectionLabel>📍 Asegurado y Localización</SectionLabel>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Asegurado / Tomador" value={enc.asegurado} onChange={s("asegurado")} required/>
           <Inp label="NIF / CIF" value={enc.nifAsegurado} onChange={s("nifAsegurado")}/>
         </div>
         <Inp label="Lugar de intervención" value={enc.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+        <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
           <Inp label="Código postal" value={enc.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
           <Inp label="Municipio" value={enc.municipio} onChange={s("municipio")}/>
           <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
@@ -3047,7 +3048,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
 
       <Card s={{marginBottom:12}}>
         <SectionLabel>💰 Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>✨ de la póliza</span>}</SectionLabel>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
               hint={enc.tipoContinentePoliza?"Tipo: "+enc.tipoContinentePoliza:enc.polizaAdjunta?"Extraído de la póliza":""}/>
@@ -3058,11 +3059,11 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           <EuroInput label="Capital Contenido" value={enc.capitalContenido} onChange={s("capitalContenido")}
             hint={enc.polizaAdjunta?"Extraído de la póliza":""}/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <EuroInput label="Franquicia" value={enc.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay"/>
           <Inp label="Fecha efecto póliza" value={enc.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <Lbl c="Tipo de encargo"/>
             <select value={enc.tipoEncargo||"PERITACION"} onChange={e=>s("tipoEncargo")(e.target.value)}

@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 7 julio 2026 (sesión 9 — merge de `staging` a `main` + UX/UI Fase 2 y 3)
+**Última actualización:** 7 julio 2026 (sesión 10 — UX/UI: formularios apilados y modales sin desbordar en móvil, cierre del roadmap de responsive)
 
 ---
 
@@ -12,7 +12,7 @@ login → subida PDFs → extracción IA → editor → guardar → exportar PDF
 
 La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
 
-`staging` (validación de inputs sesión previa + accesibilidad/responsive sesión 8) ya está fusionada en `main` (merge normal, sin squash, commit `903cf0f`). `main` incluye además el `<meta name="viewport">` (`pages/_app.js`, ya estaba resuelto desde el propio commit de accesibilidad) y, en esta sesión 9, la Fase 2 (sidebar como drawer/overlay en móvil + topbar del editor sin desbordamiento) y la Fase 3 (LoginScreen unificado con la paleta `C` y los helpers compartidos) del roadmap UX/UI.
+`staging` (validación de inputs sesión previa + accesibilidad/responsive sesión 8) ya está fusionada en `main` (merge normal, sin squash, commit `903cf0f`). `main` incluye además el `<meta name="viewport">` (`pages/_app.js`), la Fase 2 (sidebar como drawer/overlay en móvil + topbar del editor sin desbordamiento) y la Fase 3 (LoginScreen unificado con la paleta `C`) de la sesión 9, y en la sesión 10 los dos últimos puntos del roadmap de responsive: formularios de 2–3 columnas apilados en móvil y modales (Login/Nuevo Encargo/Exportar) sin desbordar en pantallas estrechas. Con esto el roadmap de UX/UI de responsive básico queda cerrado; solo falta validarlo en un dispositivo real.
 
 **Sesión 6 (auditoría técnica):** revisión completa de seguridad, fiabilidad y mantenibilidad. Aplicados en producción los puntos 1–4 y 6: protección de contraseñas filtradas (Supabase), auth sin fallback inseguro, guardado verificado con reintento e indicador visible, avisos al usuario cuando la IA falla, keys estables en tablas de partidas y dependencias correctas en los `useEffect` de auto-relleno de Sec1. Queda pendiente para una sesión dedicada el punto 5 (dividir `Peritia.jsx`, 3.107 líneas, en módulos por sección — refactor grande).
 
@@ -34,6 +34,11 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - **Fase 2 — Topbar del editor sin desbordamiento:** `.editor-topbar`/`.editor-actions` con `flex-wrap` en `@media(max-width:767px)`; el bloque de acciones (guardado/consumo IA/contador/Exportar) pasa a una segunda línea en vez de desbordar horizontalmente. Verificado con un arnés de prueba aislado (mismo CSS) a 390px: sin cambios en desktop.
 - **Fase 3 — `LoginScreen` unificado:** reemplazados los hex sueltos y el radio de borde propio (16) por la paleta `C` y los helpers ya usados en el resto de la app (`inpStyle`, `Btn`, mismo patrón de banners que `ExportModal`); panel a `borderRadius:12` (igual que `ExportModal`). Verificado visualmente con capturas a 1280px y 390px.
 - **Merge 2:** Fase 2 y 3 vía PR #9, merge normal (sin squash, commit `c083871`) a `main`. Ya en producción (Vercel auto-despliega al mergear).
+
+**Sesión 10 (últimos 2 puntos del audit UX/UI, directo a `main`):** no toca `calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion` ni `pages/api/claude.js` (verificado con diff línea a línea). Compila limpio (`next build` OK).
+- **Formularios de 2–3 columnas apilados en móvil:** los 26 grids de Sec0–4/Anexos/modales (`gridTemplateColumns:"1fr 1fr"` / `"1fr 1fr 1fr"` / `"repeat(3,1fr)"`) llevan ahora clase `grid2`/`grid3`; en `@media(max-width:767px)` pasan a `grid-template-columns:1fr!important`, así los campos se apilan en una columna en vez de comprimirse.
+- **Modales sin desbordar en pantallas estrechas:** Login (380px), Nuevo Encargo (580px) y Exportar (420px) llevan `maxWidth:'calc(100vw - 32px)'`, así nunca se cortan ni provocan scroll horizontal en móviles más estrechos que su ancho de diseño.
+- Con esto se cierra el roadmap de responsive básico (viewport, sidebar drawer, topbar, tablas de preview, formularios, modales) abierto en el audit de UX/UI.
 
 ---
 
@@ -65,6 +70,7 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - [x] **`<meta name="viewport">` (sesión 8, `pages/_app.js`):** el móvil ya renderiza al ancho real del dispositivo en vez de forzar ancho de escritorio.
 - [x] **Sidebar como drawer/overlay en móvil + topbar del editor sin desbordamiento (sesión 9, Fase 2):** por debajo de 1024px el sidebar es un panel `fixed` con backdrop en vez de empujar el contenido; la topbar del editor envuelve sus acciones en vez de desbordar en pantallas <768px.
 - [x] **`LoginScreen` unificado con la paleta `C` (sesión 9, Fase 3):** mismos colores, radios de borde e inputs/botones que el resto de la app.
+- [x] **Formularios apilados y modales sin desbordar en móvil (sesión 10):** los grids de 2–3 columnas (Sec0–4, Anexos, Login, Nuevo Encargo) pasan a una sola columna por debajo de 767px (clases `grid2`/`grid3`); los modales de Login/Nuevo Encargo/Exportar tienen `maxWidth` para no cortarse en pantallas estrechas.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
@@ -181,7 +187,9 @@ Datos hardcodeados:
 - [x] Fusionar `staging` a `main` (sesión 9, merge normal sin squash, commit `903cf0f`)
 - [x] **Sesión 9 — UX/UI Fase 2:** sidebar como drawer/overlay en móvil (backdrop + `position:fixed`) en vez de panel fijo que empuja el contenido; topbar del editor con `flex-wrap` para no desbordar en pantallas estrechas
 - [x] **Sesión 9 — UX/UI Fase 3:** `LoginScreen` unificado con la paleta `C` y los helpers compartidos (`inpStyle`, `Btn`); radios de borde consistentes con el resto de la app
-- [ ] Probar en dispositivo real (móvil/tablet) el drawer del sidebar y la topbar del editor antes de dar la Fase 2 por completamente cerrada
+- [x] **Sesión 10 — formularios apilados en móvil:** los 26 grids de 2–3 columnas se apilan en una columna por debajo de 767px (clases `grid2`/`grid3`)
+- [x] **Sesión 10 — modales sin desbordar en móvil:** Login, Nuevo Encargo y Exportar limitan su ancho a `calc(100vw - 32px)`
+- [ ] Probar en dispositivo real (móvil/tablet) todo el roadmap de responsive (drawer del sidebar, topbar, formularios apilados, modales) antes de darlo por completamente cerrado
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
