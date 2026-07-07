@@ -30,11 +30,13 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~2.500 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~3.327 líneas)
 ├── pages/
+│   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
 │   └── api/
-│       └── claude.js        ← proxy seguro Anthropic API
+│       ├── claude.js        ← proxy seguro Anthropic API
+│       └── meteocat.js      ← proxy datos abiertos XEMA/Meteocat (Sec2)
 ├── package.json
 ├── next.config.js
 ├── vercel.json

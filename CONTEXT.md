@@ -29,10 +29,11 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 - **PR2 — Accesibilidad y responsive (desktop + móvil + tablet):** estado de foco visible (`:focus-visible`) y `touch-action:manipulation` en botones; `@media(max-width:767px)` evita el zoom automático de iOS en inputs (`font-size:16px`), reduce la fuente en celdas de tabla y activa scroll horizontal en las tablas de preview del informe (clase `.tbl-scroll`, con scrollbar más visible en móvil); el sidebar arranca cerrado en pantallas <1024px (`App`); `aria-label` añadido a los 6 botones de solo icono (toggles de menú, cerrar modal de exportación, eliminar factura/partida/encargo).
 
 **Sesión 9 (merge `staging`→`main` + UX/UI Fase 2 y 3):** no toca `calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion` ni `pages/api/claude.js` (verificado con diff línea a línea). Compila limpio (`next build` OK).
-- **Merge:** `staging` fusionada en `main` con merge normal (sin squash, commit `903cf0f`), conservando el historial de sus 3 commits.
-- **Fase 2 — Sidebar como drawer/overlay en móvil:** por debajo de 1024px el sidebar (Dashboard y ReportEditor) pasa a `position:fixed` cubriendo toda la altura (por encima de la topbar, sin conflicto de capas) con `transform:translateX()` y un backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), en vez de empujar el contenido como en desktop. Incluye su propio botón de cerrar (✕, clase `.sidebar-close`, solo visible en móvil) dentro del panel — patrón estándar de drawer de navegación (Gmail, Notion, X).
+- **Merge 1:** `staging` fusionada en `main` con merge normal (sin squash, commit `903cf0f`), conservando el historial de sus 3 commits.
+- **Fase 2 — Sidebar como drawer/overlay en móvil:** por debajo de 1024px el sidebar (Dashboard y ReportEditor) pasa a `position:fixed` cubriendo toda la altura (por encima de la topbar, sin conflicto de capas) con `transform:translateX()` y un backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), en vez de empujar el contenido como en desktop. Incluye su propio botón de cerrar (✕, clase `.sidebar-close`, solo visible en móvil) dentro del panel — patrón estándar de drawer de navegación (Gmail, Notion, X). Primera versión subía el z-index de la topbar por encima del drawer para mantener visible el toggle; se descartó por generar un efecto de capas superpuestas poco profesional y se sustituyó por el patrón final (drawer a pantalla completa + botón ✕ propio).
 - **Fase 2 — Topbar del editor sin desbordamiento:** `.editor-topbar`/`.editor-actions` con `flex-wrap` en `@media(max-width:767px)`; el bloque de acciones (guardado/consumo IA/contador/Exportar) pasa a una segunda línea en vez de desbordar horizontalmente. Verificado con un arnés de prueba aislado (mismo CSS) a 390px: sin cambios en desktop.
 - **Fase 3 — `LoginScreen` unificado:** reemplazados los hex sueltos y el radio de borde propio (16) por la paleta `C` y los helpers ya usados en el resto de la app (`inpStyle`, `Btn`, mismo patrón de banners que `ExportModal`); panel a `borderRadius:12` (igual que `ExportModal`). Verificado visualmente con capturas a 1280px y 390px.
+- **Merge 2:** Fase 2 y 3 vía PR #9, merge normal (sin squash, commit `c083871`) a `main`. Ya en producción (Vercel auto-despliega al mergear).
 
 ---
 
@@ -126,7 +127,7 @@ La extracción de datos desde PDFs estaba rota tras la migración a Vercel (erro
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~3.277 · Balance llaves: 0
+Líneas: ~3.327 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
