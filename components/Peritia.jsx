@@ -419,11 +419,12 @@ const css = `
     .editor-actions{width:100%;justify-content:flex-end;margin-top:6px}
   }
   .sidebar-backdrop{display:none}
+  .sidebar-close{display:none}
   @media(max-width:1023px){
-    .app-topbar{position:relative;z-index:45}
-    .app-sidebar{position:fixed!important;top:0;left:0;bottom:0;width:220px!important;z-index:40;transform:translateX(-100%);transition:transform .2s ease}
+    .app-sidebar{position:fixed!important;top:0;left:0;bottom:0;width:min(220px,85vw)!important;z-index:50;transform:translateX(-100%);transition:transform .2s ease}
     .app-sidebar.sb-open{transform:translateX(0);box-shadow:2px 0 20px rgba(0,0,0,.25)}
-    .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:35}
+    .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:45}
+    .sidebar-close{display:flex}
   }
 `;
 
@@ -705,7 +706,13 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
       <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"} style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
         transition:"width .2s ease",display:"flex",flexDirection:"column"}}>
         {sidebarOpen&&<>
-          <div style={{padding:"22px 16px 10px"}}><Logo/></div>
+          <div style={{padding:"22px 16px 10px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <Logo/>
+            <button className="sidebar-close" onClick={()=>setSidebarOpen(false)} aria-label="Cerrar menú"
+              style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:5,cursor:"pointer",color:"#fff",alignItems:"center",justifyContent:"center"}}>
+              <X size={14}/>
+            </button>
+          </div>
           <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"0 16px 10px"}}/>
           <div style={{padding:"4px 8px",flex:1}}>
             <button onClick={onNew} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
@@ -728,7 +735,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
       <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
 
         {/* TOPBAR */}
-        <div className="app-topbar" style={{background:C.accent,padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div style={{background:C.accent,padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
           <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"} aria-label={sidebarOpen?"Ocultar menú":"Mostrar menú"}
             style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,padding:"5px 8px",
               cursor:"pointer",color:"#fff",display:"flex",alignItems:"center"}}>
@@ -3123,7 +3130,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
       {/* TOP BAR */}
-      <div className="app-topbar editor-topbar" style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
+      <div className="editor-topbar" style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
         <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
           <Home size={12}/>Inicio
         </button>
@@ -3159,6 +3166,12 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         {sidebarOpen&&<div className="sidebar-backdrop" onClick={()=>setSidebarOpen(false)}/>}
         <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"} style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
           {sidebarOpen&&<>
+          <div className="sidebar-close" style={{justifyContent:"flex-end",padding:"0 10px 6px"}}>
+            <button onClick={()=>setSidebarOpen(false)} aria-label="Cerrar menú"
+              style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:5,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <X size={14}/>
+            </button>
+          </div>
           {SECCIONES.map(item=>{
             const Icon=item.icon;
             const isActive=sec===item.id;
