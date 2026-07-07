@@ -419,6 +419,17 @@ const css = `
     ::-webkit-scrollbar{width:8px}
     .dash-table-wrap{display:none!important}
     .dash-cards{display:flex!important}
+    .dash-mobile-filterbar{display:flex!important}
+  }
+  .sidebar-backdrop{ display:none; }
+  @media(max-width:1023px){
+    .app-sidebar{
+      position:fixed!important; top:0; left:0; bottom:0;
+      width:min(220px,85vw)!important; z-index:50;
+      transform:translateX(-100%); transition:transform .2s ease;
+    }
+    .app-sidebar.sb-open{ transform:translateX(0); box-shadow:2px 0 20px rgba(0,0,0,.25); }
+    .sidebar-backdrop{ display:block; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:45; }
   }
 `;
 
@@ -708,6 +719,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
   const [filters,setFilters] = useState(DASH_FILTERS_EMPTY);
   const [sortCol,setSortCol] = useState(null);
   const [sortDir,setSortDir] = useState("asc");
+  const [mobileFiltersOpen,setMobileFiltersOpen] = useState(false);
   const setF = (k,v) => setFilters(p=>({...p,[k]:v}));
   const toggleSort = col => { if(sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
 
@@ -745,6 +757,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
     return sortDir==="asc"?cmp:-cmp;
   }) : filtered;
   const filtersActive = Object.values(filters).some(Boolean);
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   const SortTh = ({col,label,align}) => (
     <th onClick={()=>toggleSort(col)} style={{padding:"8px 10px",textAlign:align||"left",color:"rgba(255,255,255,.85)",
@@ -759,7 +772,9 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
     <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
 
       {/* SIDEBAR */}
-      <div style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
+      {sidebarOpen&&<div className="sidebar-backdrop" onClick={()=>setSidebarOpen(false)}/>}
+      <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"}
+        style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
         transition:"width .2s ease",display:"flex",flexDirection:"column",position:"relative"}}>
         {sidebarOpen&&<>
           <button onClick={()=>setSidebarOpen(false)} title="Ocultar menú" aria-label="Ocultar menú"
@@ -942,11 +957,23 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             </div>
           </div>}
 
-          {/* VISTA TARJETAS (siempre visible en móvil, sin rediseñar) */}
+          {/* BARRA DE FILTROS MÓVIL (solo <768px, junto a la vista de tarjetas) */}
+          {!loading&&cases.length>0&&<div className="dash-mobile-filterbar" style={{display:"none",justifyContent:"flex-end",marginBottom:10}}>
+            <button onClick={()=>setMobileFiltersOpen(true)}
+              style={{display:"flex",alignItems:"center",gap:7,padding:"8px 15px",borderRadius:9,
+                border:`1px solid ${C.border}`,background:C.white,cursor:"pointer",fontSize:12.5,
+                fontWeight:600,color:C.ink,fontFamily:"inherit"}}>
+              <span style={{fontSize:15,lineHeight:1}}>☰</span> Filtros
+              {activeFilterCount>0&&<span style={{background:C.accent,color:"#fff",borderRadius:20,minWidth:16,
+                height:16,fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",
+                padding:"0 4px"}}>{activeFilterCount}</span>}
+            </button>
+          </div>}
+
+          {/* VISTA TARJETAS (siempre visible en móvil, sin rediseñar) — usa la misma lista filtrada/ordenada que la tabla */}
           {!loading&&cases.length>0&&<div className="dash-cards" style={{display:dashView==="tarjetas"?"flex":"none",flexDirection:"column",gap:8}}>
-            {cases.map(cas=>{
-              const e=cas.encargo||{};
-              const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
+            {sorted.length===0&&<div style={{textAlign:"center",padding:30,color:C.muted,fontSize:12}}>Ningún expediente coincide con los filtros.</div>}
+            {sorted.map(({cas,e,done})=>{
               return (
                 <div key={cas.id} onClick={()=>onOpen(cas)}
                   style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,
@@ -979,6 +1006,33 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                 </div>
               );
             })}
+          </div>}
+
+          {/* DRAWER DE FILTROS MÓVIL */}
+          {mobileFiltersOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200,
+              display:"flex",alignItems:"flex-end"}}
+            onClick={ev=>{if(ev.target===ev.currentTarget)setMobileFiltersOpen(false);}}>
+            <div style={{background:C.white,width:"100%",borderRadius:"16px 16px 0 0",maxHeight:"85vh",
+                overflowY:"auto",padding:"18px 18px 22px",boxSizing:"border-box"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <span style={{fontFamily:"'Source Serif 4',serif",fontSize:18,color:C.ink}}>Filtros</span>
+                <button onClick={()=>setMobileFiltersOpen(false)} aria-label="Cerrar filtros"
+                  style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={20}/></button>
+              </div>
+              <Inp label="Asegurado" value={filters.asegurado} onChange={v=>setF("asegurado",v)} placeholder="Filtrar…"/>
+              <Sel label="Compañía" value={filters.compania} onChange={v=>setF("compania",v)} options={compOptions}/>
+              <Inp label="Nº Referencia" value={filters.numReferencia} onChange={v=>setF("numReferencia",v)} placeholder="Filtrar…" mono/>
+              <Sel label="Ramo" value={filters.ramo} onChange={v=>setF("ramo",v)} options={ramoOptions}/>
+              <Sel label="Tipo" value={filters.tipo} onChange={v=>setF("tipo",v)} options={tipoOptions.map(o=>({v:o,l:TIPO_LABEL[o]||o}))}/>
+              <Inp label="Provincia" value={filters.provincia} onChange={v=>setF("provincia",v)} placeholder="Filtrar…"/>
+              <Sel label="Estado" value={filters.estado} onChange={v=>setF("estado",v)} options={Object.keys(ESTADO_COLOR)}/>
+              <Sel label="Progreso" value={filters.progreso} onChange={v=>setF("progreso",v)} options={["0/4","1/4","2/4","3/4","4/4"]}/>
+              <Inp label="Últ. modificación" value={filters.updatedAt} onChange={v=>setF("updatedAt",v)} placeholder="Filtrar…"/>
+              <div style={{display:"flex",gap:10,marginTop:6}}>
+                <Btn ghost full onClick={()=>setFilters(DASH_FILTERS_EMPTY)}>Limpiar</Btn>
+                <Btn primary full onClick={()=>setMobileFiltersOpen(false)}>Ver resultados ({sorted.length})</Btn>
+              </div>
+            </div>
           </div>}
         </div>
       </div>
@@ -3332,7 +3386,9 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* SIDEBAR */}
-        <div style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
+        {sidebarOpen&&<div className="sidebar-backdrop" onClick={()=>setSidebarOpen(false)}/>}
+        <div className={sidebarOpen?"app-sidebar sb-open":"app-sidebar"}
+          style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
           {sidebarOpen&&<>
           {SECCIONES.map((item,idx)=>{
             const isActive=sec===item.id;
