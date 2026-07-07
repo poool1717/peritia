@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 6 julio 2026 (sesión 8 — rama `staging`: validación de inputs + accesibilidad y responsive, PR1+PR2)
+**Última actualización:** 7 julio 2026 (sesión 9 — merge de `staging` a `main` + UX/UI Fase 2 y 3)
 
 ---
 
@@ -12,7 +12,7 @@ login → subida PDFs → extracción IA → editor → guardar → exportar PDF
 
 La extracción de datos desde PDFs estaba rota tras la migración a Vercel (errores 400, 400 max_tokens, créditos insuficientes). Todos resueltos. Actualmente en pruebas reales con el usuario.
 
-La rama `staging` lleva un endurecimiento de validación de inputs (sesión previa) más mejoras de accesibilidad/responsive (sesión 8), sin tocar la lógica de cálculo ni el proxy de IA. Pendiente de fusionar a `main` tras validar en dispositivos reales.
+`staging` (validación de inputs sesión previa + accesibilidad/responsive sesión 8) ya está fusionada en `main` (merge normal, sin squash, commit `903cf0f`). `main` incluye además el `<meta name="viewport">` (`pages/_app.js`, ya estaba resuelto desde el propio commit de accesibilidad) y, en esta sesión 9, la Fase 2 (sidebar como drawer/overlay en móvil + topbar del editor sin desbordamiento) y la Fase 3 (LoginScreen unificado con la paleta `C` y los helpers compartidos) del roadmap UX/UI.
 
 **Sesión 6 (auditoría técnica):** revisión completa de seguridad, fiabilidad y mantenibilidad. Aplicados en producción los puntos 1–4 y 6: protección de contraseñas filtradas (Supabase), auth sin fallback inseguro, guardado verificado con reintento e indicador visible, avisos al usuario cuando la IA falla, keys estables en tablas de partidas y dependencias correctas en los `useEffect` de auto-relleno de Sec1. Queda pendiente para una sesión dedicada el punto 5 (dividir `Peritia.jsx`, 3.107 líneas, en módulos por sección — refactor grande).
 
@@ -27,6 +27,12 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 **Sesión 8 (rama `staging` — validación de inputs + accesibilidad y responsive, PR1+PR2):** no toca las funciones de cálculo (`calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion`) ni `pages/api/claude.js`. Compila limpio (`next build` OK).
 - **PR1 — Validación de inputs (evita indemnizaciones corruptas):** en Sec3, `clampNum`/`P_LIMITS`/`clampField`/`sanP` acotan uds y precio a ≥0, IVA y %depreciación a 0–100; `updP` pasa cada cambio por `clampField`; las partidas generadas por IA (`genFromBaremo`, `extractFromFacturas`) se sanean con `sanP` antes de guardarse; `InpCell` acepta `min`/`max` y los 4 campos numéricos de la tabla los usan; la depreciación de póliza se acota a 0–100 al extraerla del PDF y en `genFromBaremo`.
 - **PR2 — Accesibilidad y responsive (desktop + móvil + tablet):** estado de foco visible (`:focus-visible`) y `touch-action:manipulation` en botones; `@media(max-width:767px)` evita el zoom automático de iOS en inputs (`font-size:16px`), reduce la fuente en celdas de tabla y activa scroll horizontal en las tablas de preview del informe (clase `.tbl-scroll`, con scrollbar más visible en móvil); el sidebar arranca cerrado en pantallas <1024px (`App`); `aria-label` añadido a los 6 botones de solo icono (toggles de menú, cerrar modal de exportación, eliminar factura/partida/encargo).
+
+**Sesión 9 (merge `staging`→`main` + UX/UI Fase 2 y 3):** no toca `calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion` ni `pages/api/claude.js` (verificado con diff línea a línea). Compila limpio (`next build` OK).
+- **Merge:** `staging` fusionada en `main` con merge normal (sin squash, commit `903cf0f`), conservando el historial de sus 3 commits.
+- **Fase 2 — Sidebar como drawer/overlay en móvil:** por debajo de 1024px el sidebar (Dashboard y ReportEditor) pasa a `position:fixed` con `transform:translateX()` y un backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), en vez de empujar el contenido como en desktop. La topbar (clase `.app-topbar`) sube su z-index por encima del sidebar para que Inicio/toggle sigan visibles con el drawer abierto.
+- **Fase 2 — Topbar del editor sin desbordamiento:** `.editor-topbar`/`.editor-actions` con `flex-wrap` en `@media(max-width:767px)`; el bloque de acciones (guardado/consumo IA/contador/Exportar) pasa a una segunda línea en vez de desbordar horizontalmente. Verificado con un arnés de prueba aislado (mismo CSS) a 390px: sin cambios en desktop.
+- **Fase 3 — `LoginScreen` unificado:** reemplazados los hex sueltos y el radio de borde propio (16) por la paleta `C` y los helpers ya usados en el resto de la app (`inpStyle`, `Btn`, mismo patrón de banners que `ExportModal`); panel a `borderRadius:12` (igual que `ExportModal`). Verificado visualmente con capturas a 1280px y 390px.
 
 ---
 
@@ -55,6 +61,9 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
 - [x] **Validación de inputs en Sec3 (sesión 8, `staging`):** `clampField`/`sanP` acotan uds, precio, IVA y %depreciación (0–100) tanto en la edición manual como en las partidas generadas por IA, para que un valor fuera de rango no corrompa la indemnización propuesta.
 - [x] **Accesibilidad y responsive (sesión 8, `staging`):** foco visible por teclado, inputs sin zoom automático de iOS en móvil, tablas de preview con scroll horizontal en pantallas estrechas, sidebar cerrado por defecto en móvil/tablet, `aria-label` en los botones de solo icono.
+- [x] **`<meta name="viewport">` (sesión 8, `pages/_app.js`):** el móvil ya renderiza al ancho real del dispositivo en vez de forzar ancho de escritorio.
+- [x] **Sidebar como drawer/overlay en móvil + topbar del editor sin desbordamiento (sesión 9, Fase 2):** por debajo de 1024px el sidebar es un panel `fixed` con backdrop en vez de empujar el contenido; la topbar del editor envuelve sus acciones en vez de desbordar en pantallas <768px.
+- [x] **`LoginScreen` unificado con la paleta `C` (sesión 9, Fase 3):** mismos colores, radios de borde e inputs/botones que el resto de la app.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
@@ -167,10 +176,11 @@ Datos hardcodeados:
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones
 - [x] **Sesión 8 (`staging`) — validación de inputs (PR1):** uds/precio/IVA/%depreciación acotados en Sec3, tanto en edición manual como en partidas generadas por IA
 - [x] **Sesión 8 (`staging`) — accesibilidad y responsive básico (PR2):** foco visible, sin zoom automático de iOS en inputs móviles, scroll horizontal en tablas de preview, sidebar cerrado por defecto en móvil/tablet, `aria-label` en botones de icono
-- [ ] Fusionar `staging` a `main` cuando el perito valide el comportamiento en móvil/tablet real
-- [ ] UX/UI pendiente — Fase 2 (sidebar como menú tipo drawer/overlay en móvil en vez de panel fijo que empuja el contenido; reorganizar la topbar del editor para que no se desborde en pantallas estrechas)
-- [ ] UX/UI pendiente — Fase 3 (unificar `LoginScreen` con la paleta de color central `C` en vez de valores hardcodeados propios; unificar radios de borde)
-- [ ] **Falta `<meta name="viewport">`** — no existe `pages/_document.js` ni la etiqueta en ningún sitio; sin ella el móvil renderiza la app a ancho de escritorio y obliga a hacer zoom manual. Es el fix de mayor impacto y menor esfuerzo pendiente para móvil.
+- [x] **Sesión 8 — `<meta name="viewport">`** ya resuelto vía `pages/_app.js` (no hizo falta `pages/_document.js`)
+- [x] Fusionar `staging` a `main` (sesión 9, merge normal sin squash, commit `903cf0f`)
+- [x] **Sesión 9 — UX/UI Fase 2:** sidebar como drawer/overlay en móvil (backdrop + `position:fixed`) en vez de panel fijo que empuja el contenido; topbar del editor con `flex-wrap` para no desbordar en pantallas estrechas
+- [x] **Sesión 9 — UX/UI Fase 3:** `LoginScreen` unificado con la paleta `C` y los helpers compartidos (`inpStyle`, `Btn`); radios de borde consistentes con el resto de la app
+- [ ] Probar en dispositivo real (móvil/tablet) el drawer del sidebar y la topbar del editor antes de dar la Fase 2 por completamente cerrada
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
