@@ -408,6 +408,14 @@ const css = `
   ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
   input,select,textarea{font-family:inherit;color:${C.ink}}
   input[type=number]::-webkit-inner-spin-button{opacity:.6}
+  button{touch-action:manipulation}
+  :focus-visible{outline:2px solid ${C.accentMid};outline-offset:2px;border-radius:4px}
+  @media(max-width:767px){
+    input,select,textarea{font-size:16px!important}
+    td input,td select{font-size:11px!important}
+    .tbl-scroll{display:block;overflow-x:auto}
+    ::-webkit-scrollbar{width:8px}
+  }
 `;
 
 // ─── BASE UI ─────────────────────────────────────────────────────────────────
@@ -712,7 +720,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
 
         {/* TOPBAR */}
         <div style={{background:C.accent,padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-          <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"}
+          <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"} aria-label={sidebarOpen?"Ocultar menú":"Mostrar menú"}
             style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,padding:"5px 8px",
               cursor:"pointer",color:"#fff",display:"flex",alignItems:"center"}}>
             {sidebarOpen?<ChevronLeft size={14}/>:<ChevronRight size={14}/>}
@@ -776,6 +784,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                     <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
                       <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
                       {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
+                        aria-label="Eliminar encargo"
                         style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
                           cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
                         <Trash2 size={11}/>
@@ -946,7 +955,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       franquicias:              pol.franquicias||{},
       valorNuevoContinente:     pol.valorNuevoContinente||false,
       valorNuevoContenido:      pol.valorNuevoContenido||false,
-      depreciacionPoliza:       String(parseCap(pol.depreciacionPoliza)||0),
+      depreciacionPoliza:       String(Math.min(100,Math.max(0,parseCap(pol.depreciacionPoliza)||0))),
       garantia:                 cobFinal2,
       garantiasActivas:         pol.garantiasActivas||enc.garantia||"",
       condicionesEspeciales:    pol.condicionesEspeciales||"",
@@ -1245,7 +1254,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ?<>
             {s3?.textoAI&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
             <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead><tr style={{background:C.accentLight}}>
                 {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
                   <th key={hi} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
@@ -1302,7 +1311,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             {s4Desc&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14,background:C.bg,borderRadius:7,padding:12}}>{s4Desc}</div>}
             {totalDano>0&&<>
               <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
+              <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
                 <thead><tr style={{background:C.accentLight}}>
                   {["Garantía Afectada","D.con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
                     <th key={h} style={{padding:"6px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:11}}>{h}</th>
@@ -1854,7 +1863,13 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const totAjustado = sumAjustado(enc, s1, data);
   const indemn   = calcIndemnizacion(enc, s1, data);
 
-  const updP = (i,f,v) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,[f]:v}:p)});
+  // Validación: sin negativos en uds/precio; IVA y depreciación acotados a 0–100.
+  // Evita que valores fuera de rango (tecleados o extraídos por la IA) corrompan la indemnización.
+  const clampNum = (v,min,max) => { const n=+v; if(!isFinite(n)) return min; return Math.min(max,Math.max(min,n)); };
+  const P_LIMITS = {uds:[0,Infinity], p:[0,Infinity], iva:[0,100], pctDepr:[0,100]};
+  const clampField = (f,v) => P_LIMITS[f]?clampNum(v,P_LIMITS[f][0],P_LIMITS[f][1]):v;
+  const sanP = p => ({...p, uds:clampNum(p.uds,0,Infinity), p:clampNum(p.p,0,Infinity), iva:clampNum(p.iva??0,0,100), pctDepr:clampNum(p.pctDepr,0,100)});
+  const updP = (i,f,v) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,[f]:clampField(f,v)}:p)});
   const delP = i => onChange({...data,partidas:partidas.filter((_,idx)=>idx!==i)});
   const addRow = () => { const ivaDef=esFactura?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),oficio:"",desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado",garantia:"continente",cobertura:true}]}); };
   // Reordenar filas manualmente (drag & drop)
@@ -1914,7 +1929,7 @@ TEXTO: "${data.textoRaw}"`,
     const desc = data.textoAI||data.textoRaw;
     if(!desc) return;
     setGenLoad(true);
-    const deprPct = parseFloat(enc.depreciacionPoliza)||0;
+    const deprPct = Math.min(100,Math.max(0,parseFloat(enc.depreciacionPoliza)||0));
     const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
@@ -1952,7 +1967,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
-      onChange({...data,partidas:rows});
+      onChange({...data,partidas:rows.map(sanP)});
     } else {
       alert("La IA no encontró partidas en la descripción de daños. Revisa el texto e inténtalo de nuevo.");
     }
@@ -1980,7 +1995,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       if(iaError(j)) hadError=true;
       else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random()}))];
     }
-    if(all.length>0) onChange({...data,partidas:all});
+    if(all.length>0) onChange({...data,partidas:all.map(sanP)});
     else if(hadError) alert("La IA no pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.");
     else alert("No se encontraron líneas en las facturas adjuntas.");
     setGenLoad(false);
@@ -1993,8 +2008,8 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
   };
   const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
 
-  const InpCell = ({val,onChange:oc,type="text",w=60}) => (
-    <input type={type} value={val||""} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
+  const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
+    <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
       style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit",textAlign:type==="number"?"right":"left"}}/>
   );
 
@@ -2097,7 +2112,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
             <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
             <span style={{color:C.muted,fontSize:11}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
-            <button onClick={()=>delFactura(f.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
+            <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
           </div>
         ))}
         {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
@@ -2179,15 +2194,15 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                       <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
                         style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
                     </td>
-                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right"}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44}/>}</td>
-                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal">{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70}/>}</td>
+                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right"}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
+                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal">{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
                     <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600}}>{fmt(vRepos)}</td>
-                    {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36}/></td>}
+                    {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36} min={0} max={100}/></td>}
                     {showIVA&&<td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
                     {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
                       <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
                     </td>}
-                    {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36}/>}</td>}
+                    {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36} min={0} max={100}/>}</td>}
                     <td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(vReal)}</td>
                     <td style={{padding:"4px 5px",textAlign:"right",fontWeight:700,color:C.green}}>{fmt(vReal)}</td>
                     <td style={{padding:"3px 4px"}}>
@@ -2207,7 +2222,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                         style={{background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:11,fontFamily:"inherit",
                           color:p.cobertura!==false?C.green:C.red}}>{p.cobertura!==false?"Sí":"No"}</button>
                     </td>
-                    <td><button onClick={()=>delP(i)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
+                    <td><button onClick={()=>delP(i)} aria-label="Eliminar partida" style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
                   </tr>
                 );
               })}
@@ -2921,7 +2936,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
       <div style={{background:C.white,borderRadius:12,padding:30,width:420,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
-          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
+          <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
           <div>
@@ -2943,7 +2958,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
         </div>
         {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
         <div style={{display:'flex',gap:10}}>
-          <button onClick={handlePDF} disabled={wrdLoad}
+          <button onClick={handlePDF} disabled={pdfLoad||wrdLoad}
             style={{flex:1,padding:'11px 0',borderRadius:8,border:'none',background:pdfLoad?'#E5E0D8':pdfOk?C.green:C.accent,color:'#fff',fontSize:13,fontWeight:700,cursor:pdfLoad||wrdLoad?'not-allowed':'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:'background .2s'}}>
             {pdfOk?<><Check size={15}/>Abierto en nueva pestaña</>:<><FileText size={15}/>Generar PDF</>}
           </button>
@@ -3103,7 +3118,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
           <Home size={12}/>Inicio
         </button>
-        <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"}
+        <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"} aria-label={sidebarOpen?"Ocultar menú":"Mostrar menú"}
           style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:3}}>
           {sidebarOpen?<ChevronLeft size={13}/>:<ChevronRight size={13}/>}
         </button>
@@ -3187,8 +3202,18 @@ export default function App(){
   const [active,setActive] = useState(null);
   const [sbLoading,setSbLoading]   = useState(false);
   const [sidebarOpen,setSidebarOpen] = useState(true);
+  useEffect(()=>{ if(window.innerWidth<1024) setSidebarOpen(false); },[]);
   const [saveState,setSaveState]   = useState("idle"); // idle | saving | saved | error
   const sbSaveTimer = useRef(null);
+  const dirtyRef = useRef(false); // true = hay cambios pendientes de guardar en Supabase
+
+  // Aviso del navegador si se cierra la pestaña con cambios sin guardar
+  // (ventana del debounce o guardado fallido).
+  useEffect(()=>{
+    const h = e => { if(dirtyRef.current){ e.preventDefault(); e.returnValue=""; } };
+    window.addEventListener("beforeunload",h);
+    return ()=>window.removeEventListener("beforeunload",h);
+  },[]);
 
   // Cargar informes del usuario desde Supabase
   const loadCases = async (tk) => {
@@ -3239,6 +3264,7 @@ export default function App(){
       res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
     }
     const ok = !!res;
+    if(ok) dirtyRef.current = false;
     setSaveState(ok?"saved":"error");
     if(ok) setTimeout(()=>setSaveState(s=>s==="saved"?"idle":s),2500);
     return ok;
@@ -3247,6 +3273,7 @@ export default function App(){
   const updateCase = u => {
     setActive(u); setCases(p=>p.map(c=>c.id===u.id?u:c));
     if(u._sbId&&token){
+      dirtyRef.current = true;
       clearTimeout(sbSaveTimer.current);
       sbSaveTimer.current = setTimeout(() => saveToSb(u), 5000);
     }
