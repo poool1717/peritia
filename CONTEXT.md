@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 6 julio 2026 (sesión 8 — rama `staging`: validación de inputs + accesibilidad y responsive, PR1+PR2)
+**Última actualización:** 7 julio 2026 (sesión 9 — rama `staging`: rediseño visual frontend, PR de diseño)
 
 ---
 
@@ -27,6 +27,16 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 **Sesión 8 (rama `staging` — validación de inputs + accesibilidad y responsive, PR1+PR2):** no toca las funciones de cálculo (`calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion`) ni `pages/api/claude.js`. Compila limpio (`next build` OK).
 - **PR1 — Validación de inputs (evita indemnizaciones corruptas):** en Sec3, `clampNum`/`P_LIMITS`/`clampField`/`sanP` acotan uds y precio a ≥0, IVA y %depreciación a 0–100; `updP` pasa cada cambio por `clampField`; las partidas generadas por IA (`genFromBaremo`, `extractFromFacturas`) se sanean con `sanP` antes de guardarse; `InpCell` acepta `min`/`max` y los 4 campos numéricos de la tabla los usan; la depreciación de póliza se acota a 0–100 al extraerla del PDF y en `genFromBaremo`.
 - **PR2 — Accesibilidad y responsive (desktop + móvil + tablet):** estado de foco visible (`:focus-visible`) y `touch-action:manipulation` en botones; `@media(max-width:767px)` evita el zoom automático de iOS en inputs (`font-size:16px`), reduce la fuente en celdas de tabla y activa scroll horizontal en las tablas de preview del informe (clase `.tbl-scroll`, con scrollbar más visible en móvil); el sidebar arranca cerrado en pantallas <1024px (`App`); `aria-label` añadido a los 6 botones de solo icono (toggles de menú, cerrar modal de exportación, eliminar factura/partida/encargo).
+
+**Sesión 9 (rama `staging` — rediseño visual frontend, solo diseño):** PR exclusivamente de estilos/estructura JSX. **No se ha tocado** `calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion` ni `pages/api/claude.js` — verificado línea a línea (el `diff` de esas funciones frente a `staging` está vacío). Compila limpio (`next build` OK) y balance de llaves = 0 tras cada cambio.
+- **Tokens de diseño:** paleta `C` renovada (fondo cálido `#F4F1EA`, sidebar `#161B22`, nuevo color secundario `plano`/`planoLight` para datos/estado informativo — nunca mezclado con `accent`, reservado a acciones). Tipografía de titulares `DM Serif Display` → `Source Serif 4` (17 usos reemplazados). Nueva fuente `IBM Plex Mono` para números de referencia, importes de tablas de valoración y códigos de oficio del Baremo. Radios de `Card`/`Btn`/`inpStyle` subidos a 9–10px; sombra de elevación (hover en tarjetas) a `0 12px 32px rgba(27,36,48,.13)`.
+- **LoginScreen:** tarjeta con `borderTop` de 3px en `accent`, radio 4px (más sobria), textura de puntos decorativa de fondo. Lógica de auth intacta.
+- **Dashboard — sidebar plegable:** el toggle único del topbar se sustituyó por dos botones independientes: uno dentro del propio sidebar (arriba a la derecha) para cerrarlo, y uno en el topbar rojo —solo presente en el DOM cuando el sidebar está cerrado— para reabrirlo. No existía ningún listener de "click fuera" que cerrase el sidebar en desktop, así que no había nada que quitar en ese sentido; el comportamiento del drawer móvil (colapso a ancho 0) no se ha tocado.
+- **Dashboard — vista de tabla (nueva, por defecto):** toggle "Tabla/Tarjetas" en el sidebar. Columnas Asegurado, Compañía, Nº Referencia, Ramo, Tipo, Provincia, Estado, Progreso, Últ. modificación, con fila de filtros (texto libre o desplegable con valores reales presentes en los expedientes cargados) y cabeceras ordenables (asc/desc). Filtrado 100% en memoria sobre los expedientes ya cargados (no hay límite de 150–200 expedientes que lo justifique). Barra "Mostrando X de Y" + "Limpiar filtros". En viewport < 768px la tabla se oculta por completo vía CSS (`.dash-table-wrap{display:none!important}`) y se fuerza la vista de tarjetas existente (sin rediseñar, tal cual estaba). No se ha añadido drawer de filtros en móvil.
+- **Ledger de Sección 3 (editor y preview del informe):** cabecera oscura (`C.ink`), zebra striping sutil, importes/unidades/oficio en `IBM Plex Mono`, fila de subtotal remarcada en `accentLight`/`accent`. Cambios puramente de estilo sobre las mismas celdas y expresiones existentes — ningún `colSpan`, cabecera, o binding de datos se ha modificado.
+- **Rail de navegación del editor:** los iconos de `SECCIONES` se sustituyeron por folios numerados (`00`–`06`, `IBM Plex Mono`) con subtítulo; check verde sobre el número cuando la sección está completa. Misma lógica de `isDone`/sección activa que ya existía.
+- **Campos verificados en el código real (no asumidos):** `encargo.ramo` existe pero es **texto libre**, no un enum cerrado a HOGAR/EMPRESA — el filtro de la tabla se construye con los valores reales presentes en los expedientes cargados, no con una lista fija. `encargo.tipoEncargo` sí es cerrado (`PERITACION`/`INSTANT_PAYMENT`, verificado en `SecEncargo`). `encargo.provincia` es el campo real de ubicación (se usó en vez de `lugarIntervencion`, que es la dirección completa). `informes.estado` existe en Supabase (`borrador`/`completado`/`exportado`) pero solo tiene 3 valores, no incluye un estado "Pendiente revisión" — se derivó así: `estado==='exportado'` → **Finalizado**; si no y `done===4/4` → **Pendiente revisión**; si no → **En curso**. `informes.updated_at` existe en Supabase pero no se cargaba al frontend (el `.map()` de `loadCases` lo descartaba); se añadió `updatedAt:r.updated_at` a la carga para poder mostrar la columna "Últ. modificación" — es el único cambio fuera de `components/Peritia.jsx` puramente visual, y no toca ninguna función de cálculo.
+- **Pendiente:** drawer de filtros en móvil (deliberadamente fuera de alcance de esta sesión). Verificación de los casos oracle (463,59 € / 1.291,47 €) hecha por revisión de código (cero cambios en las funciones de cálculo) y probando manualmente la tabla de Sección 3 con datos de ejemplo (10 uds × 18 €/ud + 21% IVA = 217,80 €, correcto); no se pudo repetir el flujo de login real contra Supabase de producción para una comparación pixel a pixel con `peritia-git-staging-pol-myprojects.vercel.app` porque este entorno no dispone de credenciales de un usuario de prueba.
 
 ---
 
@@ -55,6 +65,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
 - [x] **Validación de inputs en Sec3 (sesión 8, `staging`):** `clampField`/`sanP` acotan uds, precio, IVA y %depreciación (0–100) tanto en la edición manual como en las partidas generadas por IA, para que un valor fuera de rango no corrompa la indemnización propuesta.
 - [x] **Accesibilidad y responsive (sesión 8, `staging`):** foco visible por teclado, inputs sin zoom automático de iOS en móvil, tablas de preview con scroll horizontal en pantallas estrechas, sidebar cerrado por defecto en móvil/tablet, `aria-label` en los botones de solo icono.
+- [x] **Rediseño visual frontend (sesión 9, `staging`):** paleta y tipografía renovadas (`Source Serif 4` + `IBM Plex Mono`), sidebar del Dashboard con apertura/cierre por botones independientes, vista de tabla de expedientes con filtros y orden (por defecto sobre la lista de tarjetas, que se conserva intacta en móvil), rail de navegación del editor con folios numerados, tabla de valoración de Sección 3 con estilo "ledger". Solo estilos/estructura — cero cambios en `calcReglas`/`reglaPartida`/`sumAjustado`/`calcIndemnizacion`/`pages/api/claude.js`.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
@@ -117,7 +128,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~3.277 · Balance llaves: 0
+Líneas: ~3.493 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
@@ -169,8 +180,9 @@ Datos hardcodeados:
 - [x] **Sesión 8 (`staging`) — accesibilidad y responsive básico (PR2):** foco visible, sin zoom automático de iOS en inputs móviles, scroll horizontal en tablas de preview, sidebar cerrado por defecto en móvil/tablet, `aria-label` en botones de icono
 - [ ] Fusionar `staging` a `main` cuando el perito valide el comportamiento en móvil/tablet real
 - [ ] UX/UI pendiente — Fase 2 (sidebar como menú tipo drawer/overlay en móvil en vez de panel fijo que empuja el contenido; reorganizar la topbar del editor para que no se desborde en pantallas estrechas)
-- [ ] UX/UI pendiente — Fase 3 (unificar `LoginScreen` con la paleta de color central `C` en vez de valores hardcodeados propios; unificar radios de borde)
+- [x] UX/UI pendiente — Fase 3, parcial (sesión 9): `LoginScreen` ya usa la paleta central `C` para fondo/sombra/radio; algunos valores de color puntuales (`#1A1714`, `#888`, `#ddd`…) siguen hardcodeados dentro de `LoginScreen` y no se tocaron por no formar parte del encargo de esta sesión.
 - [ ] **Falta `<meta name="viewport">`** — no existe `pages/_document.js` ni la etiqueta en ningún sitio; sin ella el móvil renderiza la app a ancho de escritorio y obliga a hacer zoom manual. Es el fix de mayor impacto y menor esfuerzo pendiente para móvil.
+- [ ] **Sesión 9 — pendiente:** drawer de filtros de la tabla de expedientes en móvil (deliberadamente fuera de alcance); comparación pixel a pixel del HTML antes/después contra `peritia-git-staging-pol-myprojects.vercel.app` (no se pudo iniciar sesión real contra Supabase de producción desde este entorno — verificación hecha por revisión de código + prueba manual de la tabla de Sección 3 con datos de ejemplo).
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)

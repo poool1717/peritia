@@ -8,10 +8,11 @@ import {
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
-  bg:"#F7F5F2", white:"#FFFFFF", sidebar:"#181C23",
-  accent:"#9B2226", accentLight:"#FDF0F0", accentMid:"#C1494E",
-  ink:"#1A2332", muted:"#6B7480", border:"#E8E4DE",
-  green:"#0F7B4D", greenBg:"#EDFAF3",
+  bg:"#F4F1EA", white:"#FFFFFF", sidebar:"#161B22",
+  accent:"#9B2226", accentLight:"#F7E7E7", accentMid:"#C1494E",
+  ink:"#1B2430", muted:"#6B7480", border:"#E3DED3",
+  plano:"#2C5F6B", planoLight:"#E7F0F1",
+  green:"#0F7B4D", greenBg:"#E9F7F0",
   orange:"#B45309", orangeBg:"#FFFBEB",
   red:"#C0392B", redBg:"#FEF2F2",
   blue:"#1D4ED8", blueBg:"#EFF6FF",
@@ -141,13 +142,13 @@ const TIPOS_USO = ["Hotel / Apart-hotel","Hostal / Pensión","Local comercial","
 const TIPOS_GARANTIA = ["Continente","Contenido","Terceros implicados"];
 
 const SECCIONES = [
-  {id:"informe", label:"Informe",                    icon:FileText},
-  {id:"encargo", label:"Datos del Encargo",           icon:FileCheck},
-  {id:"s1",      label:"1. Verificación del Riesgo",  icon:MapPin},
-  {id:"s2",      label:"2. Causas y Circunstancias",  icon:AlertTriangle},
-  {id:"s3",      label:"3. Valoración de Daños",      icon:List},
-  {id:"s4",      label:"4. Cobertura-Indemnización",  icon:FileCheck},
-  {id:"anexos",  label:"Anexos",                      icon:Camera},
+  {id:"informe", label:"Informe",                  sub:"Vista previa",       icon:FileText},
+  {id:"encargo", label:"Datos del Encargo",         sub:"Encargo y póliza",   icon:FileCheck},
+  {id:"s1",      label:"Verificación del Riesgo",   sub:"Sección 1",          icon:MapPin},
+  {id:"s2",      label:"Causas y Circunstancias",   sub:"Sección 2",          icon:AlertTriangle},
+  {id:"s3",      label:"Valoración de Daños",       sub:"Sección 3",          icon:List},
+  {id:"s4",      label:"Cobertura-Indemnización",   sub:"Sección 4",          icon:FileCheck},
+  {id:"anexos",  label:"Anexos",                    sub:"Fotos y documentos", icon:Camera},
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -397,7 +398,8 @@ Devuelve SOLO este JSON:
 };
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
-const FONT = "https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600;700&display=swap";
+const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@500;600&family=DM+Sans:wght@400;500;600;700&display=swap";
+const FONT_MONO = "'IBM Plex Mono',monospace";
 const css = `
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'DM Sans',sans-serif;background:${C.bg};color:${C.ink};font-size:14px}
@@ -415,6 +417,8 @@ const css = `
     td input,td select{font-size:11px!important}
     .tbl-scroll{display:block;overflow-x:auto}
     ::-webkit-scrollbar{width:8px}
+    .dash-table-wrap{display:none!important}
+    .dash-cards{display:flex!important}
   }
 `;
 
@@ -423,16 +427,17 @@ const Spin = () => <Loader2 size={14} style={{animation:"spin 1s linear infinite
 const Lbl  = ({c,req}) => <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:5,letterSpacing:"0.05em",textTransform:"uppercase"}}>{c}{req&&<span style={{color:C.accent}}> *</span>}</div>;
 
 const inpStyle = (dis) => ({
-  width:"100%",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:7,
+  width:"100%",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:9,
   fontSize:14,background:dis?C.bg:C.white,outline:"none",fontFamily:"inherit",
   transition:"border-color .15s",
 });
 
-const Inp = ({label,value,onChange,placeholder,type="text",disabled,required,hint}) => (
+const Inp = ({label,value,onChange,placeholder,type="text",disabled,required,hint,mono}) => (
   <div style={{marginBottom:14}}>
     {label&&<Lbl c={label} req={required}/>}
     <input type={type} value={value||""} onChange={e=>onChange(e.target.value)}
-      placeholder={placeholder} disabled={disabled} style={inpStyle(disabled)}/>
+      placeholder={placeholder} disabled={disabled}
+      style={mono?{...inpStyle(disabled),fontFamily:FONT_MONO,fontWeight:600}:inpStyle(disabled)}/>
     {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
@@ -478,7 +483,7 @@ const Txt = ({label,value,onChange,placeholder,rows=4,disabled,hint}) => (
 
 const Btn = ({onClick,children,primary,ghost,danger,disabled,sm,full,outline}) => (
   <button onClick={onClick} disabled={disabled} style={{
-    padding:sm?"6px 14px":"9px 20px",borderRadius:7,
+    padding:sm?"6px 14px":"9px 20px",borderRadius:9,
     border:outline?`1.5px solid ${C.accent}`:"none",
     background:disabled?"#E5E0D8":primary?C.accent:danger?C.red:ghost||outline?"transparent":C.tag,
     color:disabled?C.muted:primary||danger?C.white:C.ink,
@@ -489,13 +494,13 @@ const Btn = ({onClick,children,primary,ghost,danger,disabled,sm,full,outline}) =
 );
 
 const Card = ({children,s}) => (
-  <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,padding:20,...s}}>{children}</div>
+  <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,padding:20,transition:"box-shadow .15s",...s}}>{children}</div>
 );
 
 const SecTitle = ({n,label,sub}) => (
   <div style={{marginBottom:22,paddingBottom:12,borderBottom:`2px solid ${C.accent}`}}>
     {n&&<div style={{fontSize:10,fontWeight:700,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:4}}>SECCIÓN {n}</div>}
-    <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,fontWeight:400,color:C.ink}}>{label}</h2>
+    <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,color:C.ink}}>{label}</h2>
     {sub&&<p style={{fontSize:13,color:C.muted,marginTop:4,lineHeight:1.5}}>{sub}</p>}
   </div>
 );
@@ -584,7 +589,7 @@ const Logo = () => (
       <Sparkles size={14} style={{color:"#fff"}}/>
     </div>
     <div style={{lineHeight:1}}>
-      <div style={{fontFamily:"'DM Serif Display',serif",fontSize:16}}>
+      <div style={{fontFamily:"'Source Serif 4',serif",fontSize:16}}>
         <span style={{color:"#fff"}}>PERIT</span><span style={{color:"#C1494E"}}>.IA</span>
       </div>
       <div style={{fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase"}}>Informes Periciales</div>
@@ -635,11 +640,11 @@ const LoginScreen = ({onAuth}) => {
   };
 
   return (
-    <div style={{minHeight:'100vh',background:'#F8F5F0',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{minHeight:'100vh',background:C.bg,backgroundImage:'radial-gradient(circle at 1px 1px, rgba(27,36,48,.06) 1px, transparent 0)',backgroundSize:'22px 22px',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <link rel="stylesheet" href={FONT}/>
-      <div style={{width:380,background:'#fff',borderRadius:16,padding:40,boxShadow:'0 8px 40px rgba(0,0,0,.1)'}}>
+      <div style={{width:380,background:'#fff',borderRadius:4,borderTop:`3px solid ${C.accent}`,padding:40,boxShadow:'0 12px 32px rgba(27,36,48,.13)'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
-          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:28,fontWeight:400,color:'#1A1714',letterSpacing:'-.02em'}}>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:28,fontWeight:400,color:'#1A1714',letterSpacing:'-.02em'}}>
             PERIT<span style={{color:'#9B2226'}}>.IA</span>
           </div>
           <div style={{fontSize:12,color:'#888',marginTop:4}}>
@@ -688,22 +693,99 @@ const LoginScreen = ({onAuth}) => {
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
+const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg]};
+const TIPO_LABEL = {PERITACION:"Peritación",INSTANT_PAYMENT:"Instant Payment"};
+const fmtUpdated = v => {
+  if(!v) return "";
+  const d = new Date(v);
+  if(isNaN(d)) return "";
+  return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+};
+const DASH_FILTERS_EMPTY = {asegurado:"",compania:"",numReferencia:"",ramo:"",tipo:"",provincia:"",estado:"",progreso:"",updatedAt:""};
+
 const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOpen,setSidebarOpen}) => {
+  const [dashView,setDashView] = useState("tabla");
+  const [filters,setFilters] = useState(DASH_FILTERS_EMPTY);
+  const [sortCol,setSortCol] = useState(null);
+  const [sortDir,setSortDir] = useState("asc");
+  const setF = (k,v) => setFilters(p=>({...p,[k]:v}));
+  const toggleSort = col => { if(sortCol===col) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(col); setSortDir("asc"); } };
+
+  const rows = cases.map(cas=>{
+    const e=cas.encargo||{};
+    const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
+    const estado = cas.estado==="exportado"?"Finalizado":(done===4?"Pendiente revisión":"En curso");
+    return {cas,e,done,estado};
+  });
+  const compOptions = [...new Set(rows.map(r=>r.e.compania).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+  const ramoOptions = [...new Set(rows.map(r=>r.e.ramo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+  const tipoOptions = [...new Set(rows.map(r=>r.e.tipoEncargo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+
+  const filtered = rows.filter(r=>{
+    const f=filters;
+    if(f.asegurado && !(r.e.asegurado||"").toLowerCase().includes(f.asegurado.toLowerCase())) return false;
+    if(f.compania && r.e.compania!==f.compania) return false;
+    if(f.numReferencia && !(r.e.numReferencia||"").toLowerCase().includes(f.numReferencia.toLowerCase())) return false;
+    if(f.ramo && r.e.ramo!==f.ramo) return false;
+    if(f.tipo && r.e.tipoEncargo!==f.tipo) return false;
+    if(f.provincia && !(r.e.provincia||"").toLowerCase().includes(f.provincia.toLowerCase())) return false;
+    if(f.estado && r.estado!==f.estado) return false;
+    if(f.progreso && `${r.done}/4`!==f.progreso) return false;
+    if(f.updatedAt && !fmtUpdated(r.cas.updatedAt).toLowerCase().includes(f.updatedAt.toLowerCase())) return false;
+    return true;
+  });
+  const sortGetters = {
+    asegurado:r=>r.e.asegurado||"", compania:r=>r.e.compania||"", numReferencia:r=>r.e.numReferencia||"",
+    ramo:r=>r.e.ramo||"", tipo:r=>r.e.tipoEncargo||"", provincia:r=>r.e.provincia||"",
+    estado:r=>r.estado||"", progreso:r=>r.done, updatedAt:r=>r.cas.updatedAt||"",
+  };
+  const sorted = sortCol ? [...filtered].sort((a,b)=>{
+    const av=sortGetters[sortCol](a), bv=sortGetters[sortCol](b);
+    const cmp = typeof av==="number"&&typeof bv==="number" ? av-bv : String(av).localeCompare(String(bv),"es");
+    return sortDir==="asc"?cmp:-cmp;
+  }) : filtered;
+  const filtersActive = Object.values(filters).some(Boolean);
+
+  const SortTh = ({col,label,align}) => (
+    <th onClick={()=>toggleSort(col)} style={{padding:"8px 10px",textAlign:align||"left",color:"rgba(255,255,255,.85)",
+      fontWeight:700,fontSize:10.5,textTransform:"uppercase",letterSpacing:".04em",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"}}>
+      {label} <span style={{opacity:sortCol===col?1:.3,fontSize:9}}>{sortCol===col?(sortDir==="asc"?"▲":"▼"):"▲"}</span>
+    </th>
+  );
+  const FilterTd = ({children}) => <td style={{padding:"5px 8px",background:C.white,borderBottom:`2px solid ${C.border}`}}>{children}</td>;
+  const filterInpStyle = {width:"100%",padding:"5px 7px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:11.5,fontFamily:"inherit",outline:"none"};
+
   return (
     <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
 
       {/* SIDEBAR */}
       <div style={{width:sidebarOpen?220:0,background:C.sidebar,flexShrink:0,overflow:"hidden",
-        transition:"width .2s ease",display:"flex",flexDirection:"column"}}>
+        transition:"width .2s ease",display:"flex",flexDirection:"column",position:"relative"}}>
         {sidebarOpen&&<>
+          <button onClick={()=>setSidebarOpen(false)} title="Ocultar menú" aria-label="Ocultar menú"
+            style={{position:"absolute",top:20,right:14,width:28,height:28,borderRadius:9,
+              background:"rgba(255,255,255,.16)",border:"none",cursor:"pointer",color:"#fff",
+              display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}
+            onMouseEnter={ev=>ev.currentTarget.style.background="rgba(255,255,255,.28)"}
+            onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.16)"}>
+            <ChevronLeft size={13}/>
+          </button>
           <div style={{padding:"22px 16px 10px"}}><Logo/></div>
           <div style={{height:1,background:"rgba(255,255,255,.07)",margin:"0 16px 10px"}}/>
           <div style={{padding:"4px 8px",flex:1}}>
             <button onClick={onNew} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
-              padding:"9px 12px",background:C.accent,color:"#fff",border:"none",borderRadius:8,
-              cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit"}}>
+              padding:"9px 12px",background:C.accent,color:"#fff",border:"none",borderRadius:9,
+              cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",marginBottom:14}}>
               <Plus size={13}/>Nuevo encargo
             </button>
+            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,padding:"0 2px"}}>Vista</div>
+            <div style={{display:"flex",background:"rgba(255,255,255,.07)",borderRadius:9,padding:2,gap:2}}>
+              {[["tabla","Tabla"],["tarjetas","Tarjetas"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setDashView(v)} style={{flex:1,padding:"6px 0",borderRadius:7,border:"none",cursor:"pointer",
+                  background:dashView===v?C.accent:"transparent",color:dashView===v?"#fff":"rgba(255,255,255,.5)",
+                  fontSize:11,fontWeight:600,fontFamily:"inherit"}}>{l}</button>
+              ))}
+            </div>
           </div>
           <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,.07)",fontSize:11,color:"rgba(255,255,255,.4)"}}>
             <div style={{marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.email}</div>
@@ -720,12 +802,15 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
 
         {/* TOPBAR */}
         <div style={{background:C.accent,padding:"9px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-          <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"} aria-label={sidebarOpen?"Ocultar menú":"Mostrar menú"}
-            style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,padding:"5px 8px",
-              cursor:"pointer",color:"#fff",display:"flex",alignItems:"center"}}>
-            {sidebarOpen?<ChevronLeft size={14}/>:<ChevronRight size={14}/>}
-          </button>
-          <span style={{fontFamily:"'DM Serif Display',serif",fontSize:15,color:"rgba(255,255,255,.9)"}}>
+          {!sidebarOpen&&<button onClick={()=>setSidebarOpen(true)} title="Mostrar menú" aria-label="Mostrar menú"
+            style={{width:28,height:28,borderRadius:9,background:"rgba(255,255,255,.16)",border:"none",
+              cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",
+              flexShrink:0,transition:"background .15s"}}
+            onMouseEnter={ev=>ev.currentTarget.style.background="rgba(255,255,255,.28)"}
+            onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.16)"}>
+            <ChevronRight size={13}/>
+          </button>}
+          <span style={{fontFamily:"'Source Serif 4',serif",fontSize:15,color:"rgba(255,255,255,.9)"}}>
             PERIT<span style={{color:"rgba(255,255,255,.55)"}}>.IA</span>
           </span>
           <div style={{flex:1}}/>
@@ -742,60 +827,159 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
         </div>
 
         {/* CONTENT */}
-        <div style={{maxWidth:860,margin:"0 auto",padding:"28px 24px",width:"100%",boxSizing:"border-box"}}>
+        <div style={{maxWidth:dashView==="tabla"?1320:860,margin:"0 auto",padding:"28px 24px",width:"100%",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
             <div>
-              <h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:26,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
+              <h1 style={{fontFamily:"'Source Serif 4',serif",fontSize:26,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
               <p style={{color:C.muted,fontSize:13}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
             </div>
             <Btn primary onClick={onNew}><Plus size={14}/>Nuevo Encargo</Btn>
           </div>
           {loading&&<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:13}}>Cargando encargos…</div>}
-          {!loading&&(cases.length===0
-            ?<Card s={{textAlign:"center",padding:"60px 40px"}}>
+          {!loading&&cases.length===0&&
+            <Card s={{textAlign:"center",padding:"60px 40px"}}>
               <Building2 size={44} style={{color:C.border,marginBottom:14}}/>
-              <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:20,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
+              <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
               <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
               <Btn primary onClick={onNew}><Plus size={14}/>Crear primer encargo</Btn>
             </Card>
-            :<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {cases.map(cas=>{
-                const e=cas.encargo||{};
-                const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
-                return (
-                  <div key={cas.id} onClick={()=>onOpen(cas)}
-                    style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,
-                      padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,
-                      transition:"box-shadow .15s"}}
-                    onMouseEnter={ev=>ev.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.07)"}
-                    onMouseLeave={ev=>ev.currentTarget.style.boxShadow="none"}>
-                    <div style={{width:42,height:42,background:C.accentLight,borderRadius:9,display:"flex",
-                      alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      <FileText size={18} style={{color:C.accent}}/>
+          }
+
+          {/* VISTA TABLA (oculta en móvil vía CSS) */}
+          {!loading&&cases.length>0&&<div className="dash-table-wrap" style={{display:dashView==="tabla"?"block":"none"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+              <span style={{fontSize:12,color:C.muted}}>Mostrando <b style={{color:C.ink}}>{sorted.length}</b> de <b style={{color:C.ink}}>{cases.length}</b> expedientes</span>
+              {filtersActive&&<button onClick={()=>setFilters(DASH_FILTERS_EMPTY)}
+                style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,padding:"4px 11px",cursor:"pointer",
+                  color:C.accent,fontSize:11,fontWeight:600,fontFamily:"inherit"}}>Limpiar filtros</button>}
+            </div>
+            <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:10}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1100,background:C.white}}>
+                <thead>
+                  <tr style={{background:C.ink}}>
+                    <SortTh col="asegurado" label="Asegurado"/>
+                    <SortTh col="compania" label="Compañía"/>
+                    <SortTh col="numReferencia" label="Nº Referencia"/>
+                    <SortTh col="ramo" label="Ramo"/>
+                    <SortTh col="tipo" label="Tipo"/>
+                    <SortTh col="provincia" label="Provincia"/>
+                    <SortTh col="estado" label="Estado"/>
+                    <SortTh col="progreso" label="Progreso" align="center"/>
+                    <SortTh col="updatedAt" label="Últ. modificación"/>
+                    <th style={{width:70}}/>
+                  </tr>
+                  <tr>
+                    <FilterTd><input style={filterInpStyle} placeholder="Filtrar…" value={filters.asegurado} onChange={e=>setF("asegurado",e.target.value)}/></FilterTd>
+                    <FilterTd>
+                      <select style={{...filterInpStyle,cursor:"pointer"}} value={filters.compania} onChange={e=>setF("compania",e.target.value)}>
+                        <option value="">Todas</option>{compOptions.map(o=><option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </FilterTd>
+                    <FilterTd><input style={filterInpStyle} placeholder="Filtrar…" value={filters.numReferencia} onChange={e=>setF("numReferencia",e.target.value)}/></FilterTd>
+                    <FilterTd>
+                      <select style={{...filterInpStyle,cursor:"pointer"}} value={filters.ramo} onChange={e=>setF("ramo",e.target.value)}>
+                        <option value="">Todos</option>{ramoOptions.map(o=><option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </FilterTd>
+                    <FilterTd>
+                      <select style={{...filterInpStyle,cursor:"pointer"}} value={filters.tipo} onChange={e=>setF("tipo",e.target.value)}>
+                        <option value="">Todos</option>{tipoOptions.map(o=><option key={o} value={o}>{TIPO_LABEL[o]||o}</option>)}
+                      </select>
+                    </FilterTd>
+                    <FilterTd><input style={filterInpStyle} placeholder="Filtrar…" value={filters.provincia} onChange={e=>setF("provincia",e.target.value)}/></FilterTd>
+                    <FilterTd>
+                      <select style={{...filterInpStyle,cursor:"pointer"}} value={filters.estado} onChange={e=>setF("estado",e.target.value)}>
+                        <option value="">Todos</option>{Object.keys(ESTADO_COLOR).map(o=><option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </FilterTd>
+                    <FilterTd>
+                      <select style={{...filterInpStyle,cursor:"pointer"}} value={filters.progreso} onChange={e=>setF("progreso",e.target.value)}>
+                        <option value="">Todos</option>{["0/4","1/4","2/4","3/4","4/4"].map(o=><option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </FilterTd>
+                    <FilterTd><input style={filterInpStyle} placeholder="Filtrar…" value={filters.updatedAt} onChange={e=>setF("updatedAt",e.target.value)}/></FilterTd>
+                    <FilterTd>{null}</FilterTd>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.length===0&&<tr><td colSpan={10} style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Ningún expediente coincide con los filtros.</td></tr>}
+                  {sorted.map(({cas,e,done,estado},ri)=>{
+                    const [ecolor,ebg] = ESTADO_COLOR[estado];
+                    return (
+                      <tr key={cas.id} onClick={()=>onOpen(cas)} style={{cursor:"pointer",borderBottom:`1px solid ${C.border}`,
+                          background:ri%2===0?"transparent":"rgba(44,95,107,.03)"}}
+                        onMouseEnter={ev=>ev.currentTarget.style.background=C.accentLight}
+                        onMouseLeave={ev=>ev.currentTarget.style.background=ri%2===0?"transparent":"rgba(44,95,107,.03)"}>
+                        <td style={{padding:"9px 10px",fontWeight:600,color:C.ink,boxShadow:`inset 4px 0 0 ${ecolor}`}}>{e.asegurado||"Sin asegurado"}</td>
+                        <td style={{padding:"9px 10px",color:C.ink}}>{e.compania||"—"}</td>
+                        <td style={{padding:"9px 10px",fontFamily:FONT_MONO,fontWeight:600,color:C.ink}}>{e.numReferencia||"—"}</td>
+                        <td style={{padding:"9px 10px",color:C.ink}}>{e.ramo||"—"}</td>
+                        <td style={{padding:"9px 10px",color:C.ink}}>{TIPO_LABEL[e.tipoEncargo]||e.tipoEncargo||"—"}</td>
+                        <td style={{padding:"9px 10px",color:C.ink}}>{e.provincia||"—"}</td>
+                        <td style={{padding:"9px 10px"}}>
+                          <span style={{background:ebg,color:ecolor,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{estado}</span>
+                        </td>
+                        <td style={{padding:"9px 10px",textAlign:"center"}}>
+                          <span style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700}}>{done}/4</span>
+                        </td>
+                        <td style={{padding:"9px 10px",color:C.muted,fontSize:11,whiteSpace:"nowrap"}}>{fmtUpdated(cas.updatedAt)||"—"}</td>
+                        <td style={{padding:"9px 10px",textAlign:"right"}}>
+                          <div style={{display:"flex",gap:6,alignItems:"center",justifyContent:"flex-end"}}>
+                            {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
+                              aria-label="Eliminar encargo"
+                              style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
+                                cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
+                              <Trash2 size={11}/>
+                            </button>}
+                            <ChevronRight size={14} style={{color:C.muted}}/>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>}
+
+          {/* VISTA TARJETAS (siempre visible en móvil, sin rediseñar) */}
+          {!loading&&cases.length>0&&<div className="dash-cards" style={{display:dashView==="tarjetas"?"flex":"none",flexDirection:"column",gap:8}}>
+            {cases.map(cas=>{
+              const e=cas.encargo||{};
+              const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
+              return (
+                <div key={cas.id} onClick={()=>onOpen(cas)}
+                  style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,
+                    padding:"16px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:14,
+                    transition:"box-shadow .15s"}}
+                  onMouseEnter={ev=>ev.currentTarget.style.boxShadow="0 12px 32px rgba(27,36,48,.13)"}
+                  onMouseLeave={ev=>ev.currentTarget.style.boxShadow="none"}>
+                  <div style={{width:42,height:42,background:C.accentLight,borderRadius:9,display:"flex",
+                    alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <FileText size={18} style={{color:C.accent}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:600,fontSize:15,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {e.asegurado||"Sin asegurado"}
                     </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontWeight:600,fontSize:15,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                        {e.asegurado||"Sin asegurado"}
-                      </div>
-                      <div style={{fontSize:12,color:C.muted,marginTop:2}}>
-                        {e.compania||"—"} · {e.numReferencia||"—"} · {e.lugarIntervencion||""}
-                      </div>
-                    </div>
-                    <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                      <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
-                      {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
-                        aria-label="Eliminar encargo"
-                        style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
-                          cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
-                        <Trash2 size={11}/>
-                      </button>}
-                      <ChevronRight size={15} style={{color:C.muted}}/>
+                    <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+                      {e.compania||"—"} · <span style={{fontFamily:FONT_MONO,fontWeight:600}}>{e.numReferencia||"—"}</span> · {e.lugarIntervencion||""}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+                    <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
+                    {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
+                      aria-label="Eliminar encargo"
+                      style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
+                        cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
+                      <Trash2 size={11}/>
+                    </button>}
+                    <ChevronRight size={15} style={{color:C.muted}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>}
         </div>
       </div>
     </div>
@@ -989,7 +1173,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <div style={{width:48,height:48,background:`linear-gradient(135deg,${C.accent},#C1494E)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
             <Sparkles size={22} style={{color:"#fff"}}/>
           </div>
-          <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:22,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
+          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
           <p style={{color:C.muted,fontSize:13}}>Adjunta el encargo y la póliza. La IA extraerá todos los datos automáticamente.</p>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
@@ -1021,7 +1205,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg}}>
       <div style={{textAlign:"center",maxWidth:360}}>
         <Loader2 size={40} style={{color:C.accent,animation:"spin 1s linear infinite",marginBottom:16}}/>
-        <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:19,fontWeight:400,marginBottom:6}}>Extrayendo datos…</h3>
+        <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:19,fontWeight:400,marginBottom:6}}>Extrayendo datos…</h3>
         <p style={{color:C.accent,fontSize:13,fontWeight:600}}>{msg}</p>
       </div>
     </div>
@@ -1032,7 +1216,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px"}}>
         <div style={{marginBottom:22}}>
           <div style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos ✨</div>
-          <h2 style={{fontFamily:"'DM Serif Display',serif",fontSize:22,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
+          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
           <p style={{color:C.muted,fontSize:12,marginTop:3}}>Revisa y corrige antes de continuar</p>
         </div>
         <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
@@ -1055,7 +1239,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             }
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Nº Siniestro / Referencia ✨" value={data.numReferencia} onChange={s("numReferencia")} required/>
+            <Inp label="Nº Siniestro / Referencia ✨" value={data.numReferencia} onChange={s("numReferencia")} required mono/>
             <Inp label="Nº Póliza ✨" value={data.numPoliza} onChange={s("numPoliza")}/>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1133,7 +1317,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
+        <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
           {n&&<span style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",display:"block",marginBottom:2}}>SECCIÓN {n}</span>}
           {title}
         </div>
@@ -1153,7 +1337,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* CABECERA */}
       <Card s={{marginBottom:18,borderLeft:`4px solid ${C.accent}`,padding:24}}>
         <div style={{textAlign:"center",marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:24,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
           <div style={{fontSize:11,color:C.muted,letterSpacing:".1em",textTransform:"uppercase",marginTop:3}}>Intervención Pericial No Auto</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
@@ -1163,7 +1347,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ].map(([k,v])=>(
             <div key={k} style={{borderBottom:`1px solid ${C.border}`,paddingBottom:7}}>
               <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>{k}</div>
-              <div style={{fontSize:13,fontWeight:600,color:v?C.ink:C.border}}>{v||"—"}</div>
+              <div style={{fontSize:13,fontWeight:600,color:v?C.ink:C.border,fontFamily:k==="Nº Referencia"?FONT_MONO:"inherit"}}>{v||"—"}</div>
             </div>
           ))}
         </div>
@@ -1240,7 +1424,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ?<>
             {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
             {s2?.meteo&&<div style={{marginTop:(s2?.textoAI||s2?.textoRaw)?14:0}}>
-              <div style={{fontFamily:"'DM Serif Display',serif",fontSize:13,color:C.ink,marginBottom:6}}>Verificación meteorológica (XEMA)</div>
+              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:13,color:C.ink,marginBottom:6}}>Verificación meteorológica (XEMA)</div>
               {s2.meteo.texto&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
               <MeteoTabla m={s2.meteo} enc={enc}/>
             </div>}
@@ -1253,41 +1437,41 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         {partidas.length>0
           ?<>
             {s3?.textoAI&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
-            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
+            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
             <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-              <thead><tr style={{background:C.accentLight}}>
+              <thead><tr style={{background:C.ink}}>
                 {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
-                  <th key={hi} style={{padding:"5px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>
+                  <th key={hi} style={{padding:"6px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
                 {getPartidas(s3).map((p,i)=>{
                   const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
-                  return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`}}>
-                    <td style={{padding:"5px 6px",fontSize:11,textTransform:"uppercase"}}>{p.oficio||""}</td>
+                  return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":"rgba(44,95,107,.04)"}}>
+                    <td style={{padding:"5px 6px",fontSize:11,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
                     <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{p.uds||1}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(p.p)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(vr)}</td>
-                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.iva??21}%</td>}
-                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
+                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.uds||1}</td>
+                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(p.p)}</td>
+                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vr)}</td>
+                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.iva??21}%</td>}
+                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(ivaAmt)}</td>}
                     {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>}
-                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>}
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{fmt(vreal)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.green}}>{fmt(vreal)}</td>
+                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>}
+                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
+                    <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.green,fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
                     <td style={{padding:"5px 6px",textAlign:"center"}}>{p.garantia==="contenido"?"Contenido":"Continente"}</td>
                     <td style={{padding:"5px 6px",textAlign:"right"}}>{p.perceptor||"Asegurado 1"}</td>
                     <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura!==false?"Sí":"No"}</td>
                   </tr>);
                 })}
-                <tr style={{background:C.accentLight,fontWeight:700}}>
+                <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                   <td colSpan={4} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
-                  <td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumRepos(getPartidas(s3)))} €</td>
+                  <td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumRepos(getPartidas(s3)))} €</td>
                   {showIVAp&&<td/>}
-                  {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right"}}>{fmt(sumIVA(getPartidas(s3)))} €</td>}
+                  {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumIVA(getPartidas(s3)))} €</td>}
                   {showDeprp&&<td colSpan={2}/>}
-                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent}}>{fmtE(totalDano)}</td>
-                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontSize:13}}>{fmtE(totalDano)}</td>
+                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
+                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
                   <td colSpan={3}/>
                 </tr>
               </tbody>
@@ -1310,7 +1494,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             {s4Intro&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s4Intro}</div>}
             {s4Desc&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14,background:C.bg,borderRadius:7,padding:12}}>{s4Desc}</div>}
             {totalDano>0&&<>
-              <div style={{fontFamily:"'DM Serif Display',serif",fontSize:14,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
+              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:14,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
               <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
                 <thead><tr style={{background:C.accentLight}}>
                   {["Garantía Afectada","D.con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
@@ -1351,7 +1535,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         if(!anyAnex) return null;
         return (
           <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
-            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
+            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
             {[{label:"Reportaje fotográfico",items:allFotos},{label:"Info catastral",items:allCatastro},{label:"Info Meteosim",items:allMeteosim},{label:"Factura",items:allFacturas}]
               .filter(g=>g.items.length>0).map(g=>(
               <div key={g.label} style={{marginBottom:10}}>
@@ -2010,7 +2194,8 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
   const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
     <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
-      style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit",textAlign:type==="number"?"right":"left"}}/>
+      style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,
+        fontFamily:type==="number"?FONT_MONO:"inherit",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
   );
 
   return (
@@ -2164,9 +2349,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:900}}>
-            <thead><tr style={{background:C.accentLight}}>
+            <thead><tr style={{background:C.ink}}>
               {["","Oficio","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","V.Propuesto €","Garantía","Perceptor","Cob.",""].map((h,hi)=>(
-                <th key={hi} style={{padding:"5px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:C.accent,fontWeight:700,whiteSpace:"nowrap",borderBottom:`2px solid ${C.accent}`}}>{h}</th>
+                <th key={hi} style={{padding:"6px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -2181,30 +2366,30 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                     onDragOver={e=>{if(dragIdx!=null){e.preventDefault();setOverIdx(i);}}}
                     onDrop={e=>{e.preventDefault();moveRow(dragIdx,i);setDragIdx(null);setOverIdx(null);}}
                     style={{borderBottom:`1px solid ${C.border}`,opacity:dragIdx===i?0.4:1,
-                      background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:(i%2===0?"transparent":C.bg)}}>
+                      background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:(i%2===0?"transparent":"rgba(44,95,107,.04)")}}>
                     <td style={{padding:"3px 2px",textAlign:"center"}}>
                       <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
                         style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
                     </td>
                     <td style={{padding:"4px 5px",minWidth:90}}>
                       <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
-                        style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit",textTransform:"uppercase"}}/>
+                        style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
                     </td>
                     <td style={{padding:"4px 5px",minWidth:180}}>
                       <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
                         style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
                     </td>
-                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right"}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
-                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal">{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
-                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600}}>{fmt(vRepos)}</td>
+                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
+                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
+                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontFamily:FONT_MONO}}>{fmt(vRepos)}</td>
                     {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36} min={0} max={100}/></td>}
-                    {showIVA&&<td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(ivaAmt)}</td>}
+                    {showIVA&&<td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(ivaAmt)}</td>}
                     {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
                       <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
                     </td>}
                     {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36} min={0} max={100}/>}</td>}
-                    <td style={{padding:"4px 5px",textAlign:"right"}}>{fmt(vReal)}</td>
-                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:700,color:C.green}}>{fmt(vReal)}</td>
+                    <td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(vReal)}</td>
+                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:700,color:C.green,fontFamily:FONT_MONO}}>{fmt(vReal)}</td>
                     <td style={{padding:"3px 4px"}}>
                       <select value={p.garantia||"continente"} onChange={e=>updP(i,"garantia",e.target.value)}
                         style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
@@ -2226,19 +2411,19 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                   </tr>
                 );
               })}
-              {partidas.length>0&&<tr style={{background:C.accentLight,fontWeight:700}}>
+              {partidas.length>0&&<tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                 <td/>
                 <td/>
-                <td style={{padding:"6px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
+                <td style={{padding:"7px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
                 <td/>
                 <td/>
-                <td style={{padding:"6px 5px",textAlign:"right",color:C.accent}}>{fmt(totRepos)} €</td>
+                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totRepos)} €</td>
                 {showIVA&&<td/>}
-                {showIVA&&<td style={{padding:"6px 5px",textAlign:"right",color:C.accent}}>{fmt(totIVA)} €</td>}
+                {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totIVA)} €</td>}
                 {showDepr&&<td/>}
                 {showDepr&&<td/>}
-                <td style={{padding:"6px 5px",textAlign:"right",color:C.accent,fontSize:12}}>{fmt(totReal)} €</td>
-                <td style={{padding:"6px 5px",textAlign:"right",color:C.accent,fontSize:13}}>{fmt(totReal)} €</td>
+                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:12,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
+                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
                 <td colSpan={4}/>
               </tr>}
             </tbody>
@@ -2408,7 +2593,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
         </div>
         <div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:16,marginTop:14,textAlign:"center"}}>
           <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
-          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:30,color:C.green}}>{fmtE(indemn)}</div>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:30,color:C.green}}>{fmtE(indemn)}</div>
         </div>
       </Card>
 
@@ -2935,7 +3120,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:C.white,borderRadius:12,padding:30,width:420,boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
+          <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
           <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
@@ -2997,7 +3182,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           </select>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Inp label="Nº Referencia / Siniestro" value={enc.numReferencia} onChange={s("numReferencia")} required/>
+          <Inp label="Nº Referencia / Siniestro" value={enc.numReferencia} onChange={s("numReferencia")} required mono/>
           <Inp label="Nº Póliza" value={enc.numPoliza} onChange={s("numPoliza")}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -3125,7 +3310,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         <div style={{width:1,height:22,background:"rgba(255,255,255,.1)"}}/>
         <div style={{flex:1,minWidth:0}}>
           <div style={{color:"#fff",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cData.encargo?.asegurado||"Nuevo informe"}</div>
-          <div style={{color:"rgba(255,255,255,.4)",fontSize:10}}>{cData.encargo?.compania||""} · {cData.encargo?.numReferencia||""}</div>
+          <div style={{color:"rgba(255,255,255,.4)",fontSize:10}}>{cData.encargo?.compania||""} · <span style={{fontFamily:FONT_MONO}}>{cData.encargo?.numReferencia||""}</span></div>
         </div>
         <div style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
           {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:11,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
@@ -3149,8 +3334,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         {/* SIDEBAR */}
         <div style={{width:sidebarOpen?216:0,background:C.sidebar,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",paddingTop:sidebarOpen?6:0,overflow:"hidden",transition:"width .2s ease"}}>
           {sidebarOpen&&<>
-          {SECCIONES.map(item=>{
-            const Icon=item.icon;
+          {SECCIONES.map((item,idx)=>{
             const isActive=sec===item.id;
             const isDone=(()=>{
               if(item.id==="s1") return !!(cData.s1?.superficieConstruida||cData.s1?.textoInstant);
@@ -3164,13 +3348,18 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
               return false;
             })();
             return (
-              <div key={item.id} onClick={()=>setSec(item.id)} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 13px",cursor:"pointer",
+              <div key={item.id} onClick={()=>setSec(item.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",cursor:"pointer",
                 borderLeft:`3px solid ${isActive?C.accent:"transparent"}`,background:isActive?"rgba(155,34,38,.2)":"transparent",marginBottom:1}}>
-                <div style={{width:23,height:23,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+                <div style={{width:26,height:26,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                   background:isActive?C.accent:isDone?"rgba(15,123,77,.3)":"rgba(255,255,255,.08)"}}>
-                  {isDone&&!isActive?<Check size={11} style={{color:"#6EE7B7"}}/>:<Icon size={11} style={{color:isActive?"#fff":"rgba(255,255,255,.45)"}}/>}
+                  {isDone&&!isActive
+                    ?<Check size={12} style={{color:"#6EE7B7"}}/>
+                    :<span style={{fontFamily:FONT_MONO,fontWeight:600,fontSize:11,color:isActive?"#fff":"rgba(255,255,255,.45)"}}>{String(idx).padStart(2,"0")}</span>}
                 </div>
-                <span style={{fontSize:12,fontWeight:isActive?600:400,color:isActive?"#fff":"rgba(255,255,255,.5)",lineHeight:1.3}}>{item.label}</span>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:isActive?600:400,color:isActive?"#fff":"rgba(255,255,255,.55)",lineHeight:1.3}}>{item.label}</div>
+                  <div style={{fontSize:9.5,color:"rgba(255,255,255,.32)",marginTop:1,textTransform:"uppercase",letterSpacing:".04em"}}>{item.sub}</div>
+                </div>
               </div>
             );
           })}
@@ -3219,7 +3408,7 @@ export default function App(){
   const loadCases = async (tk) => {
     setSbLoading(true);
     const rows = await sbDb('informes?select=*&order=created_at.desc', 'GET', null, tk);
-    if(rows) setCases(rows.map(r=>({id:r.id,_sbId:r.id,encargo:r.encargo||{},s1:r.s1||{},s2:r.s2||{},s3:r.s3||{},s4:r.s4||{},anexos:r.anexos||{},tokenStats:{i:0,o:0},estado:r.estado})));
+    if(rows) setCases(rows.map(r=>({id:r.id,_sbId:r.id,encargo:r.encargo||{},s1:r.s1||{},s2:r.s2||{},s3:r.s3||{},s4:r.s4||{},anexos:r.anexos||{},tokenStats:{i:0,o:0},estado:r.estado,updatedAt:r.updated_at||null})));
     setSbLoading(false);
   };
 
