@@ -2431,7 +2431,11 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
 };
 
 // ─── ANEXOS ──────────────────────────────────────────────────────────────────
-const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
+const ANEXOS_MAX_SIZE = 10*1024*1024; // 10 MB
+const ANEXOS_PUBLIC_PREFIX = `${SB_URL}/storage/v1/object/public/anexos/`;
+const sanitizeAnexoName = n => (n||"archivo").normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
+
+const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
   const tabs = [
     {id:"fotos",    icon:Camera,     label:"Reportaje Fotográfico"},
     {id:"catastro", icon:FileImage,  label:"Info Catastral"},
@@ -2441,6 +2445,8 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
   const [tab,setTab]       = useState("fotos");
   const [saved,setSaved]   = useState(false);
   const [dragging,setDrag] = useState(false);
+  const [uploading,setUploading] = useState([]); // nombres de archivo en curso
+  const [uploadErr,setUploadErr] = useState('');
   const fRef = useRef();
   const bucket = data[tab]||[];
   const CATS = ["Daño general","Zona afectada","Vista exterior","Vista interior","Daño específico","Estado previo","Documento"];
@@ -2448,14 +2454,51 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
   const isPDF = item => !!(item.type?.includes('pdf') || item.url?.startsWith('data:application/pdf'));
 
   const addFiles = files => {
-    Promise.all(Array.from(files).map(f=>new Promise(r=>{
-      const fr=new FileReader();
-      fr.onload=e=>r({id:Date.now()+Math.random(),name:f.name,url:e.target.result,type:f.type||"",caption:"",cat:"Daño general"});
-      fr.readAsDataURL(f);
-    }))).then(news=>onChange({...data,[tab]:[...bucket,...news]}));
+    const list = Array.from(files);
+    if(!list.length) return;
+    setUploadErr('');
+    const tooBig = list.filter(f=>f.size>ANEXOS_MAX_SIZE);
+    const valid  = list.filter(f=>f.size<=ANEXOS_MAX_SIZE);
+    if(tooBig.length){
+      setUploadErr(`${tooBig.map(f=>f.name).join(', ')}: supera el límite de 10 MB por archivo. No se ha subido.`);
+    }
+    if(!valid.length) return;
+    if(!token||!userId){
+      setUploadErr('No se puede subir: sesión no disponible. Recarga la página e inicia sesión de nuevo.');
+      return;
+    }
+    setUploading(u=>[...u,...valid.map(f=>f.name)]);
+    Promise.allSettled(valid.map(async f=>{
+      const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(f.name)}`;
+      const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
+        method:'POST',
+        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':f.type||'application/octet-stream'},
+        body:f
+      });
+      if(!res.ok) throw new Error(`${f.name}: fallo al subir (${res.status})`);
+      return {id:Date.now()+Math.random(),name:f.name,url:`${ANEXOS_PUBLIC_PREFIX}${path}`,type:f.type||"",caption:"",cat:"Daño general"};
+    })).then(results=>{
+      const okItems = results.filter(r=>r.status==='fulfilled').map(r=>r.value);
+      const errs = results.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
+      if(okItems.length) onChange({...data,[tab]:[...(data[tab]||[]),...okItems]});
+      if(errs.length) setUploadErr(prev=>[prev,...errs].filter(Boolean).join(' · '));
+      setUploading(u=>u.filter(n=>!valid.some(f=>f.name===n)));
+    });
   };
   const updI=(id,k,v)=>onChange({...data,[tab]:bucket.map(i=>i.id===id?{...i,[k]:v}:i)});
-  const delI=id=>onChange({...data,[tab]:bucket.filter(i=>i.id!==id)});
+  const delI = id => {
+    const item = bucket.find(i=>i.id===id);
+    onChange({...data,[tab]:bucket.filter(i=>i.id!==id)});
+    if(item?.url?.startsWith(ANEXOS_PUBLIC_PREFIX) && token){
+      const path = item.url.slice(ANEXOS_PUBLIC_PREFIX.length);
+      fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
+        method:'DELETE',
+        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY}
+      }).then(res=>{
+        if(!res.ok) console.error('No se pudo borrar el archivo de Storage:', res.status, path);
+      }).catch(err=>console.error('No se pudo borrar el archivo de Storage:', err));
+    }
+  };
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
   const total = tabs.reduce((a,t)=>a+(data[t.id]||[]).length,0);
 
@@ -2496,6 +2539,11 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave}) => {
         <div style={{fontSize:12,color:C.muted,marginTop:2}}>Imágenes y PDFs</div>
         <input ref={fRef} type="file" multiple accept="image/*,.pdf" style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
       </div>
+
+      {uploading.length>0&&<div style={{display:"flex",alignItems:"center",gap:7,fontSize:12,color:C.muted,marginBottom:10}}>
+        <Spin/>Subiendo {uploading.length} archivo{uploading.length>1?'s':''}…
+      </div>}
+      {uploadErr&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{uploadErr}</div>}
 
       {bucket.length>0
         ?<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
@@ -2889,7 +2937,15 @@ ${allFotos.length?`<div class="page-break"></div>
 <h2 style="text-align:center">Reportaje fotográfico.</h2>
 <div class="anex-foto">${allFotos.map(f=>{const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));return `<div class="anex-foto-item">${isp?`<iframe src="${f.url}" style="width:100%;height:200pt;border:none;display:block"></iframe>`:`<img src="${f.url}" onerror="this.style.display='none'"/>`}${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`;}).join('')}</div>`:''}
 `:''}
-<script>window.onload=()=>{window.print();}</script>
+<script>window.onload=function(){
+  var imgs=Array.prototype.slice.call(document.images);
+  var waitImg=function(img){
+    if(img.complete) return img.decode?img.decode().catch(function(){}):Promise.resolve();
+    return new Promise(function(res){ img.addEventListener('load',res); img.addEventListener('error',res); });
+  };
+  var withTimeout=function(p,ms){ return Promise.race([p,new Promise(function(res){ setTimeout(res,ms); })]); };
+  withTimeout(Promise.all(imgs.map(waitImg)),10000).then(function(){ window.print(); });
+};</script>
 </body></html>`;
 
   // Blob URL approach: reliable across all browsers, no document.write
@@ -3104,7 +3160,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} {...commonProps}/>;
       case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
-      case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave}/>;
+      case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id}/>;
       default: return null;
     }
   };
