@@ -2633,23 +2633,26 @@ const buildWordHTML = (cData) => {
   const w4Intro=s4.textoIntro||sec4IntroAuto(modo);
   const w4Desc=s4.descripcionCobertura||'';
   const w4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,indemn);
-  // Word (motor de render antiguo, tipo Word 2003) ignora flexbox y
-  // calc(): las fotos se maquetan con una <table> de 2 columnas, que sí
-  // soporta de forma fiable, igual que el resto de tablas del documento.
+  // Word (el "filtro HTML" que usa para abrir un .doc que en realidad es
+  // HTML) ignora flexbox y calc(), y además no siempre respeta el ancho
+  // puesto por CSS en <td>/<img>: hay que usar también el atributo HTML
+  // width (herencia de HTML4), que es lo que Word sí interpreta de forma
+  // fiable. Se deja también el CSS para que en un navegador/LibreOffice
+  // se vea igual de bien.
   const wFotos=anexos.fotos||[];
   const wFotoCell = f => {
     const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-    return `<td class='foto-cell'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' style='width:100%;height:auto;display:block'/>`}${f.caption?`<div style='font-size:7pt;text-align:center;color:#666;margin-top:2pt'>${f.caption}</div>`:''}</td>`;
+    return `<td width="50%" valign="top" class='foto-cell'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' width="260" style='width:100%;max-width:260pt;height:auto;display:block' border="0"/>`}${f.caption?`<div style='font-size:7pt;text-align:center;color:#666;margin-top:2pt'>${f.caption}</div>`:''}</td>`;
   };
   const wFotoRows = [];
   for(let i=0;i<wFotos.length;i+=2){
     const par=wFotos.slice(i,i+2);
-    wFotoRows.push(`<tr>${par.map(wFotoCell).join('')}${par.length<2?`<td class='foto-cell'></td>`:''}</tr>`);
+    wFotoRows.push(`<tr>${par.map(wFotoCell).join('')}${par.length<2?`<td width="50%" class='foto-cell'></td>`:''}</tr>`);
   }
   const wFotosHTML=wFotos.length?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2 style='text-align:center'>Reportaje fotográfico.</h2>
-<table class='foto-table'>${wFotoRows.join('')}</table>`:'';
+<table class='foto-table' width="100%" cellpadding="4" cellspacing="0">${wFotoRows.join('')}</table>`:'';
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
