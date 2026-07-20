@@ -30,7 +30,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~3.434 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~3.674 líneas)
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
@@ -117,6 +117,8 @@ RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `ha
 3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí.
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
 5. **Preguntar antes de cambios grandes.** Para refactorizaciones que afecten >5 componentes, proponer y esperar confirmación.
+5b. **Antes de empezar un trabajo grande (rediseño, refactor), verificar el estado real de `main` y `staging` en GitHub** (`git log`, PRs abiertos) — no asumir que el estado de partida sigue siendo el mismo que al principio de la sesión. Pol suele lanzar varias sesiones de Claude Code en paralelo sobre el mismo repo; dos sesiones distintas ya construyeron de forma independiente el mismo fix de sidebar/responsive porque una partía de una `staging` desactualizada sin saber que la otra ya lo había resuelto en `main` (ver CONTEXT.md, sesión 12). Si el PR no se puede fusionar limpiamente (`mergeable_state` distinto de `clean`) o `staging`/`main` han avanzado desde que se creó la rama, avisar a Pol antes de forzar nada.
+5c. **`staging` puede estar por detrás de `main`.** No asumir que `staging` contiene todo lo que ya está en producción — comprobarlo (`git log origin/main..origin/staging` y al revés) antes de basar una rama nueva en `staging`.
 6. **Después de cada cambio:** crear una Pull Request con descripción clara de qué se modificó y por qué.
 7. **Actualizar documentación antes de cada Pull Request.** Es un paso obligatorio, no opcional. Hacerlo siempre antes de crear la PR, aunque el cambio parezca pequeño.
 

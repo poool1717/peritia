@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.434 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.674 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -205,7 +205,9 @@ public.perfiles (
 )
 ```
 
-RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos extraídos; guardado Supabase en segundo plano.
+RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` resiliente — abre el editor inmediatamente con datos extraídos; guardado Supabase en segundo plano.
+
+**`informes.estado`:** `borrador` (por defecto) → `exportado` automáticamente al generar PDF o Word desde el editor (`markExported`, reutiliza el mismo `saveToSb` del autoguardado — no hay un mecanismo de escritura separado). El Dashboard deriva un cuarto estado visual "Pendiente revisión" cuando `estado!=='exportado'` pero las 4 secciones están completas (`done===4/4`); no existe como valor en BD, solo como etiqueta calculada en el frontend.
 
 **Storage — bucket `anexos`:** los archivos de Anexos (fotos, catastro, meteosim, facturas) se suben a Supabase Storage en vez de guardarse como base64 en `informes.anexos`; el JSONB solo guarda `{id,name,url,type,caption,cat}` con `url` apuntando a la URL pública del objeto. Bucket público en lectura; INSERT/DELETE restringidos por RLS al propio usuario (ruta `{user_id}/{informe_id}/{tab}/{timestamp}-{nombre}`). Migración: `supabase/migrations/20260719120000_anexos_storage_bucket.sql`.
 
@@ -223,11 +225,13 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 
 ## UX y navegación
 
-- **Sidebar global** — estado `sidebarOpen` al nivel App, persiste entre Dashboard y Editor. Toggle `‹/›` visible en todas las pantallas.
+- **Sidebar global** — estado `sidebarOpen` al nivel App, persiste entre Dashboard y Editor. En desktop empuja el contenido (ancho fijo); en <1024px es un overlay `position:fixed` con backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), con su propio botón de cierre (✕) dentro del panel.
+- **Rail de navegación del editor** — folios numerados (`00`–`06`, `IBM Plex Mono`) con subtítulo en vez de iconos; check verde sobre el número cuando la sección está completa.
 - **Sec 0 "Datos del Encargo"** — primera sección del editor, todos los campos extraídos son editables.
 - **Tick verde en sidebar** — S1: superficieConstruida o textoInstant · S2: textoAI/textoRaw · S3: partidas o pLibres · S4: aiText · Anexos: cualquier archivo.
 - **Botón "Aplicar al informe"** — S1, S2 y S3 sincronizan texto IA con el preview.
-- **Informe live** — usa `getPartidas(s3)` para mostrar tabla según modo activo.
+- **Informe live** — usa `getPartidas(s3)` para mostrar tabla según modo activo, con estilo "ledger" (cabecera oscura, zebra striping, importes en `IBM Plex Mono`).
+- **Dashboard — vista de tabla** (por defecto en desktop) y **vista de tarjetas** (única en móvil, con drawer de filtros propio) — toggle en el sidebar. Tabla con 9 columnas filtrables/ordenables sobre los expedientes ya cargados (filtrado en memoria).
 - **Error handling** — errores de API visibles en alertas con mensaje exacto de Anthropic.
 
 ---
@@ -256,6 +260,8 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Proxy seguro API Anthropic | ✅ |
 | Error handling con mensaje real de API | ✅ |
 | Anexos en Supabase Storage (sin base64 en JSONB) | ✅ |
+| Rediseño visual (paleta, tipografía, Dashboard en tabla, ledger Sec3) | ✅ |
+| Expediente marcado como "exportado" al generar PDF/Word | ✅ |
 
 ---
 
@@ -274,7 +280,7 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Recurso | URL |
 |---|---|
 | App producción | `https://peritia-git-main-pol-myprojects.vercel.app` |
-| GitHub | `https://github.com/poologii1717/peritia` |
+| GitHub | `https://github.com/poool1717/peritia` |
 | Vercel dashboard | `https://vercel.com/pol-myprojects/peritia` |
 | Supabase | `https://supabase.com/dashboard/project/yrulaaxdusvmzohugmnc` |
 | Artefacto referencia | `https://claude.ai/public/artifacts/ced45450-ed81-4101-8c46-39f79cf17ce7` |
