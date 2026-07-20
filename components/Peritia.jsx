@@ -2633,6 +2633,14 @@ const buildWordHTML = (cData) => {
   const w4Intro=s4.textoIntro||sec4IntroAuto(modo);
   const w4Desc=s4.descripcionCobertura||'';
   const w4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,indemn);
+  const wFotos=anexos.fotos||[];
+  const wFotosHTML=wFotos.length?`<div class='page-break'></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<h2 style='text-align:center'>Reportaje fotográfico.</h2>
+<div style='display:flex;flex-wrap:wrap;gap:8pt'>${wFotos.map(f=>{
+    const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
+    return `<div style='width:calc(50% - 4pt)'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' style='width:100%;height:auto;max-height:200pt;object-fit:contain;border:0.3pt solid #ccc;display:block'/>`}${f.caption?`<div style='font-size:7pt;text-align:center;color:#666;margin-top:2pt'>${f.caption}</div>`:''}</div>`;
+  }).join('')}</div>`:'';
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
@@ -2741,12 +2749,40 @@ ${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</
 <p style='font-style:italic'>Firma perito:</p>
 <div class='firma-box'>&nbsp;</div></td>
 </tr></table>
+${wFotosHTML}
 </body></html>`;
 };
 
-const exportWord = (cData) => {
+// Word (formato HTML disfrazado de .doc) no siempre descarga imágenes
+// enlazadas por URL remota al abrir el documento; las incrustamos como
+// base64 en el momento de exportar para garantizar que se vean siempre.
+const wordImgCache = new Map();
+const urlToDataURI = url => {
+  if(wordImgCache.has(url)) return wordImgCache.get(url);
+  const p = fetch(url).then(r=>r.blob()).then(blob=>new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>resolve(fr.result);
+    fr.onerror=()=>reject(new Error('No se pudo leer la imagen'));
+    fr.readAsDataURL(blob);
+  })).catch(err=>{ console.error('No se pudo incrustar imagen en el Word:', url, err); return url; });
+  wordImgCache.set(url,p);
+  return p;
+};
+const resolveAnexosImgs = async anexos => {
+  const out = {...anexos};
+  for(const t of ['fotos','catastro']){
+    const items = anexos[t]||[];
+    out[t] = await Promise.all(items.map(async it=>
+      (!it.url||it.url.startsWith('data:')) ? it : {...it, url: await urlToDataURI(it.url)}
+    ));
+  }
+  return out;
+};
+
+const exportWord = async (cData) => {
   const enc=cData.encargo||{};
-  const html=buildWordHTML(cData);
+  const anexosResueltos = await resolveAnexosImgs(cData.anexos||{});
+  const html=buildWordHTML({...cData, anexos:anexosResueltos});
   const blob=new Blob(['﻿'+html],{type:'application/msword'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -2980,9 +3016,9 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni}) => {
     try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); }
     catch(e){ setErr('Error al generar PDF. Activa las ventanas emergentes del navegador.'); console.error(e); }
   };
-  const handleWord = () => {
+  const handleWord = async () => {
     setWrdLoad(true); setErr('');
-    try{ exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); }
+    try{ await exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); }
     catch(e){ setErr('Error al generar Word.'); console.error(e); }
     setWrdLoad(false);
   };

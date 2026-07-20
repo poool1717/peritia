@@ -36,6 +36,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - **Props nuevas:** `SecAnexos` recibe `token`, `userId` e `informeId` desde `ReportEditor` (que ya tenía `token`/`user` de `App`); `informeId` es `cData._sbId||cData.id` (funciona también con informes aún no guardados en Supabase).
 - **`exportPDF`:** con URLs remotas las imágenes pueden no estar cargadas cuando se dispara `window.print()` (huecos en el PDF). El script embebido en la ventana de impresión ahora espera `Promise.all` sobre `img.decode()`/evento `load` de todas las `<img>` del documento, con timeout de seguridad de 10 s, antes de llamar a `window.print()`.
 - **Pendiente de aplicar antes de probar en staging:** la migración SQL del bucket no se aplica sola — hay que ejecutarla en el proyecto Supabase (`yrulaaxdusvmzohugmnc`) antes de subir anexos nuevos, si no las subidas fallarán por falta de bucket/políticas.
+- **Fix tras primera prueba en staging — fotos ausentes en el export Word:** al probarlo, Pol subió 3 fotos y confirmó que `anexos` ya pesa ~1 KB en BD (antes varios MB), pero el Word exportado no mostraba ninguna foto. Causa doble: (1) `buildWordHTML` nunca incluía la sección "Reportaje fotográfico" (solo incrustaba la foto de catastro; esto ya pasaba antes de esta sesión, no es nuevo del cambio a Storage) y (2) aunque se añada esa sección, Word no siempre descarga imágenes enlazadas por URL remota al abrir un HTML disfrazado de `.doc`. Solución: `buildWordHTML` incluye ahora la galería de fotos (igual que el PDF); `exportWord` es asíncrono y antes de generar el documento descarga cada imagen remota (`fetch` + `FileReader`) y la incrusta como base64 solo en el documento exportado — no se guarda nada en la BD, así que no reintroduce el problema original de bloat.
 
 ---
 
@@ -123,6 +124,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 | Verificación meteo aparecía en siniestros no atmosféricos | `esSiniestroAtmosferico` miraba causa/descripción además de la garantía | Ahora se limita a la GARANTÍA afectada (Atmosféricos o Riesgos Extensivos); el umbral se evalúa según la causa |
 | Informes con fotos ocupaban 27 MB en BD; outage por bloat de PostgreSQL | `SecAnexos` guardaba cada archivo como data URI base64 en el JSONB `anexos`, y `saveToSb` reescribía ese JSONB completo en cada guardado (~3 GB de IO por sesión larga) | Los archivos se suben a Supabase Storage (bucket `anexos`); el JSONB solo guarda la URL pública |
 | PDF con huecos si las fotos son URLs remotas | `window.print()` podía dispararse antes de que las imágenes remotas terminaran de cargar | El script de impresión espera `Promise.all` sobre `img.decode()`/`load` de todas las imágenes (timeout 10 s) antes de imprimir |
+| Export Word sin fotos | `buildWordHTML` nunca tenía sección de "Reportaje fotográfico" (solo catastro), y Word no siempre descarga imágenes enlazadas por URL remota | Añadida la galería de fotos a `buildWordHTML`; `exportWord` ahora descarga cada imagen remota y la incrusta como base64 solo en el documento exportado (no se guarda en BD) |
 
 ---
 
