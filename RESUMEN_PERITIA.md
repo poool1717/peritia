@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.328 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.434 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -207,6 +207,8 @@ public.perfiles (
 
 RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos extraídos; guardado Supabase en segundo plano.
 
+**Storage — bucket `anexos`:** los archivos de Anexos (fotos, catastro, meteosim, facturas) se suben a Supabase Storage en vez de guardarse como base64 en `informes.anexos`; el JSONB solo guarda `{id,name,url,type,caption,cat}` con `url` apuntando a la URL pública del objeto. Bucket público en lectura; INSERT/DELETE restringidos por RLS al propio usuario (ruta `{user_id}/{informe_id}/{tab}/{timestamp}-{nombre}`). Migración: `supabase/migrations/20260719120000_anexos_storage_bucket.sql`.
+
 ---
 
 ## Datos de referencia integrados
@@ -253,6 +255,7 @@ RLS activo. `handleDone` resiliente — abre el editor inmediatamente con datos 
 | Despliegue en Vercel (Next.js) | ✅ |
 | Proxy seguro API Anthropic | ✅ |
 | Error handling con mensaje real de API | ✅ |
+| Anexos en Supabase Storage (sin base64 en JSONB) | ✅ |
 
 ---
 
