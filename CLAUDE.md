@@ -35,6 +35,8 @@ peritia/
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
 │   └── api/
 │       └── claude.js        ← proxy seguro Anthropic API
+├── supabase/
+│   └── migrations/          ← migraciones SQL (bucket Storage, RLS, etc.)
 ├── package.json
 ├── next.config.js
 ├── vercel.json

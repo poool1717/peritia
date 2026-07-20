@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 6 julio 2026 (sesión 8 — rama `staging`: validación de inputs + accesibilidad y responsive, PR1+PR2)
+**Última actualización:** 19 julio 2026 (sesión 11 — rama `claude/anexos-storage`: los anexos se suben a Supabase Storage en vez de guardarse como base64 en el JSONB)
 
 ---
 
@@ -27,6 +27,17 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 **Sesión 8 (rama `staging` — validación de inputs + accesibilidad y responsive, PR1+PR2):** no toca las funciones de cálculo (`calcReglas`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion`) ni `pages/api/claude.js`. Compila limpio (`next build` OK).
 - **PR1 — Validación de inputs (evita indemnizaciones corruptas):** en Sec3, `clampNum`/`P_LIMITS`/`clampField`/`sanP` acotan uds y precio a ≥0, IVA y %depreciación a 0–100; `updP` pasa cada cambio por `clampField`; las partidas generadas por IA (`genFromBaremo`, `extractFromFacturas`) se sanean con `sanP` antes de guardarse; `InpCell` acepta `min`/`max` y los 4 campos numéricos de la tabla los usan; la depreciación de póliza se acota a 0–100 al extraerla del PDF y en `genFromBaremo`.
 - **PR2 — Accesibilidad y responsive (desktop + móvil + tablet):** estado de foco visible (`:focus-visible`) y `touch-action:manipulation` en botones; `@media(max-width:767px)` evita el zoom automático de iOS en inputs (`font-size:16px`), reduce la fuente en celdas de tabla y activa scroll horizontal en las tablas de preview del informe (clase `.tbl-scroll`, con scrollbar más visible en móvil); el sidebar arranca cerrado en pantallas <1024px (`App`); `aria-label` añadido a los 6 botones de solo icono (toggles de menú, cerrar modal de exportación, eliminar factura/partida/encargo).
+
+**Sesión 11 (rama `claude/anexos-storage` — anexos a Supabase Storage):** un informe con fotos ocupaba 27 MB en base de datos porque `SecAnexos` guardaba cada archivo como data URI base64 dentro del JSONB `anexos`, y `saveToSb` reescribía ese JSONB completo en cada guardado (debounce 5 s) generando ~3 GB de IO por sesión larga de edición — esto ya había provocado un outage por bloat de PostgreSQL. No toca `calcReglas`, `reglaPartida`, `sumAjustado` ni `calcIndemnizacion` (verificado con `git diff`). Compila limpio (`esbuild` sin errores, balance de llaves 0).
+- **Nuevo bucket `anexos` en Supabase Storage** (migración `supabase/migrations/20260719120000_anexos_storage_bucket.sql`): público en lectura; INSERT/DELETE solo para el propio usuario autenticado (ruta `{user_id}/{informe_id}/{tab}/{timestamp}-{nombre_sanitizado}`, política RLS comprueba que el primer segmento de la ruta coincide con `auth.uid()`).
+- **`addFiles` (SecAnexos):** ya no usa `FileReader.readAsDataURL`; sube cada archivo con `POST /storage/v1/object/anexos/{path}` (mismo patrón de headers que `sbDb`: `apikey` + `Authorization: Bearer {token}`) y guarda en `item.url` la URL pública (`.../storage/v1/object/public/anexos/{path}`). Límite de 10 MB por archivo (mensaje claro si se supera); indicador "Subiendo…" mientras la subida está en curso; banner de error visible si falla (el archivo no se añade al JSONB si la subida falla).
+- **`delI` (SecAnexos):** borra también el objeto en Storage (`DELETE /storage/v1/object/anexos/{path}`); si el borrado remoto falla, el item se quita igualmente del JSONB (no bloquea la UI) y el error queda en consola.
+- **Forma del objeto de anexo sin cambios** (`{id,name,url,type,caption,cat}`): como el preview (`SecInforme`), el export PDF y el export Word solo leen `item.url` en `<img src>`/`<iframe src>`, no ha hecho falta tocar nada de esos tres consumidores — con que `url` sea ahora una URL pública en vez de un data URI ya funciona. Los informes antiguos con data URIs en `url` se siguen mostrando igual (sin backfill: son datos de prueba).
+- **Props nuevas:** `SecAnexos` recibe `token`, `userId` e `informeId` desde `ReportEditor` (que ya tenía `token`/`user` de `App`); `informeId` es `cData._sbId||cData.id` (funciona también con informes aún no guardados en Supabase).
+- **`exportPDF`:** con URLs remotas las imágenes pueden no estar cargadas cuando se dispara `window.print()` (huecos en el PDF). El script embebido en la ventana de impresión ahora espera `Promise.all` sobre `img.decode()`/evento `load` de todas las `<img>` del documento, con timeout de seguridad de 10 s, antes de llamar a `window.print()`.
+- **Pendiente de aplicar antes de probar en staging:** la migración SQL del bucket no se aplica sola — hay que ejecutarla en el proyecto Supabase (`yrulaaxdusvmzohugmnc`) antes de subir anexos nuevos, si no las subidas fallarán por falta de bucket/políticas.
+- **Fix tras primera prueba en staging — fotos ausentes en el export Word:** al probarlo, Pol subió 3 fotos y confirmó que `anexos` ya pesa ~1 KB en BD (antes varios MB), pero el Word exportado no mostraba ninguna foto. Causa doble: (1) `buildWordHTML` nunca incluía la sección "Reportaje fotográfico" (solo incrustaba la foto de catastro; esto ya pasaba antes de esta sesión, no es nuevo del cambio a Storage) y (2) aunque se añada esa sección, Word no siempre descarga imágenes enlazadas por URL remota al abrir un HTML disfrazado de `.doc`. Solución: `buildWordHTML` incluye ahora la galería de fotos (igual que el PDF); `exportWord` es asíncrono y antes de generar el documento descarga cada imagen remota (`fetch` + `FileReader`) y la incrusta como base64 solo en el documento exportado — no se guarda nada en la BD, así que no reintroduce el problema original de bloat.
+- **Fix — fotos a tamaño completo una por hoja en el Word (2 iteraciones):** la primera versión de la galería usaba `display:flex` con `calc(50% - 4pt)` (igual que el PDF); el motor de render que usa Word para abrir HTML no soporta flexbox ni `calc()`, así que cada foto salía a ancho completo. Se sustituyó por una `<table>` de 2 columnas, pero seguía sin verse bien porque el ancho puesto solo por CSS (`style="width:..."`) tampoco lo respeta siempre el filtro HTML de Word. Solución definitiva: además del CSS, cada `<td>`/`<img>` lleva también el atributo HTML `width` (herencia de HTML4, que Word sí interpreta de forma fiable) — `<td width="50%">` y `<img width="260">` — manteniendo el CSS para que en un navegador/LibreOffice se siga viendo igual de bien y de forma adaptativa.
 
 ---
 
@@ -55,6 +66,7 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 - [x] Deploy en Vercel con proxy seguro (API key nunca en el cliente)
 - [x] **Validación de inputs en Sec3 (sesión 8, `staging`):** `clampField`/`sanP` acotan uds, precio, IVA y %depreciación (0–100) tanto en la edición manual como en las partidas generadas por IA, para que un valor fuera de rango no corrompa la indemnización propuesta.
 - [x] **Accesibilidad y responsive (sesión 8, `staging`):** foco visible por teclado, inputs sin zoom automático de iOS en móvil, tablas de preview con scroll horizontal en pantallas estrechas, sidebar cerrado por defecto en móvil/tablet, `aria-label` en los botones de solo icono.
+- [x] **Anexos en Supabase Storage (sesión 11):** `addFiles` sube los archivos al bucket `anexos` y guarda solo la URL pública en el JSONB (antes guardaba el archivo completo en base64); `delI` borra también el objeto remoto; límite de 10 MB con aviso; espera de carga de imágenes antes de imprimir el PDF. Pendiente de aplicar la migración SQL del bucket en el proyecto Supabase antes de probar en staging.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
@@ -111,13 +123,16 @@ La rama `staging` lleva un endurecimiento de validación de inputs (sesión prev
 | Propuesta de indemnización no se generaba automáticamente | El `useEffect` de Sec4 tenía deps `[]` (solo al montar) y en baremo devolvía `""` | Regenera con deps `[modoVal,indemn,perceptorTipo,partidas]` mientras no se edite a mano (`textoIndemnEdited`); el modo informativo también eleva propuesta |
 | Descripción de cobertura no encontraba Riesgos Extensivos | Se buscaba `enc.descripciones[nombreComercial]` pero las claves son códigos (RGEXT, DAGUA…) | Mapeo nombre→código en Sec4 (Riesgos Extensivos → RGEXT) antes de copiar el texto exacto |
 | Verificación meteo aparecía en siniestros no atmosféricos | `esSiniestroAtmosferico` miraba causa/descripción además de la garantía | Ahora se limita a la GARANTÍA afectada (Atmosféricos o Riesgos Extensivos); el umbral se evalúa según la causa |
+| Informes con fotos ocupaban 27 MB en BD; outage por bloat de PostgreSQL | `SecAnexos` guardaba cada archivo como data URI base64 en el JSONB `anexos`, y `saveToSb` reescribía ese JSONB completo en cada guardado (~3 GB de IO por sesión larga) | Los archivos se suben a Supabase Storage (bucket `anexos`); el JSONB solo guarda la URL pública |
+| PDF con huecos si las fotos son URLs remotas | `window.print()` podía dispararse antes de que las imágenes remotas terminaran de cargar | El script de impresión espera `Promise.all` sobre `img.decode()`/`load` de todas las imágenes (timeout 10 s) antes de imprimir |
+| Export Word sin fotos | `buildWordHTML` nunca tenía sección de "Reportaje fotográfico" (solo catastro), y Word no siempre descarga imágenes enlazadas por URL remota | Añadida la galería de fotos a `buildWordHTML`; `exportWord` ahora descarga cada imagen remota y la incrusta como base64 solo en el documento exportado (no se guarda en BD) |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~3.277 · Balance llaves: 0
+Líneas: ~3.360 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 
@@ -171,6 +186,8 @@ Datos hardcodeados:
 - [ ] UX/UI pendiente — Fase 2 (sidebar como menú tipo drawer/overlay en móvil en vez de panel fijo que empuja el contenido; reorganizar la topbar del editor para que no se desborde en pantallas estrechas)
 - [ ] UX/UI pendiente — Fase 3 (unificar `LoginScreen` con la paleta de color central `C` en vez de valores hardcodeados propios; unificar radios de borde)
 - [ ] **Falta `<meta name="viewport">`** — no existe `pages/_document.js` ni la etiqueta en ningún sitio; sin ella el móvil renderiza la app a ancho de escritorio y obliga a hacer zoom manual. Es el fix de mayor impacto y menor esfuerzo pendiente para móvil.
+- [ ] **Sesión 11 — aplicar en Supabase la migración `supabase/migrations/20260719120000_anexos_storage_bucket.sql`** (bucket `anexos` + políticas RLS) antes de probar la subida de anexos en staging.
+- [ ] **Sesión 11 — validar en staging:** subir 3 fotos a un informe nuevo y comprobar que `anexos` ocupa kilobytes (no megabytes) en la BD; exportar a PDF y Word con fotos; borrar una foto y comprobar que desaparece también del bucket; re-verificar los casos oráculo (463,59 € y 1.291,47 €).
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
