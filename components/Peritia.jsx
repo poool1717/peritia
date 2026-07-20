@@ -2633,14 +2633,23 @@ const buildWordHTML = (cData) => {
   const w4Intro=s4.textoIntro||sec4IntroAuto(modo);
   const w4Desc=s4.descripcionCobertura||'';
   const w4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,indemn);
+  // Word (motor de render antiguo, tipo Word 2003) ignora flexbox y
+  // calc(): las fotos se maquetan con una <table> de 2 columnas, que sí
+  // soporta de forma fiable, igual que el resto de tablas del documento.
   const wFotos=anexos.fotos||[];
+  const wFotoCell = f => {
+    const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
+    return `<td class='foto-cell'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' style='width:100%;height:auto;display:block'/>`}${f.caption?`<div style='font-size:7pt;text-align:center;color:#666;margin-top:2pt'>${f.caption}</div>`:''}</td>`;
+  };
+  const wFotoRows = [];
+  for(let i=0;i<wFotos.length;i+=2){
+    const par=wFotos.slice(i,i+2);
+    wFotoRows.push(`<tr>${par.map(wFotoCell).join('')}${par.length<2?`<td class='foto-cell'></td>`:''}</tr>`);
+  }
   const wFotosHTML=wFotos.length?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
 <h2 style='text-align:center'>Reportaje fotográfico.</h2>
-<div style='display:flex;flex-wrap:wrap;gap:8pt'>${wFotos.map(f=>{
-    const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-    return `<div style='width:calc(50% - 4pt)'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' style='width:100%;height:auto;max-height:200pt;object-fit:contain;border:0.3pt solid #ccc;display:block'/>`}${f.caption?`<div style='font-size:7pt;text-align:center;color:#666;margin-top:2pt'>${f.caption}</div>`:''}</div>`;
-  }).join('')}</div>`:'';
+<table class='foto-table'>${wFotoRows.join('')}</table>`:'';
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
@@ -2665,6 +2674,8 @@ const buildWordHTML = (cData) => {
   .cap-table th{background:#9B2226}
   .firma-box{border:1px solid #ccc;width:150pt;height:50pt;display:inline-block}
   .page-break{page-break-before:always}
+  .foto-table{table-layout:fixed}
+  .foto-table td.foto-cell{width:50%;border:none;background:none;padding:4pt;vertical-align:top}
 </style></head>
 <body>
 <div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
