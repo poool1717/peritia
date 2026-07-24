@@ -4,6 +4,7 @@ import {
   Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft,
   Plus, X, Search, Home, Sparkles, Shield, Building2, Image,
   FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2, GripVertical,
+  ExternalLink, Mail, Info,
 } from "lucide-react";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
@@ -170,6 +171,11 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
   if(onTokens) onTokens(d.usage?.input_tokens||0, d.usage?.output_tokens||0);
   return (d.content||[]).map(b=>b.text||"").join("");
 };
+
+// Normaliza texto para comparar: sin tildes, en minúsculas y sin espacios
+// sobrantes. "Daños por agua" y "DANOS  POR AGUA" pasan a ser iguales.
+const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"")
+  .toLowerCase().replace(/\s+/g," ").trim();
 
 // Normaliza valores monetarios extraídos por IA (6.000,00 → 6000 | 6000.00 → 6000)
 const parseCap = v => {
@@ -397,6 +403,30 @@ Devuelve SOLO este JSON:
   return parseJSON(raw);
 };
 
+// Busca en el BAREMO la partida que corresponde al texto devuelto por la IA.
+// Antes se exigía una coincidencia casi literal, así que un cambio de tilde o
+// una palabra de más dejaban la partida sin precio (aparecía a 0 €). Ahora:
+//   1) coincidencia exacta ignorando tildes/mayúsculas
+//   2) una contiene a la otra
+//   3) la que más palabras significativas comparte (mínimo la mitad)
+const matchBaremo = txt => {
+  const t = norm(txt);
+  if(!t) return null;
+  const exacta = BAREMO.find(b=>norm(b.desc)===t);
+  if(exacta) return exacta;
+  const contiene = BAREMO.find(b=>{const n=norm(b.desc);return n&&(t.includes(n)||n.includes(t));});
+  if(contiene) return contiene;
+  const pal = t.split(" ").filter(w=>w.length>3);
+  if(!pal.length) return null;
+  let mejor=null, max=0;
+  for(const b of BAREMO){
+    const nb = norm(b.desc);
+    const hits = pal.filter(w=>nb.includes(w)).length;
+    if(hits>max){ max=hits; mejor=b; }
+  }
+  return max>=Math.ceil(pal.length/2) ? mejor : null;
+};
+
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@500;600&family=DM+Sans:wght@400;500;600;700&display=swap";
 const FONT_MONO = "'IBM Plex Mono',monospace";
@@ -407,6 +437,10 @@ const css = `
   @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   .fade{animation:fadeIn .2s ease}
+  /* El editor ocupa exactamente el alto de la pantalla: así el scroll ocurre
+     dentro del panel de contenido y la barra lateral queda siempre fija.
+     100dvh cubre el caso de móvil con barra de direcciones retráctil. */
+  .editor-shell{height:100vh;height:100dvh;overflow:hidden}
   ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px}
   input,select,textarea{font-family:inherit;color:${C.ink}}
   input[type=number]::-webkit-inner-spin-button{opacity:.6}
@@ -443,6 +477,35 @@ const inpStyle = (dis) => ({
   fontSize:14,background:dis?C.bg:C.white,outline:"none",fontFamily:"inherit",
   transition:"border-color .15s",
 });
+
+// Ajusta la altura del textarea a su contenido: la caja crece al escribir (o
+// cuando la IA rellena el texto) y se encoge al borrar, sin scroll interno.
+// Se reajusta también al cambiar el ancho de la ventana, porque el texto
+// se reparte en más o menos líneas.
+const useAutoGrow = (ref,value) => {
+  useEffect(()=>{
+    const el = ref.current;
+    if(!el) return;
+    const fit = () => { el.style.height="auto"; el.style.height=el.scrollHeight+"px"; };
+    fit();
+    window.addEventListener("resize",fit);
+    return ()=>window.removeEventListener("resize",fit);
+  },[ref,value]);
+};
+
+// Textarea que se adapta al volumen de texto. minRows fija el alto mínimo.
+const AutoTextarea = ({value,onChange,minRows=3,disabled,style,inputRef,...rest}) => {
+  const ownRef = useRef(null);
+  const ref = inputRef||ownRef;
+  useAutoGrow(ref,value);
+  return (
+    <textarea ref={ref} value={value||""} disabled={disabled}
+      onChange={e=>onChange(e.target.value)}
+      style={{...inpStyle(disabled),lineHeight:1.65,resize:"none",overflowY:"hidden",
+        minHeight:`calc(${minRows} * 1.65em + 20px)`,...style}}
+      {...rest}/>
+  );
+};
 
 const Inp = ({label,value,onChange,placeholder,type="text",disabled,required,hint,mono}) => (
   <div style={{marginBottom:14}}>
@@ -486,9 +549,8 @@ const Sel = ({label,value,onChange,options,required,hint}) => (
 const Txt = ({label,value,onChange,placeholder,rows=4,disabled,hint}) => (
   <div style={{marginBottom:14}}>
     {label&&<Lbl c={label}/>}
-    <textarea value={value||""} onChange={e=>onChange(e.target.value)}
-      placeholder={placeholder} rows={rows} disabled={disabled}
-      style={{...inpStyle(disabled),resize:"vertical",lineHeight:1.65}}/>
+    <AutoTextarea value={value} onChange={onChange}
+      placeholder={placeholder} minRows={rows} disabled={disabled}/>
     {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
@@ -517,8 +579,10 @@ const SecTitle = ({n,label,sub}) => (
   </div>
 );
 
+// display:flex para poder alinear un icono de Lucide junto al texto del título.
 const SectionLabel = ({children}) => (
-  <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10,marginTop:4}}>{children}</div>
+  <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10,marginTop:4,
+    display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>{children}</div>
 );
 
 const InfoRow = ({label,val}) => (
@@ -548,9 +612,9 @@ const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholde
   return (
     <div>
       <div style={{position:"relative"}}>
-        <textarea value={value||""} onChange={e=>onChange(e.target.value)}
-          placeholder={placeholder} rows={rows}
-          style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,paddingRight:46}}/>
+        <AutoTextarea value={value} onChange={onChange}
+          placeholder={placeholder} minRows={rows}
+          style={{paddingRight:46}}/>
         {supported&&(
           <button onClick={rec?stopRec:startRec} style={{
             position:"absolute",top:10,right:10,background:rec?C.red:C.accent,
@@ -680,7 +744,7 @@ const LoginScreen = ({onAuth}) => {
         </div>
 
         {emailSent&&<div style={{background:C.greenBg,border:'1px solid #A7F3D0',borderRadius:7,padding:'10px 14px',fontSize:13,color:C.green,marginBottom:14,lineHeight:1.6}}>
-          <b>✉️ Revisa tu correo</b><br/>
+          <b style={{display:"inline-flex",alignItems:"center",gap:6}}><Mail size={13}/>Revisa tu correo</b><br/>
           Te hemos enviado un email de confirmación a <b>{email}</b>.<br/>
           Confirma tu cuenta y luego <button onClick={()=>{setMode('login');setEmailSent(false);}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>inicia sesión</button>.
         </div>}
@@ -960,7 +1024,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
               style={{display:"flex",alignItems:"center",gap:7,padding:"8px 15px",borderRadius:9,
                 border:`1px solid ${C.border}`,background:C.white,cursor:"pointer",fontSize:12.5,
                 fontWeight:600,color:C.ink,fontFamily:"inherit"}}>
-              <span style={{fontSize:15,lineHeight:1}}>☰</span> Filtros
+              <List size={14}/> Filtros
               {activeFilterCount>0&&<span style={{background:C.accent,color:"#fff",borderRadius:20,minWidth:16,
                 height:16,fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",
                 padding:"0 4px"}}>{activeFilterCount}</span>}
@@ -1113,8 +1177,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       "Eres un extractor experto de documentos periciales y de seguros espanoles. Responde SOLO con JSON valido sin markdown.",
       [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
        {type:"text",text:encPrompt}],
-      onTokens
-    , onTokens, 3000).catch(()=>"{}");
+      onTokens, 4000).catch(()=>"{}");
     const rawParsed = parseJSON(raw);
     // Check for API error response
     if(rawParsed?._apiError) {
@@ -1136,13 +1199,24 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
       const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"franquicias\": {\n    \"INCEN\": \"franquicia de la cobertura incendio en euros, solo numero. Si no tiene 0\",\n    \"DAGUA\": \"franquicia danos por agua en euros\",\n    \"RGEXT\": \"franquicia riesgos extensivos en euros\",\n    \"ROBO\": \"franquicia robo en euros\",\n    \"DELEC\": \"franquicia danos electricos en euros\",\n    \"RCEXP\": \"franquicia responsabilidad civil explotacion en euros\",\n    \"RCLOC\": \"franquicia responsabilidad civil locatario en euros\"\n  },\n  \"valorNuevoContinente\": true si el continente se asegura a valor de reposicion a nuevo false si no,\n  \"valorNuevoContenido\": true si el contenido se asegura a valor de reposicion a nuevo false si no,\n  \"depreciacionPoliza\": \"porcentaje de depreciacion que la poliza aplica a los bienes en la valoracion, solo numero. Si no aparece 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\",\n    \"ROBO\": \"texto cobertura robo\",\n    \"DELEC\": \"texto cobertura danos electricos\",\n    \"RCLOC\": \"texto cobertura RC locatario\"\n  }\n}";
+      // 8000 tokens: el JSON de la poliza incluye el texto literal de cada
+      // cobertura ("descripciones"), que es largo. Con un limite mas ajustado la
+      // respuesta se cortaba a medias, el JSON quedaba invalido y se descartaban
+      // TODOS los datos de la poliza en silencio.
       const praw = await callClaude(
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
          {type:"text",text:polPrompt}],
-        onTokens, 3000
+        onTokens, 8000
       ).catch(()=>"{}");
       pol = parseJSON(praw);
+      // Si la poliza no se pudo leer, avisamos: antes fallaba sin decir nada y el
+      // perito solo notaba que faltaban capitales y la descripcion de cobertura.
+      const polErr = iaError(pol);
+      if(polErr){
+        pol = {};
+        alert("No se pudieron extraer los datos de la póliza.\n\n"+polErr+"\n\nEl encargo sí se ha leído: podrás continuar e introducir a mano los capitales y la descripción de la cobertura.");
+      }
     }
 
     // Poliza tiene prioridad sobre encargo
@@ -1276,7 +1350,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         </div>
 
         <Card s={{marginBottom:12}}>
-          <SectionLabel>🏢 Compañía y Siniestro</SectionLabel>
+          <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
           <div style={{marginBottom:14}}>
             <Lbl c="Compañía" req/>
             <select value={COMPANIAS.find(c=>data.compania&&data.compania.toUpperCase().includes(c.toUpperCase()))||data.compania||""}
@@ -1309,7 +1383,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         </Card>
 
         <Card s={{marginBottom:12}}>
-          <SectionLabel>📍 Asegurado y Localización</SectionLabel>
+          <SectionLabel><MapPin size={12}/>Asegurado y Localización</SectionLabel>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Inp label="Asegurado / Tomador" value={data.asegurado} onChange={s("asegurado")} required/>
             <Inp label="NIF / CIF" value={data.nifAsegurado} onChange={s("nifAsegurado")}/>
@@ -1323,7 +1397,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         </Card>
 
         <Card s={{marginBottom:12}}>
-          <SectionLabel>💰 Capitales Asegurados {data.polizaAdjunta&&<span style={{color:C.green,fontWeight:400}}>de la póliza</span>}</SectionLabel>
+          <SectionLabel><DollarSign size={12}/>Capitales Asegurados {data.polizaAdjunta&&<span style={{color:C.green,fontWeight:400}}>de la póliza</span>}</SectionLabel>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div>
               <EuroInput label="Capital Continente" value={data.capitalContinente} onChange={s("capitalContinente")}
@@ -1376,7 +1450,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           {n&&<span style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",display:"block",marginBottom:2}}>SECCIÓN {n}</span>}
           {title}
         </div>
-        {!done&&<Btn sm ghost onClick={()=>onGoTo(id)}>Completar →</Btn>}
+        {!done&&<Btn sm ghost onClick={()=>onGoTo(id)}>Completar<ChevronRight size={13}/></Btn>}
         {done&&<span style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={11}/>Completado</span>}
       </div>
       {children}
@@ -1747,10 +1821,10 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo}) => {
       <Card s={{marginBottom:14}}>
         <SectionLabel>Texto de la Sección 1</SectionLabel>
         <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:12,color:C.blue,marginBottom:10}}>
-          📋 <b>Instant Payment — gestión documental.</b> El texto se genera automáticamente con la dirección del encargo. Edítalo si necesitas ajustarlo.
+          <b>Instant Payment — gestión documental.</b> El texto se genera automáticamente con la dirección del encargo. Edítalo si necesitas ajustarlo.
         </div>
-        <textarea value={data.textoInstant||""} onChange={e=>onChange({...data,textoInstant:e.target.value})}
-          rows={3} style={{...inpStyle(false),resize:"vertical",lineHeight:1.7,fontSize:13,marginBottom:8}}/>
+        <AutoTextarea value={data.textoInstant} onChange={v=>onChange({...data,textoInstant:v})}
+          minRows={3} style={{lineHeight:1.7,fontSize:13,marginBottom:8}}/>
         <Btn sm primary onClick={async ()=>{
           setAiLoad(true);
           const t = await callClaude(
@@ -1812,9 +1886,10 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             <b>Sugerencia:</b> {data.calidad||enc.calidadPóliza} — {calSug}
           </div>}
         </div>
-        <Sel label="Estado general del riesgo ✏️ (rellenar tras visita)" value={data.estado} onChange={s("estado")}
+        <Sel label="Estado general del riesgo (rellenar tras visita)" value={data.estado} onChange={s("estado")}
           options={["Nuevo","Buen estado","Reformado","Usado","Deteriorado"]}/>
-        {!data.estado&&<div style={{fontSize:11,color:C.orange,marginTop:-10,marginBottom:10}}>⚠ Pendiente de rellenar tras la visita presencial</div>}
+        {!data.estado&&<div style={{fontSize:11,color:C.orange,marginTop:-10,marginBottom:10,display:"flex",alignItems:"center",gap:5}}>
+          <AlertTriangle size={12}/>Pendiente de rellenar tras la visita presencial</div>}
       </Card>
 
       {/* TIPO DE ARQUITECTURA */}
@@ -1884,7 +1959,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           target="_blank" rel="noreferrer"
           style={{display:"flex",alignItems:"center",gap:8,background:C.white,color:C.blue,border:`1px solid ${C.border}`,borderRadius:7,
             padding:"8px 16px",fontSize:12,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
-          🗺️ Abrir Sede del Catastro (consulta manual)
+          <ExternalLink size={13}/>Abrir Sede del Catastro (consulta manual)
         </a>
         <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG"/>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1897,10 +1972,10 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       <Card s={{marginBottom:14}}>
         <SectionLabel>Continente</SectionLabel>
         {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
-          <b>ℹ Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
+          <b style={{display:"inline-flex",alignItems:"center",gap:5}}><Info size={12}/>Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
         </div>}
         {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
-          <b>⚠ Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
+          <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
         <EuroInput label="Capital asegurado continente (de la póliza)" value={data.capContOverride!=null?data.capContOverride:enc.capitalContinente}
           onChange={v=>onChange({...data,capContOverride:v})}
@@ -1919,7 +1994,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             </div>
           )}
           {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
-            <b>⚠ Infraseguro {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
+            <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
           </div>}
         </div>
       </Card>
@@ -2024,7 +2099,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción del Siniestro</SectionLabel>
         {(enc.umbralViento||enc.umbralLluvia)&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:11,color:C.blue,marginBottom:10,display:"flex",gap:14,flexWrap:"wrap"}}>
-          <b>Umbrales póliza:</b>{enc.umbralViento&&<span> 🌬️ Viento: <b>{enc.umbralViento} km/h</b></span>}{enc.umbralLluvia&&<span> 🌧️ Lluvia: <b>{enc.umbralLluvia} l/m²/h</b></span>}
+          <b>Umbrales póliza:</b>{enc.umbralViento&&<span> Viento: <b>{enc.umbralViento} km/h</b></span>}{enc.umbralLluvia&&<span> · Lluvia: <b>{enc.umbralLluvia} l/m²/h</b></span>}
         </div>}
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
           onImprove={improve} improving={improving}
@@ -2050,8 +2125,8 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             <MeteoTabla m={data.meteo} enc={enc}/>
             <div style={{marginTop:12}}>
               <SectionLabel>Texto pericial meteorológico — editable</SectionLabel>
-              <textarea value={data.meteo.texto||""} onChange={e=>onChange({...data,meteo:{...data.meteo,texto:e.target.value}})}
-                rows={4} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}
+              <AutoTextarea value={data.meteo.texto} onChange={v=>onChange({...data,meteo:{...data.meteo,texto:v}})}
+                minRows={4} style={{fontSize:13}}
                 placeholder="El texto se genera automáticamente tras la consulta. Puedes editarlo."/>
               <div style={{fontSize:11,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
             </div>
@@ -2066,8 +2141,8 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             <Btn sm ghost onClick={improve} disabled={improving}><RefreshCw size={10}/>Regenerar</Btn>
             <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
           </div>
-          <textarea value={data.textoAI} onChange={e=>onChange({...data,textoAI:e.target.value,aiEdited:true})}
-            rows={6} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}/>
+          <AutoTextarea value={data.textoAI} onChange={v=>onChange({...data,textoAI:v,aiEdited:true})}
+            minRows={6} style={{fontSize:13}}/>
           {data.aiEdited&&<div style={{fontSize:11,color:C.orange,marginTop:3}}>Texto editado manualmente</div>}
         </Card>
       )}
@@ -2092,6 +2167,7 @@ const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
 const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
+  const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
   const [saved,setSaved]         = useState(false);
   const [dragIdx,setDragIdx]     = useState(null);
   const [overIdx,setOverIdx]     = useState(null);
@@ -2195,8 +2271,8 @@ TEXTO: "${data.textoRaw}"`,
   // ── AI: generar tabla desde descripción usando Baremo ────────────────────
   const genFromBaremo = async () => {
     const desc = data.textoAI||data.textoRaw;
-    if(!desc) return;
-    setGenLoad(true);
+    if(!desc){ setGenMsg({tipo:"aviso",texto:"Escribe primero la descripción de los daños: la tabla se genera a partir de ese texto."}); return; }
+    setGenLoad(true); setGenMsg(null);
     const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
@@ -2209,16 +2285,19 @@ ${baremoCtx}
 
 Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y su oficio:
 {"partidas":[{"oficio":"","desc":"","uds":1,"garantia":"continente","cobertura":true}]}`,
-      onTokens, 2000
+      // 4000 tokens: con el límite anterior una tabla larga se cortaba a medias
+      // y el JSON quedaba invalido, así que no aparecía ninguna partida.
+      onTokens, 4000
     ).catch(()=>'{"partidas":[]}');
     const j = parseJSON(raw);
     const err = iaError(j);
-    if(err){ setGenLoad(false); alert(err); return; }
+    if(err){ setGenLoad(false); setGenMsg({tipo:"error",texto:err}); return; }
     if(j.partidas?.length>0){
       // Merge desde el BAREMO (precio, unidad, oficio) buscando por el texto de la partida
+      let sinPrecio = 0;
       const rows = j.partidas.map(p=>{
-        const t = String(p.desc||"").toLowerCase().trim();
-        const ref = BAREMO.find(b=>b.desc.toLowerCase()===t) || BAREMO.find(b=>t&&(t.includes(b.desc.toLowerCase())||b.desc.toLowerCase().includes(t)));
+        const ref = matchBaremo(p.desc);
+        if(!ref) sinPrecio++;
         const garantia = p.garantia==="contenido"?"contenido":"continente";
         return {
           id:Date.now()+Math.random(),
@@ -2233,8 +2312,11 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         };
       });
       onChange({...data,partidas:rows.map(sanP)});
+      setGenMsg(sinPrecio>0
+        ? {tipo:"aviso",texto:`Tabla generada. ${sinPrecio} ${sinPrecio===1?"partida no está":"partidas no están"} en el baremo: revisa su precio, se ${sinPrecio===1?"ha añadido":"han añadido"} a 0 €.`}
+        : null);
     } else {
-      alert("No se encontraron partidas para la descripción de daños. Revisa el texto e inténtalo de nuevo.");
+      setGenMsg({tipo:"aviso",texto:"La IA no ha encontrado partidas del baremo que encajen con esta descripción. Detalla más los daños (material, superficie, estancia) y vuelve a intentarlo."});
     }
     setGenLoad(false);
   };
@@ -2242,7 +2324,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
   // ── AI: extraer tabla desde facturas/presupuestos ─────────────────────────
   const extractFromFacturas = async () => {
     if(!facturas.length) return;
-    setGenLoad(true);
+    setGenLoad(true); setGenMsg(null);
     const toB64 = f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(',')[1]);fr.readAsDataURL(f);});
     let all=[];
     let hadError=false;
@@ -2262,8 +2344,8 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
     }
     if(all.length>0) onChange({...data,partidas:all.map(sanP)});
-    else if(hadError) alert("No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.");
-    else alert("No se encontraron líneas en las facturas adjuntas.");
+    else if(hadError) setGenMsg({tipo:"error",texto:"No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo."});
+    else setGenMsg({tipo:"aviso",texto:"No se encontraron líneas en las facturas adjuntas."});
     setGenLoad(false);
   };
 
@@ -2318,15 +2400,15 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
               <Btn sm ghost onClick={improveText} disabled={improving}><RefreshCw size={10}/>Regenerar</Btn>
               <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado al informe</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
             </div>
-            <textarea value={data.textoAI} onChange={e=>onChange({...data,textoAI:e.target.value})}
-              rows={4} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}/>
+            <AutoTextarea value={data.textoAI} onChange={v=>onChange({...data,textoAI:v})}
+              minRows={4} style={{fontSize:13}}/>
           </div>
         )}
       </Card>
 
       {/* MODO DE VALORACIÓN */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[{v:"baremo",l:"📋 A modo informativo"},{v:"presupuesto",l:"📄 Por Presupuesto"},{v:"factura",l:"🧾 Por Factura"}].map(m=>(
+        {[{v:"baremo",l:"A modo informativo"},{v:"presupuesto",l:"Por Presupuesto"},{v:"factura",l:"Por Factura"}].map(m=>(
           <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
             style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
               background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
@@ -2411,6 +2493,25 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla</>}
         </Btn>}
       </div>
+      {/* Resultado de "Generar tabla" a la vista: antes era un alert() del
+          navegador, fácil de pasar por alto o de bloquear. */}
+      {esBaremo&&!data.textoRaw&&!data.textoAI&&
+        <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+          Escribe la descripción de los daños para poder generar la tabla.
+        </div>}
+      {genMsg&&(
+        <div style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:10,padding:"8px 12px",borderRadius:7,fontSize:12,
+          background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
+          border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
+          color:genMsg.tipo==="error"?C.red:C.orange}}>
+          <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
+          <span style={{flex:1}}>{genMsg.texto}</span>
+          <button onClick={()=>setGenMsg(null)} aria-label="Cerrar aviso"
+            style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
+            <X size={13}/>
+          </button>
+        </div>
+      )}
       <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:14}}>
         <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
       </div>
@@ -2599,15 +2700,21 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
 
   // Auto-fill descripción cobertura desde la póliza: copia el texto EXACTO de la
   // cobertura afectada. Mapea el nombre comercial al código de la póliza (RGEXT, etc.).
+  // La comparación ignora tildes y mayúsculas ("Daños por agua" = "DANOS POR AGUA").
   useEffect(()=>{
     if(!data.descripcionCobertura&&enc.descripciones){
-      const COD = {"riesgos extensivos":"RGEXT","atmosféricos":"RGEXT","atmosfericos":"RGEXT","daños por agua":"DAGUA","danos por agua":"DAGUA","incendio":"INCEN","robo":"ROBO","daños eléctricos":"DELEC","danos electricos":"DELEC","rc explotación":"RCEXP","rc explotacion":"RCEXP","responsabilidad civil":"RCEXP","rc locatario":"RCLOC"};
+      const COD = {"riesgos extensivos":"RGEXT","atmosfericos":"RGEXT","danos por agua":"DAGUA","incendio":"INCEN","robo":"ROBO","danos electricos":"DELEC","rc explotacion":"RCEXP","responsabilidad civil":"RCEXP","rc locatario":"RCLOC"};
+      const claves = Object.keys(enc.descripciones);
       const gars = (enc.garantia||enc.causa||"").split(/[;,]+/).map(g=>g.trim()).filter(Boolean);
       const desc = gars.map(g=>{
-        const code = COD[g.toLowerCase()];
-        return (code&&enc.descripciones[code])
-          || enc.descripciones[g]
-          || enc.descripciones[Object.keys(enc.descripciones).find(k=>k.toLowerCase().includes(g.toLowerCase()))||""];
+        const gn = norm(g);
+        const code = COD[gn];
+        // 1) por código de póliza · 2) por nombre literal · 3) por coincidencia parcial
+        const k = (code&&claves.find(x=>norm(x)===norm(code)))
+          || claves.find(x=>norm(x)===gn)
+          || claves.find(x=>gn&&(norm(x).includes(gn)||gn.includes(norm(x))));
+        const v = k?enc.descripciones[k]:"";
+        return (typeof v==="string"&&v.trim())?v.trim():"";
       }).filter(Boolean).join("\n\n");
       if(desc) onChange({...data,descripcionCobertura:desc});
     }
@@ -2631,8 +2738,9 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   const RestoreBtn = ({onClick}) => (
-    <button onClick={onClick} style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit"}}>
-      ↺ Restaurar
+    <button onClick={onClick} style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit",
+      display:"inline-flex",alignItems:"center",gap:5}}>
+      <RefreshCw size={11}/>Restaurar
     </button>
   );
 
@@ -2658,7 +2766,8 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
         </div>
         <Txt value={data.descripcionCobertura} onChange={s("descripcionCobertura")} rows={5}
           placeholder={enc.garantia?"Buscando cobertura para "+enc.garantia+"…":"Adjunta la póliza en el paso inicial para extraer automáticamente la descripción de la cobertura"}/>
-        {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange,marginTop:6}}>⚠ Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
+        {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange,marginTop:6,display:"flex",alignItems:"center",gap:5}}>
+          <AlertTriangle size={12}/>Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
       </Card>
 
       {/* TABLA GARANTÍAS */}
@@ -3418,7 +3527,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
       <SecTitle n="0" label="Datos del Encargo" sub="Revisa y edita los datos extraídos"/>
 
       <Card s={{marginBottom:12}}>
-        <SectionLabel>🏢 Compañía y Siniestro</SectionLabel>
+        <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
         <div style={{marginBottom:14}}>
           <Lbl c="Compañía" req/>
           <select value={COMPANIAS.find(c=>enc.compania&&enc.compania.toUpperCase().includes(c.toUpperCase()))||enc.compania||""}
@@ -3448,7 +3557,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
       </Card>
 
       <Card s={{marginBottom:12}}>
-        <SectionLabel>📍 Asegurado y Localización</SectionLabel>
+        <SectionLabel><MapPin size={12}/>Asegurado y Localización</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Asegurado / Tomador" value={enc.asegurado} onChange={s("asegurado")} required/>
           <Inp label="NIF / CIF" value={enc.nifAsegurado} onChange={s("nifAsegurado")}/>
@@ -3462,7 +3571,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
       </Card>
 
       <Card s={{marginBottom:12}}>
-        <SectionLabel>💰 Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>de la póliza</span>}</SectionLabel>
+        <SectionLabel><DollarSign size={12}/>Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>de la póliza</span>}</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
@@ -3523,6 +3632,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const goNext = () => { if(curIdx<secIds.length-1) setSec(secIds[curIdx+1]); };
   const goPrev = () => { if(curIdx>0) setSec(secIds[curIdx-1]); };
 
+  // Al cambiar de sección (botones Anterior/Siguiente o menú lateral) se vuelve
+  // al principio: si no, la nueva sección se abre a la altura de scroll anterior.
+  const contentRef = useRef(null);
+  useEffect(()=>{ contentRef.current?.scrollTo({top:0,behavior:"auto"}); },[sec]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -3550,7 +3664,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const doneSecs = ["s1","s2","s3","s4"].filter(k=>cData[k]&&Object.keys(cData[k]).length>2).length;
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+    <div className="editor-shell" style={{display:"flex",flexDirection:"column"}}>
       {/* TOP BAR */}
       <div className="editor-topbar" style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
         <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
@@ -3627,8 +3741,9 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           </>}
         </div>
 
-        {/* CONTENT — single column, max width for readability */}
-        <div style={{flex:1,overflowY:"auto",background:C.bg,display:"flex",justifyContent:"center"}}>
+        {/* CONTENT — single column, max width for readability.
+            Único elemento con scroll: la barra lateral y la cabecera quedan fijas. */}
+        <div ref={contentRef} style={{flex:1,minWidth:0,overflowY:"auto",background:C.bg,display:"flex",justifyContent:"center"}}>
           <div style={{width:"100%",maxWidth:760,padding:"28px 28px 48px"}}>
             {renderSec()}
           </div>
