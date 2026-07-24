@@ -238,7 +238,7 @@ const calcReglas = (enc, s1) => {
   enc=enc||{}; s1=s1||{};
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
   const arqKey = s1.tipoArqKey || "unif_aislada";
-  const primerRiesgo = enc.primerRiesgo || s1.tipoContinente==="obrasReforma" || enc.esHogar;
+  const primerRiesgo = !!enc.primerRiesgo;
   // Continente
   const capCont = parseCap(s1.capContOverride!=null?s1.capContOverride:enc.capitalContinente);
   const vPreexCalc = calcVPreexCont(s1.superficieConstruida, prov?.v||"00", arqKey, s1.calidad||"Media");
@@ -567,7 +567,7 @@ const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholde
       </div>}
       <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
         {value&&<Btn sm onClick={onImprove} disabled={improving} primary>
-          {improving?<><Spin/>Mejorando…</>:<><Sparkles size={12}/>Mejorar con IA</>}
+          {improving?<><Spin/>Mejorando…</>:<><Sparkles size={12}/>Mejorar</>}
         </Btn>}
         {value&&onApply&&<Btn sm onClick={onApply} outline>
           {applied?<><Check size={12}/>Aplicado</>:<><Check size={12}/>Aplicar al informe</>}
@@ -1135,7 +1135,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setMsg("Leyendo poliza de seguro...");
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
-      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"franquicias\": {\n    \"INCEN\": \"franquicia de la cobertura incendio en euros, solo numero. Si no tiene 0\",\n    \"DAGUA\": \"franquicia danos por agua en euros\",\n    \"RGEXT\": \"franquicia riesgos extensivos en euros\",\n    \"ROBO\": \"franquicia robo en euros\",\n    \"DELEC\": \"franquicia danos electricos en euros\",\n    \"RCEXP\": \"franquicia responsabilidad civil explotacion en euros\",\n    \"RCLOC\": \"franquicia responsabilidad civil locatario en euros\"\n  },\n  \"valorNuevoContinente\": true si el continente se asegura a valor de reposicion a nuevo false si no,\n  \"valorNuevoContenido\": true si el contenido se asegura a valor de reposicion a nuevo false si no,\n  \"depreciacionPoliza\": \"porcentaje de depreciacion que la poliza aplica a los bienes en la valoracion, solo numero. Si no aparece 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\"\n  }\n}";
+      const polPrompt = "Eres un perito de seguros experto en polizas AXA y similares. Analiza esta poliza y extrae los capitales correctos para el siniestro.\n\nCOBERTURA AFECTADA: " + cobEnc + "\n\nINSTRUCCIONES CRITICAS:\n- La poliza puede tener MULTIPLES valores para el continente (Edificio, Edificio primer riesgo, Obras de reforma...)\n- Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0. Si no, usa OBRAS DE REFORMA.\n- Para RCEXP, RCLOC: usa el capital de RC, no el de continente.\n- NUNCA sumes los valores, elige UNO solo el mas relevante.\n- Para contenido: usa el capital principal de Mobiliario y maquinaria, NO sublimites.\n\nDevuelve SOLO este JSON sin markdown:\n{\n  \"capitalContinente\": \"numero en euros sin simbolo. Capital del continente mas relevante para " + cobEnc + ". Si no existe 0\",\n  \"tipoContinente\": \"tipo elegido: Edificio primer riesgo / Obras de reforma / Edificio\",\n  \"capitalContenido\": \"numero en euros. Capital principal mobiliario o contenido. Si no existe 0\",\n  \"franquicia\": \"numero en euros. Franquicia general. Si no hay 0\",\n  \"franquicias\": {\n    \"INCEN\": \"franquicia de la cobertura incendio en euros, solo numero. Si no tiene 0\",\n    \"DAGUA\": \"franquicia danos por agua en euros\",\n    \"RGEXT\": \"franquicia riesgos extensivos en euros\",\n    \"ROBO\": \"franquicia robo en euros\",\n    \"DELEC\": \"franquicia danos electricos en euros\",\n    \"RCEXP\": \"franquicia responsabilidad civil explotacion en euros\",\n    \"RCLOC\": \"franquicia responsabilidad civil locatario en euros\"\n  },\n  \"valorNuevoContinente\": true si el continente se asegura a valor de reposicion a nuevo false si no,\n  \"valorNuevoContenido\": true si el contenido se asegura a valor de reposicion a nuevo false si no,\n  \"depreciacionPoliza\": \"porcentaje de depreciacion que la poliza aplica a los bienes en la valoracion, solo numero. Si no aparece 0\",\n  \"garantiasActivas\": \"coberturas contratadas separadas por coma\",\n  \"condicionesEspeciales\": \"resumen breve de condiciones relevantes para la peritacion\",\n  \"primerRiesgo\": true si el capital continente elegido es a primer riesgo false si es valor total,\n  \"fechaEfecto\": \"fecha de efecto de la poliza en formato dd/mm/aaaa. Busca en primera pagina o datos del contrato. Ejemplo: 30/06/2021\",\n  \"productoContratado\": \"nombre comercial del producto o modalidad contratada, ej: Multirriesgo Empresa, Hogar Plus, Comercios\",\n  \"todosCapitalesContinente\": \"lista de TODOS los valores de continente: Edificio:0 / Edificio PR:6000 / Obras reforma:1388139\",\n  \"umbralLluvia\": \"litros/m2/hora minimos lluvia segun poliza ej 40\",\n  \"umbralViento\": \"kmh minimos viento segun poliza ej 80\",\n  \"tipoVivienda\": \"tipo de vivienda del apartado descripcion de la vivienda asegurada, ej: Piso, Chalet, Unifamiliar aislada. Vacio si no aparece\",\n  \"usoVivienda\": \"uso de la vivienda del apartado descripcion, ej: Habitual, Segunda residencia, Arrendamiento. Vacio si no aparece\",\n  \"ubicacionVivienda\": \"direccion o ubicacion exacta del riesgo del apartado descripcion de la vivienda asegurada. Vacio si no aparece\",\n  \"calidadPóliza\": \"calidad de los acabados si aparece en la poliza: Básica, Media o Alta. Vacio si no aparece\",\n  \"descripciones\": {\n    \"INCEN\": \"texto cobertura incendio\",\n    \"DAGUA\": \"texto cobertura danos por agua\",\n    \"RCEXP\": \"texto cobertura RC explotacion\",\n    \"RGEXT\": \"texto riesgos extensivos\",\n    \"ROBO\": \"texto cobertura robo\",\n    \"DELEC\": \"texto cobertura danos electricos\",\n    \"RCLOC\": \"texto cobertura RC locatario\"\n  }\n}";
       const praw = await callClaude(
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
@@ -1196,8 +1196,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       condicionesEspeciales:    pol.condicionesEspeciales||"",
       productoContratado:       pol.productoContratado||"",
       codigoPostal:             enc.codigoPostal||"",
-      primerRiesgo:             pol.primerRiesgo||esHogarEnc||false,
-      tipoContinentePoliza:     esHogarEnc?"Primer riesgo (Hogar)":(pol.tipoContinente||""),
+      primerRiesgo:             !!pol.primerRiesgo,
+      tipoContinentePoliza:     pol.tipoContinente||"",
       todosCapitalesContinente: esHogarEnc?"":(pol.todosCapitalesContinente||""),
       tipoEncargo:              enc.tipoEncargo||"PERITACION",
       modalidadVisita:          enc.modalidadVisita||"PRESENCIAL",
@@ -1225,7 +1225,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <Sparkles size={22} style={{color:"#fff"}}/>
           </div>
           <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
-          <p style={{color:C.muted,fontSize:13}}>Adjunta el encargo y la póliza. La IA extraerá todos los datos automáticamente.</p>
+          <p style={{color:C.muted,fontSize:13}}>Adjunta el encargo y la póliza. Los datos se extraerán automáticamente.</p>
         </div>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           <div>
@@ -1239,13 +1239,13 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         </div>
         {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.green,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
           <Check size={13}/>
-          <span><b>Listo.</b> {polFile?"Encargo y póliza adjuntos — la IA extraerá datos de ambos.":"Encargo adjunto. Sin póliza, los capitales se rellenarán manualmente."}</span>
+          <span><b>Listo.</b> {polFile?"Encargo y póliza adjuntos — se extraerán datos de ambos.":"Encargo adjunto. Sin póliza, los capitales se rellenarán manualmente."}</span>
         </div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={()=>{setData({});setStep("review");}} style={{background:"none",border:"none",color:C.muted,fontSize:12,cursor:"pointer",textDecoration:"underline"}}>Crear sin documentos</button>
           <div style={{display:"flex",gap:10}}>
             <Btn ghost onClick={onCancel}>Cancelar</Btn>
-            <Btn primary onClick={processAll} disabled={!encFile}><Sparkles size={13}/>Extraer con IA</Btn>
+            <Btn primary onClick={processAll} disabled={!encFile}><Sparkles size={13}/>Extraer datos</Btn>
           </div>
         </div>
       </div>
@@ -1266,7 +1266,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     <div style={{minHeight:"100vh",background:C.bg,padding:"36px 0",overflowY:"auto"}}>
       <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px"}}>
         <div style={{marginBottom:22}}>
-          <div style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos ✨</div>
+          <div style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos</div>
           <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
           <p style={{color:C.muted,fontSize:12,marginTop:3}}>Revisa y corrige antes de continuar</p>
         </div>
@@ -1278,7 +1278,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         <Card s={{marginBottom:12}}>
           <SectionLabel>🏢 Compañía y Siniestro</SectionLabel>
           <div style={{marginBottom:14}}>
-            <Lbl c="Compañía ✨" req/>
+            <Lbl c="Compañía" req/>
             <select value={COMPANIAS.find(c=>data.compania&&data.compania.toUpperCase().includes(c.toUpperCase()))||data.compania||""}
               onChange={e=>s("compania")(e.target.value)}
               style={{...inpStyle(false),cursor:"pointer",border:`1px solid ${data.compania?C.border:C.accent}`}}>
@@ -1290,40 +1290,40 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             }
           </div>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Nº Siniestro / Referencia ✨" value={data.numReferencia} onChange={s("numReferencia")} required mono/>
-            <Inp label="Nº Póliza ✨" value={data.numPoliza} onChange={s("numPoliza")}/>
+            <Inp label="Nº Siniestro / Referencia" value={data.numReferencia} onChange={s("numReferencia")} required mono/>
+            <Inp label="Nº Póliza" value={data.numPoliza} onChange={s("numPoliza")}/>
           </div>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Ramo ✨" value={data.ramo} onChange={s("ramo")}/>
-            <Inp label="Garantía afectada ✨" value={data.garantia} onChange={s("garantia")}/>
+            <Inp label="Ramo" value={data.ramo} onChange={s("ramo")}/>
+            <Inp label="Garantía afectada" value={data.garantia} onChange={s("garantia")}/>
           </div>
-          <Inp label="Producto contratado ✨" value={data.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa" hint={data.polizaAdjunta?"Extraído de la póliza":"Adjunta la póliza para extraer automáticamente"}/>
+          <Inp label="Producto contratado" value={data.productoContratado} onChange={s("productoContratado")} placeholder="Ej: Multirriesgo Empresa" hint={data.polizaAdjunta?"Extraído de la póliza":"Adjunta la póliza para extraer automáticamente"}/>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Causa ✨" value={data.causa} onChange={s("causa")}/>
-            <Inp label="Nº de Encargo ✨" value={data.numExpInterno} onChange={s("numExpInterno")}/>
+            <Inp label="Causa" value={data.causa} onChange={s("causa")}/>
+            <Inp label="Nº de Encargo" value={data.numExpInterno} onChange={s("numExpInterno")}/>
           </div>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Fecha Encargo ✨" value={data.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
-            <Inp label="Fecha Siniestro ✨" value={data.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
+            <Inp label="Fecha Encargo" value={data.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
+            <Inp label="Fecha Siniestro" value={data.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
           </div>
         </Card>
 
         <Card s={{marginBottom:12}}>
           <SectionLabel>📍 Asegurado y Localización</SectionLabel>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <Inp label="Asegurado / Tomador ✨" value={data.asegurado} onChange={s("asegurado")} required/>
-            <Inp label="NIF / CIF ✨" value={data.nifAsegurado} onChange={s("nifAsegurado")}/>
+            <Inp label="Asegurado / Tomador" value={data.asegurado} onChange={s("asegurado")} required/>
+            <Inp label="NIF / CIF" value={data.nifAsegurado} onChange={s("nifAsegurado")}/>
           </div>
-          <Inp label="Lugar de intervención ✨" value={data.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
+          <Inp label="Lugar de intervención" value={data.lugarIntervencion} onChange={s("lugarIntervencion")} required/>
           <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-            <Inp label="Código postal ✨" value={data.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
-            <Inp label="Municipio ✨" value={data.municipio} onChange={s("municipio")} placeholder="Ej: Palamós"/>
-            <Inp label="Provincia ✨" value={data.provincia} onChange={s("provincia")} placeholder="Ej: Girona"/>
+            <Inp label="Código postal" value={data.codigoPostal} onChange={s("codigoPostal")} placeholder="Ej: 17230"/>
+            <Inp label="Municipio" value={data.municipio} onChange={s("municipio")} placeholder="Ej: Palamós"/>
+            <Inp label="Provincia" value={data.provincia} onChange={s("provincia")} placeholder="Ej: Girona"/>
           </div>
         </Card>
 
         <Card s={{marginBottom:12}}>
-          <SectionLabel>💰 Capitales Asegurados {data.polizaAdjunta&&<span style={{color:C.green,fontWeight:400}}>✨ de la póliza</span>}</SectionLabel>
+          <SectionLabel>💰 Capitales Asegurados {data.polizaAdjunta&&<span style={{color:C.green,fontWeight:400}}>de la póliza</span>}</SectionLabel>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <div>
               <EuroInput label="Capital Continente" value={data.capitalContinente} onChange={s("capitalContinente")}
@@ -1337,7 +1337,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           </div>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <EuroInput label="Franquicia" value={data.franquicia} onChange={s("franquicia")} hint="0,00 € si no hay franquicia"/>
-            <Inp label="Fecha efecto póliza ✨" value={data.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
+            <Inp label="Fecha efecto póliza" value={data.fechaEfecto} onChange={s("fechaEfecto")} placeholder="dd/mm/aaaa"/>
           </div>
         </Card>
 
@@ -1364,6 +1364,10 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
   const indemn = calcIndemnizacion(enc,s1,s3);
   const showIVAp  = (s3?.modoValoracion||"baremo")!=="presupuesto";
   const showDeprp = !((s3?.modoValoracion==="presupuesto"||s3?.modoValoracion==="factura")&&s3?.perceptorTipo==="reparador");
+  const rowsContP  = getPartidas(s3).filter(p=>p.garantia!=="contenido");
+  const rowsCont2P = getPartidas(s3).filter(p=>p.garantia==="contenido");
+  const totNuevoContP  = sumRepos(rowsContP),  totRealContP  = sumReal(rowsContP);
+  const totNuevoCont2P = sumRepos(rowsCont2P), totRealCont2P = sumReal(rowsCont2P);
 
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
@@ -1489,41 +1493,68 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ?<>
             {s3?.textoAI&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
             <div style={{fontFamily:"'Source Serif 4',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
+            {[["Continente",rowsContP],["Contenido",rowsCont2P]].filter(([,rows])=>rows.length>0).map(([titulo,rows])=>(
+              <div key={titulo} style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>{titulo}</div>
+                <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead><tr style={{background:C.ink}}>
+                    {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","Perceptor","Cob."].map((h,hi)=>(
+                      <th key={hi} style={{padding:"6px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {rows.map((p,i)=>{
+                      const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
+                      return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":"rgba(44,95,107,.04)"}}>
+                        <td style={{padding:"5px 6px",fontSize:11,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
+                        <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.uds||1}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(p.p)}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vr)}</td>
+                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.ivaOn?(p.iva||21)+"%":"—"}</td>}
+                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(ivaAmt)}</td>}
+                        {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>}
+                        {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>}
+                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right"}}>{p.perceptor||"Asegurado"}</td>
+                        <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura!==false?"Sí":"No"}</td>
+                      </tr>);
+                    })}
+                    <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
+                      <td colSpan={4} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
+                      <td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumRepos(rows))} €</td>
+                      {showIVAp&&<td/>}
+                      {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumIVA(rows))} €</td>}
+                      {showDeprp&&<td colSpan={2}/>}
+                      <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(sumReal(rows))}</td>
+                      <td colSpan={2}/>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ))}
+            <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Resumen de Daños</div>
             <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <thead><tr style={{background:C.ink}}>
-                {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","V.Prop.€","Garantía","Perceptor","Cob."].map((h,hi)=>(
-                  <th key={hi} style={{padding:"6px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
+                {["Garantía","Valor a nuevo","Valor real"].map((h,hi)=>(
+                  <th key={hi} style={{padding:"6px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {getPartidas(s3).map((p,i)=>{
-                  const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
-                  return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":"rgba(44,95,107,.04)"}}>
-                    <td style={{padding:"5px 6px",fontSize:11,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
-                    <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.uds||1}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(p.p)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vr)}</td>
-                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.iva??21}%</td>}
-                    {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(ivaAmt)}</td>}
-                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>}
-                    {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.depr?(p.pctDepr||0)+"%":"0,00"}</td>}
-                    <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right",fontWeight:700,color:C.green,fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
-                    <td style={{padding:"5px 6px",textAlign:"center"}}>{p.garantia==="contenido"?"Contenido":"Continente"}</td>
-                    <td style={{padding:"5px 6px",textAlign:"right"}}>{p.perceptor||"Asegurado 1"}</td>
-                    <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura!==false?"Sí":"No"}</td>
-                  </tr>);
-                })}
+                <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                  <td style={{padding:"6px 8px",fontWeight:600}}>Total Continente</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(totNuevoContP)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmtE(totRealContP)}</td>
+                </tr>
+                <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                  <td style={{padding:"6px 8px",fontWeight:600}}>Total Contenido</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(totNuevoCont2P)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmtE(totRealCont2P)}</td>
+                </tr>
                 <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
-                  <td colSpan={4} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
-                  <td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumRepos(getPartidas(s3)))} €</td>
-                  {showIVAp&&<td/>}
-                  {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumIVA(getPartidas(s3)))} €</td>}
-                  {showDeprp&&<td colSpan={2}/>}
-                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
-                  <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
-                  <td colSpan={3}/>
+                  <td style={{padding:"7px 8px",color:C.accent}}>Total estimación de daños</td>
+                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(totNuevoContP+totNuevoCont2P)}</td>
+                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1626,12 +1657,39 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
 };
 
 // ─── SECCIÓN 1 ────────────────────────────────────────────────────────────────
-const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
+const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo}) => {
   const [calSug,setCalSug]     = useState("");
   const [aiLoad,setAiLoad]     = useState(false);
+  const [catLoad,setCatLoad]   = useState(false);
+  const [catErr,setCatErr]     = useState("");
+  const [catOk,setCatOk]       = useState(false);
   const s = f => v => onChange({...data,[f]:v});
-  const esHogar  = enc.esHogar||((enc.ramo||"").toUpperCase().includes("HOGAR"));
   const esInstant = enc.tipoEncargo==="INSTANT_PAYMENT";
+
+  // Consulta automática al Catastro: dirección -> referencia, superficie, año + captura de cartografía
+  const consultarCatastro = async () => {
+    setCatErr(""); setCatOk(false);
+    if(!enc.lugarIntervencion && !enc.municipio){ setCatErr("Falta la dirección del lugar de intervención en los Datos del Encargo."); return; }
+    setCatLoad(true);
+    const r = await fetch('/api/catastro', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({direccion:enc.lugarIntervencion||"",municipio:enc.municipio||"",provincia:enc.provincia||"",cp:enc.codigoPostal||""})
+    }).then(r=>r.json()).catch(()=>({ok:false,error:"Error de conexión con el Catastro."}));
+    setCatLoad(false);
+    if(!r || (!r.ok && !r.imagen)){ setCatErr(r?.error||"No se pudieron obtener datos del Catastro."); return; }
+    const patch = {};
+    if(r.ok){
+      if(r.refCatastral) patch.refCatastral = r.refCatastral;
+      if(r.superficie) patch.superficieConstruida = String(r.superficie);
+      if(r.anoConstruccion) patch.anoConstruccion = String(r.anoConstruccion);
+    }
+    if(Object.keys(patch).length) onChange({...data,...patch});
+    if(!r.ok) setCatErr(r.error||"No se encontraron datos catastrales para esta dirección.");
+    if(r.imagen && onAutoAnexo){
+      try { await onAutoAnexo("catastro", r.imagen, `catastro-${(r.refCatastral||enc.numReferencia||'captura')}.png`, "Documento"); setCatOk(true); }
+      catch(e){ setCatErr(prev=>[prev,"No se pudo adjuntar la captura a Anexos: "+e.message].filter(Boolean).join(' · ')); }
+    } else if(r.ok){ setCatOk(true); }
+  };
 
   // Auto-fill from póliza extraction on mount
   useEffect(()=>{
@@ -1670,39 +1728,12 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave}) => {
     // texto se inicializa igualmente (la guarda !data.textoInstant evita repetir).
   },[esInstant, enc.lugarIntervencion, enc.municipio]);
 
-  const genTexto = async () => {
-    setAiLoad(true);
-    const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
-    const arqKey = data.tipoArqKey||"unif_aislada";
-    const vPre = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
-    const capCont = parseCap(data.capContOverride!=null?data.capContOverride:enc.capitalContinente);
-    const text = await callClaude(
-      "Perito de seguros. Redacta la descripción del riesgo en VIÑETAS cortas (una idea por línea, empezando con guion). Estilo pericial, conciso, sin párrafos largos ni título de apartado.",
-      `Redacta la descripción del riesgo en viñetas breves (máximo una línea cada una), siguiendo este formato de informe pericial real:
-- El riesgo asegurado se corresponde con: ${data.tipoVivienda||data.tipoRiesgo||"—"}.
-- Uso: ${data.usoVivienda||"—"}.
-- Año de construcción: ${data.anoConstruccion||"—"}.
-- Superficie construida: ${data.superficieConstruida||"—"} m².
-- Calidad de los acabados: ${data.calidad||"Media"}.
-- Estado general del riesgo: ${data.estado||"—"}.
-- Localización: ${data.ubicacion||enc.lugarIntervencion||"—"}, ${enc.provincia||""}.
-- Referencia catastral: ${data.refCatastral||"No aportada"}.
-Devuelve SOLO las viñetas reescritas de forma natural y profesional, sin añadir introducción ni conclusiones ni datos económicos.`,
-      onTokens
-    ).catch(()=>'{"_apiError":true}');
-    setAiLoad(false);
-    if(!text || text.includes('"_apiError"')){
-      alert("No se pudo generar el texto: la IA no respondió correctamente. Inténtalo de nuevo.");
-      return;
-    }
-    onChange({...data,aiText:text,aiEdited:false,aiApplied:false});
-  };
 
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
   const arqKey   = data.tipoArqKey||"unif_aislada";
   const capCont  = data.capContOverride!=null ? parseCap(data.capContOverride)  : parseCap(enc.capitalContinente);
   const capCont2 = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
-  const primerRiesgoDetectado = enc.primerRiesgo||esHogar||false;
+  const primerRiesgoDetectado = !!enc.primerRiesgo;
   const vPreexCalc = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
   const vPreex = primerRiesgoDetectado ? capCont : vPreexCalc;
   const modulo = getModuloArq(prov?.v||"00", arqKey, data.calidad||"Media");
@@ -1732,7 +1763,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           onChange({...data,textoInstant:t});
           setAiLoad(false);
         }} disabled={aiLoad}>
-          {aiLoad?<><Spin/>Mejorando…</>:<><Sparkles size={12}/>Mejorar con IA</>}
+          {aiLoad?<><Spin/>Mejorando…</>:<><Sparkles size={12}/>Mejorar</>}
         </Btn>
       </Card>
 
@@ -1770,7 +1801,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         <div style={{marginBottom:14}}>
           <Lbl c="Calidad de acabados"/>
           {enc.calidadPóliza&&!data.calidad&&<div style={{fontSize:11,color:C.green,marginBottom:4}}>
-            ✨ Detectado en póliza: <b>{enc.calidadPóliza}</b> — seleccionado automáticamente
+            Detectado en póliza: <b>{enc.calidadPóliza}</b> — seleccionado automáticamente
           </div>}
           <select value={data.calidad||(enc.calidadPóliza||"")} onChange={e=>s("calidad")(e.target.value)}
             style={{...inpStyle(false),cursor:"pointer",border:`1.5px solid ${(data.calidad||enc.calidadPóliza)?"#A7F3D0":C.border}`}}>
@@ -1778,7 +1809,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             {["Básica","Media","Alta"].map(o=><option key={o}>{o}</option>)}
           </select>
           {calSug&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:5,padding:"7px 10px",marginTop:5,fontSize:11,color:C.green}}>
-            <b>✨ Sugerencia IA:</b> {data.calidad||enc.calidadPóliza} — {calSug}
+            <b>Sugerencia:</b> {data.calidad||enc.calidadPóliza} — {calSug}
           </div>}
         </div>
         <Sel label="Estado general del riesgo ✏️ (rellenar tras visita)" value={data.estado} onChange={s("estado")}
@@ -1844,19 +1875,21 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       {/* CATASTRO */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Consulta Catastral</SectionLabel>
-        <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:C.blue,lineHeight:1.6}}>
-          <b>ℹ Cómo obtener los datos:</b> Abre la Sede del Catastro, busca el inmueble por la dirección del encargo e introduce los datos manualmente en los campos de abajo.
-        </div>
+        <Btn primary full onClick={consultarCatastro} disabled={catLoad}>
+          {catLoad?<><Spin/>Consultando Catastro…</>:<><FileImage size={13}/>Consultar Catastro</>}
+        </Btn>
+        {catErr&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>{catErr}</div>}
+        {catOk&&!catErr&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:6}}><Check size={12}/>Datos y captura del Catastro añadidos (revisa los campos y los Anexos).</div>}
         <a href={`https://www1.sedecatastro.gob.es/cartografia/mapa.aspx?buscar=S&del=&muni=&cp=${encodeURIComponent(enc.lugarIntervencion||"")}`}
           target="_blank" rel="noreferrer"
-          style={{display:"flex",alignItems:"center",gap:8,background:C.blue,color:"#fff",borderRadius:7,
-            padding:"10px 16px",fontSize:13,fontWeight:600,textDecoration:"none",marginBottom:12,justifyContent:"center"}}>
-          🗺️ Abrir Catastro — buscar inmueble
+          style={{display:"flex",alignItems:"center",gap:8,background:C.white,color:C.blue,border:`1px solid ${C.border}`,borderRadius:7,
+            padding:"8px 16px",fontSize:12,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
+          🗺️ Abrir Sede del Catastro (consulta manual)
         </a>
-        <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG" hint="Cópiala del Catastro (20 caracteres)"/>
+        <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG"/>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Inp label="Superficie construida (m²)" value={data.superficieConstruida} onChange={s("superficieConstruida")} type="number" hint="Del Catastro"/>
-          <Inp label="Año de construcción" value={data.anoConstruccion} onChange={s("anoConstruccion")} type="number" hint="Del Catastro"/>
+          <Inp label="Superficie construida (m²)" value={data.superficieConstruida} onChange={s("superficieConstruida")} type="number"/>
+          <Inp label="Año de construcción" value={data.anoConstruccion} onChange={s("anoConstruccion")} type="number"/>
         </div>
       </Card>
 
@@ -1864,7 +1897,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       <Card s={{marginBottom:14}}>
         <SectionLabel>Continente</SectionLabel>
         {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
-          <b>ℹ Continente a primer riesgo detectado en póliza.</b> El valor preexistente es igual al capital asegurado.
+          <b>ℹ Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
         </div>}
         {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
           <b>⚠ Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
@@ -1921,26 +1954,6 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         })()}
       </Card>
 
-      {/* IA TEXTO */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Redacción IA — Sección 1</SectionLabel>
-        {!data.estado&&<div style={{fontSize:11,color:C.orange,marginBottom:8}}>⚠ Rellena primero el estado general del riesgo</div>}
-        <Btn primary onClick={genTexto} disabled={aiLoad||!data.superficieConstruida}>
-          {aiLoad?<><Spin/>Generando…</>:<><Sparkles size={13}/>Generar texto pericial</>}
-        </Btn>
-        {(data.aiText||aiLoad)&&<div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:8,padding:13,marginTop:12}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-            <span style={{fontSize:11,fontWeight:700,color:C.accent,display:"flex",alignItems:"center",gap:5}}><Sparkles size={11}/>TEXTO IA {data.aiEdited&&<span style={{color:C.orange}}>(editado)</span>}</span>
-            <div style={{display:"flex",gap:6}}>
-              <Btn sm ghost onClick={genTexto} disabled={aiLoad}><RefreshCw size={10}/></Btn>
-              {data.aiText&&<Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado al informe</>:<><Check size={10}/>Aplicar al informe</>}</Btn>}
-            </div>
-          </div>
-          {aiLoad?<div style={{display:"flex",gap:8,alignItems:"center",color:C.muted,fontSize:12}}><Spin/>Generando…</div>
-            :<textarea value={data.aiText||""} onChange={e=>onChange({...data,aiText:e.target.value,aiEdited:true})}
-              rows={6} style={{...inpStyle(false),resize:"vertical",lineHeight:1.65,fontSize:13}}/>}
-        </div>}
-      </Card>
 
       <NavBottom onNext={onNext} nextLabel="Siguiente — Causas y Circunstancias"/>
     </div>
@@ -1948,7 +1961,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 };
 
 // ─── SECCIÓN 2 ────────────────────────────────────────────────────────────────
-const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave}) => {
+const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave,onAutoAnexo}) => {
   const [improving,setImproving] = useState(false);
   const [saved,setSaved]         = useState(false);
   const [meteoLoad,setMeteoLoad] = useState(false);
@@ -1982,6 +1995,10 @@ Fuente: Servei Meteorològic de Catalunya (XEMA), datos abiertos. Menciona la fu
     const textoLimpio = (texto&&!texto.includes('"_apiError"'))?texto:"";
     onChange({...data, meteo:{...d, texto:textoLimpio}});
     setMeteoLoad(false);
+    if(d.imagen && onAutoAnexo){
+      onAutoAnexo("meteosim", d.imagen, `xema-${d.codiEstacio||'estacio'}-${(enc.fechaSiniestro||'').replace(/\//g,'-')}.png`, "Documento")
+        .catch(e=>setMeteoErr(prev=>[prev,"No se pudo adjuntar la captura del mapa a Anexos: "+e.message].filter(Boolean).join(' · ')));
+    }
   };
 
   const improve = async () => {
@@ -2002,13 +2019,10 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 
   return (
     <div className="fade">
-      <SecTitle n="2" label="Causas y Circunstancias" sub="Describe el siniestro — por voz o texto. La IA adaptará el lenguaje al vocabulario pericial."/>
+      <SecTitle n="2" label="Causas y Circunstancias" sub="Describe el siniestro — por voz o texto."/>
 
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción del Siniestro</SectionLabel>
-        <div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.accent,marginBottom:12}}>
-          Habla o escribe con tus propias palabras. La IA transformará el texto al lenguaje técnico pericial.
-        </div>
         {(enc.umbralViento||enc.umbralLluvia)&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:11,color:C.blue,marginBottom:10,display:"flex",gap:14,flexWrap:"wrap"}}>
           <b>Umbrales póliza:</b>{enc.umbralViento&&<span> 🌬️ Viento: <b>{enc.umbralViento} km/h</b></span>}{enc.umbralLluvia&&<span> 🌧️ Lluvia: <b>{enc.umbralLluvia} l/m²/h</b></span>}
         </div>}
@@ -2066,6 +2080,15 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 };
 
 // ─── SECCIÓN 3 ────────────────────────────────────────────────────────────────
+// Definido a nivel de módulo (no dentro de Sec3): si se define dentro del componente,
+// React lo trata como un tipo nuevo en cada render y desmonta/remonta el <input> en cada
+// tecla, perdiendo el foco. A nivel de módulo su identidad es estable entre renders.
+const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
+  <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
+    style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,
+      fontFamily:type==="number"?FONT_MONO:"inherit",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
+);
+
 const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
@@ -2094,6 +2117,14 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const totRepos = sumRepos(rowsActivas);
   const totIVA   = sumIVA(rowsActivas);
   const totReal  = sumReal(rowsActivas);
+  // Partidas activas por garantía, para las tablas Continente/Contenido y el resumen de daños
+  const esContenido = p => p.garantia==="contenido";
+  const partidasCont  = partidas.filter(p=>!esContenido(p));
+  const partidasCont2 = partidas.filter(esContenido);
+  const activasCont   = rowsActivas.filter(p=>!esContenido(p));
+  const activasCont2  = rowsActivas.filter(esContenido);
+  const totNuevoCont  = sumRepos(activasCont),  totRealCont  = sumReal(activasCont);
+  const totNuevoCont2 = sumRepos(activasCont2), totRealCont2 = sumReal(activasCont2);
   const reglas   = calcReglas(enc, s1);
   const totAjustado = sumAjustado(enc, s1, data);
   const indemn   = calcIndemnizacion(enc, s1, data);
@@ -2106,7 +2137,9 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const sanP = p => ({...p, uds:clampNum(p.uds,0,Infinity), p:clampNum(p.p,0,Infinity), iva:clampNum(p.iva??0,0,100), pctDepr:clampNum(p.pctDepr,0,100)});
   const updP = (i,f,v) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,[f]:clampField(f,v)}:p)});
   const delP = i => onChange({...data,partidas:partidas.filter((_,idx)=>idx!==i)});
-  const addRow = () => { const ivaDef=esFactura?21:0; onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),oficio:"",desc:"",uds:1,p:0,iva:ivaDef,depr:false,pctDepr:0,perceptor:"Asegurado",garantia:"continente",cobertura:true}]}); };
+  const addRow = garantia => onChange({...data,partidas:[...partidas,{id:Date.now()+Math.random(),oficio:"",desc:"",uds:1,p:0,ivaOn:false,iva:0,depr:false,pctDepr:0,perceptor:"Asegurado",garantia:garantia||"continente",cobertura:true}]});
+  // Checkbox de IVA: al marcar aplica 21% por defecto (editable 10/21); al desmarcar, IVA=0
+  const toggleIVA = (i,on) => onChange({...data,partidas:partidas.map((p,idx)=>idx===i?{...p,ivaOn:on,iva:on?(p.iva||21):0}:p)});
   // Reordenar filas manualmente (drag & drop)
   const moveRow = (from,to) => {
     if(from==null||to==null||from===to) return;
@@ -2164,7 +2197,6 @@ TEXTO: "${data.textoRaw}"`,
     const desc = data.textoAI||data.textoRaw;
     if(!desc) return;
     setGenLoad(true);
-    const deprPct = Math.min(100,Math.max(0,parseFloat(enc.depreciacionPoliza)||0));
     const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
@@ -2188,8 +2220,6 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         const t = String(p.desc||"").toLowerCase().trim();
         const ref = BAREMO.find(b=>b.desc.toLowerCase()===t) || BAREMO.find(b=>t&&(t.includes(b.desc.toLowerCase())||b.desc.toLowerCase().includes(t)));
         const garantia = p.garantia==="contenido"?"contenido":"continente";
-        // Depreciación de la póliza si el bien se asegura a valor nuevo
-        const aplicaDepr = deprPct>0 && (garantia==="contenido"?!!enc.valorNuevoContenido:!!enc.valorNuevoContinente);
         return {
           id:Date.now()+Math.random(),
           oficio: ref?ref.oficio:(p.oficio||""),
@@ -2198,13 +2228,13 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           p: ref?(ref.indirecto?0:ref.p):(p.p||0),
           indirecto: ref?!!ref.indirecto:false,
           u: ref?ref.u:"",
-          iva:0, depr:aplicaDepr, pctDepr:aplicaDepr?deprPct:0,
+          ivaOn:false, iva:0, depr:false, pctDepr:0,
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
       onChange({...data,partidas:rows.map(sanP)});
     } else {
-      alert("La IA no encontró partidas en la descripción de daños. Revisa el texto e inténtalo de nuevo.");
+      alert("No se encontraron partidas para la descripción de daños. Revisa el texto e inténtalo de nuevo.");
     }
     setGenLoad(false);
   };
@@ -2223,15 +2253,16 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         "Extractor de facturas/presupuestos. SOLO JSON válido.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
          {type:"text",text:`Extrae todas las líneas de esta factura o presupuesto. Devuelve SOLO:
-{"partidas":[{"oficio":"","desc":"descripción","uds":1,"p":0.00,"iva":21,"depr":false,"pctDepr":0,"perceptor":"Asegurado","cobertura":true}]}`}],
+{"partidas":[{"oficio":"","desc":"descripción","uds":1,"p":0.00,"iva":21,"perceptor":"Asegurado","cobertura":true}]}`}],
         onTokens, 2000
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
       if(iaError(j)) hadError=true;
-      else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random()}))];
+      // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
+      else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
     }
     if(all.length>0) onChange({...data,partidas:all.map(sanP)});
-    else if(hadError) alert("La IA no pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.");
+    else if(hadError) alert("No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.");
     else alert("No se encontraron líneas en las facturas adjuntas.");
     setGenLoad(false);
   };
@@ -2243,15 +2274,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
   };
   const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
 
-  const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
-    <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
-      style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,
-        fontFamily:type==="number"?FONT_MONO:"inherit",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
-  );
-
   return (
     <div className="fade">
-      <SecTitle n="3" label="Valoración de Daños" sub="Describe los daños y la IA creará la tabla de valoración automáticamente."/>
+      <SecTitle n="3" label="Valoración de Daños" sub="Describe los daños y genera la tabla de valoración."/>
 
       {/* PARÁMETROS DE GARANTÍA — dos bloques */}
       <Card s={{marginBottom:14}}>
@@ -2279,11 +2304,6 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           placeholder={enc.causa||"Fenómenos atmosféricos"} hint="Del encargo — editable"/>
         <EuroInput label="Franquicia (€)" value={data.franquiciaVal||enc.franquicia||"0"} onChange={s("franquiciaVal")}
           hint="De la póliza — editable"/>
-        {(parseFloat(enc.depreciacionPoliza)||0)>0&&(enc.valorNuevoContinente||enc.valorNuevoContenido)&&(
-          <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginTop:4}}>
-            <b>ℹ Valor nuevo en póliza.</b> Se aplicará una depreciación del <b>{fmt(parseFloat(enc.depreciacionPoliza))} %</b> a las partidas de {[enc.valorNuevoContinente&&"continente",enc.valorNuevoContenido&&"contenido"].filter(Boolean).join(" y ")} al generar la tabla con IA.
-          </div>
-        )}
       </Card>
 
       {/* DESCRIPCIÓN DE DAÑOS */}
@@ -2382,112 +2402,148 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         </>}
       </Card>
 
-      {/* TABLA DE VALORACIÓN */}
-      <Card s={{marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <SectionLabel>{esBaremo?"Tabla de Valoración — A modo informativo":esPresup?"Tabla de Valoración — Presupuesto":"Tabla de Valoración — Factura"}</SectionLabel>
-          <div style={{display:"flex",gap:6}}>
-            {esBaremo&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
-              {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla con IA</>}
-            </Btn>}
-            <Btn sm onClick={addRow}><Plus size={11}/>Fila</Btn>
+      {/* TABLAS DE VALORACIÓN — Continente / Contenido */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em"}}>
+          {esBaremo?"Valoración — A modo informativo":esPresup?"Valoración — Presupuesto":"Valoración — Factura"}
+        </div>
+        {esBaremo&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
+          {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla</>}
+        </Btn>}
+      </div>
+      <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:14}}>
+        <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
+      </div>
+
+      {[{key:"continente",titulo:"Continente",rows:partidasCont,sub:{repos:sumRepos(activasCont),iva:sumIVA(activasCont),real:totRealCont}},
+        {key:"contenido",titulo:"Contenido",rows:partidasCont2,sub:{repos:sumRepos(activasCont2),iva:sumIVA(activasCont2),real:totRealCont2}}].map(tabla=>(
+        <Card key={tabla.key} s={{marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <SectionLabel>{tabla.titulo}</SectionLabel>
+            <Btn sm onClick={()=>addRow(tabla.key)}><Plus size={11}/>Fila</Btn>
           </div>
-        </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:820}}>
+              <thead><tr style={{background:C.ink}}>
+                {["","Oficio","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["IVA","%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","Perceptor","Cob.",""].map((h,hi)=>(
+                  <th key={hi} style={{padding:"6px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {tabla.rows.length===0&&<tr><td colSpan={10+(showIVA?3:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
+                  Sin partidas de {tabla.titulo.toLowerCase()} todavía
+                </td></tr>}
+                {tabla.rows.map(p=>{
+                  const i = partidas.indexOf(p);
+                  const pr = p.indirecto?{...p,uds:1,p:+(baseReposCov*PCT_INDIRECTO/100).toFixed(2)}:p;
+                  const {vRepos,ivaAmt,vReal}=calc(pr);
+                  return (
+                    <tr key={p.id}
+                      onDragOver={e=>{if(dragIdx!=null){e.preventDefault();setOverIdx(i);}}}
+                      onDrop={e=>{e.preventDefault();moveRow(dragIdx,i);setDragIdx(null);setOverIdx(null);}}
+                      style={{borderBottom:`1px solid ${C.border}`,opacity:dragIdx===i?0.4:1,
+                        background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:"transparent"}}>
+                      <td style={{padding:"3px 2px",textAlign:"center"}}>
+                        <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+                          style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
+                      </td>
+                      <td style={{padding:"4px 5px",minWidth:90}}>
+                        <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
+                          style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
+                      </td>
+                      <td style={{padding:"4px 5px",minWidth:180}}>
+                        <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
+                          style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
+                      </td>
+                      <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
+                      <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
+                      <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontFamily:FONT_MONO}}>{fmt(vRepos)}</td>
+                      {showIVA&&<td style={{padding:"3px 4px",textAlign:"center"}}>
+                        <input type="checkbox" checked={!!p.ivaOn} onChange={e=>toggleIVA(i,e.target.checked)} style={{cursor:"pointer"}}/>
+                      </td>}
+                      {showIVA&&<td style={{padding:"3px 4px"}}>{p.ivaOn&&
+                        <select value={p.iva||21} onChange={e=>updP(i,"iva",+e.target.value)}
+                          style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
+                          <option value={10}>10%</option><option value={21}>21%</option>
+                        </select>}
+                      </td>}
+                      {showIVA&&<td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(ivaAmt)}</td>}
+                      {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
+                        <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
+                      </td>}
+                      {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36} min={0} max={100}/>}</td>}
+                      <td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(vReal)}</td>
+                      <td style={{padding:"3px 4px"}}>
+                        <select value={p.perceptor||"Asegurado"} onChange={e=>updP(i,"perceptor",e.target.value)}
+                          style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
+                          {[...new Set([...perceptorOpciones,p.perceptor].filter(Boolean))].map(o=><option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
+                      <td style={{padding:"3px 4px",textAlign:"center"}}>
+                        <button onClick={()=>updP(i,"cobertura",p.cobertura===false)}
+                          style={{background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:11,fontFamily:"inherit",
+                            color:p.cobertura!==false?C.green:C.red}}>{p.cobertura!==false?"Sí":"No"}</button>
+                      </td>
+                      <td><button onClick={()=>delP(i)} aria-label="Eliminar partida" style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
+                    </tr>
+                  );
+                })}
+                {tabla.rows.length>0&&<tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
+                  <td/><td/>
+                  <td style={{padding:"7px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
+                  <td/><td/>
+                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(tabla.sub.repos)} €</td>
+                  {showIVA&&<td/>}
+                  {showIVA&&<td/>}
+                  {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(tabla.sub.iva)} €</td>}
+                  {showDepr&&<td/>}
+                  {showDepr&&<td/>}
+                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:12,fontFamily:FONT_MONO}}>{fmt(tabla.sub.real)} €</td>
+                  <td colSpan={3}/>
+                </tr>}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ))}
 
-        <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:10}}>
-          <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
-        </div>
-
+      {/* RESUMEN DE DAÑOS */}
+      {partidas.length>0&&<Card s={{marginBottom:14}}>
+        <SectionLabel>Resumen de Daños</SectionLabel>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:900}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:C.ink}}>
-              {["","Oficio","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","V.Propuesto €","Garantía","Perceptor","Cob.",""].map((h,hi)=>(
-                <th key={hi} style={{padding:"6px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+              {["Garantía","Valor a nuevo","Valor real"].map((h,hi)=>(
+                <th key={hi} style={{padding:"7px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:11}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {partidas.length===0&&<tr><td colSpan={12+(showIVA?2:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
-                {esBaremo?"Describe los daños y pulsa «Generar tabla con IA»":"Adjunta el documento y extrae las partidas automáticamente"}
-              </td></tr>}
-              {partidas.map((p,i)=>{
-                const pr = p.indirecto?{...p,uds:1,p:+(baseReposCov*PCT_INDIRECTO/100).toFixed(2)}:p;
-                const {vRepos,ivaAmt,vReal}=calc(pr);
-                return (
-                  <tr key={p.id||i}
-                    onDragOver={e=>{if(dragIdx!=null){e.preventDefault();setOverIdx(i);}}}
-                    onDrop={e=>{e.preventDefault();moveRow(dragIdx,i);setDragIdx(null);setOverIdx(null);}}
-                    style={{borderBottom:`1px solid ${C.border}`,opacity:dragIdx===i?0.4:1,
-                      background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:(i%2===0?"transparent":"rgba(44,95,107,.04)")}}>
-                    <td style={{padding:"3px 2px",textAlign:"center"}}>
-                      <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
-                        style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
-                    </td>
-                    <td style={{padding:"4px 5px",minWidth:90}}>
-                      <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
-                        style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
-                    </td>
-                    <td style={{padding:"4px 5px",minWidth:180}}>
-                      <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
-                        style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
-                    </td>
-                    <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
-                    <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
-                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontFamily:FONT_MONO}}>{fmt(vRepos)}</td>
-                    {showIVA&&<td style={{padding:"3px 4px"}}><InpCell val={p.iva??21} onChange={v=>updP(i,"iva",v)} type="number" w={36} min={0} max={100}/></td>}
-                    {showIVA&&<td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(ivaAmt)}</td>}
-                    {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
-                      <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
-                    </td>}
-                    {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36} min={0} max={100}/>}</td>}
-                    <td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(vReal)}</td>
-                    <td style={{padding:"4px 5px",textAlign:"right",fontWeight:700,color:C.green,fontFamily:FONT_MONO}}>{fmt(vReal)}</td>
-                    <td style={{padding:"3px 4px"}}>
-                      <select value={p.garantia||"continente"} onChange={e=>updP(i,"garantia",e.target.value)}
-                        style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
-                        <option value="continente">Continente</option><option value="contenido">Contenido</option>
-                      </select>
-                    </td>
-                    <td style={{padding:"3px 4px"}}>
-                      <select value={p.perceptor||"Asegurado"} onChange={e=>updP(i,"perceptor",e.target.value)}
-                        style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
-                        {[...new Set([...perceptorOpciones,p.perceptor].filter(Boolean))].map(o=><option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </td>
-                    <td style={{padding:"3px 4px",textAlign:"center"}}>
-                      <button onClick={()=>updP(i,"cobertura",p.cobertura===false)}
-                        style={{background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:11,fontFamily:"inherit",
-                          color:p.cobertura!==false?C.green:C.red}}>{p.cobertura!==false?"Sí":"No"}</button>
-                    </td>
-                    <td><button onClick={()=>delP(i)} aria-label="Eliminar partida" style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
-                  </tr>
-                );
-              })}
-              {partidas.length>0&&<tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
-                <td/>
-                <td/>
-                <td style={{padding:"7px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
-                <td/>
-                <td/>
-                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totRepos)} €</td>
-                {showIVA&&<td/>}
-                {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totIVA)} €</td>}
-                {showDepr&&<td/>}
-                {showDepr&&<td/>}
-                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:12,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
-                <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
-                <td colSpan={4}/>
-              </tr>}
+              <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                <td style={{padding:"8px",fontWeight:600}}>Total Continente</td>
+                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(totNuevoCont)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(totRealCont)} €</td>
+              </tr>
+              <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                <td style={{padding:"8px",fontWeight:600}}>Total Contenido</td>
+                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(totNuevoCont2)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(totRealCont2)} €</td>
+              </tr>
+              <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
+                <td style={{padding:"9px 8px",color:C.accent}}>Total estimación de daños</td>
+                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totRepos)} €</td>
+                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
+              </tr>
             </tbody>
           </table>
         </div>
 
         {/* FRASE DE INDEMNIZACIÓN */}
-        {docMode&&partidas.length>0&&fraseIndemn(data,indemn)&&(
+        {docMode&&fraseIndemn(data,indemn)&&(
           <div style={{marginTop:14,background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:14,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>
             {fraseIndemn(data,indemn)}
           </div>
         )}
-      </Card>
+      </Card>}
 
       <NavBottom onPrev={onPrev} onSave={handleSave} onNext={onNext} saved={saved}
         prevLabel="Causas y Circunstancias" nextLabel="Siguiente — Cobertura e Indemnización"/>
@@ -2670,6 +2726,19 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
 const ANEXOS_MAX_SIZE = 10*1024*1024; // 10 MB
 const ANEXOS_PUBLIC_PREFIX = `${SB_URL}/storage/v1/object/public/anexos/`;
 const sanitizeAnexoName = n => (n||"archivo").normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
+// Sube una captura automática (Catastro/XEMA, imagen data-URI) al mismo bucket que los anexos manuales.
+const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeId}) => {
+  if(!token||!userId) throw new Error('Sesión no disponible.');
+  const blob = await (await fetch(dataUrl)).blob();
+  const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(name)}`;
+  const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
+    method:'POST',
+    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':blob.type||'image/png'},
+    body:blob
+  });
+  if(!res.ok) throw new Error(`Fallo al subir ${name} (${res.status})`);
+  return {id:Date.now()+Math.random(), name, url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type:blob.type||'image/png', caption:'', cat:cat||'Documento'};
+};
 
 const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
   const tabs = [
@@ -2849,18 +2918,24 @@ const buildWordHTML = (cData) => {
       `El estado general del riesgo asegurado se encuentra según nuestro criterio: ${s1.estado||'—'}`,
       `Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||'—'}`,
       `Referencia catastral del inmueble: ${s1.refCatastral||''}`];
-  const wTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
-  const rowPart=partidas.map(p=>{
+  const partidasContW  = partidas.filter(p=>(p.garantia||'continente')!=='contenido');
+  const partidasCont2W = partidas.filter(p=>p.garantia==='contenido');
+  const totNuevoContW=sumRepos(partidasContW),   totRealContW=sumReal(partidasContW);
+  const totNuevoCont2W=sumRepos(partidasCont2W), totRealCont2W=sumReal(partidasCont2W);
+  const wTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
+  const wRows = rows => rows.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
     return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td>${p.uds||1}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
-      +(showIVAw?`<td>${p.iva??0}%</td><td>${fmtPDF(iv)}</td>`:'')
+      +(showIVAw?`<td>${p.ivaOn?(p.iva||21):0}%</td><td>${fmtPDF(iv)}</td>`:'')
       +(showDeprw?`<td>${p.depr?'SI':'NO'}</td><td>${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
-      +`<td>${fmtPDF(vreal)}</td><td>${fmtPDF(vreal)}</td><td>${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
+      +`<td>${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado'}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
-  const wSub=`<tr class='subtotal'><td></td><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(partidas))} €</td>`
-    +(showIVAw?`<td></td><td>${fmtPDF(sumIVA(partidas))} €</td>`:'')
+  const wSubtotal = rows => `<tr class='subtotal'><td></td><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(rows))} €</td>`
+    +(showIVAw?`<td></td><td>${fmtPDF(sumIVA(rows))} €</td>`:'')
     +(showDeprw?`<td></td><td></td>`:'')
-    +`<td>${fmtPDF(totalDano)} €</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
+    +`<td>${fmtPDF(sumReal(rows))} €</td><td></td><td></td></tr>`;
+  const rowPartCont=wRows(partidasContW), subCont=wSubtotal(partidasContW);
+  const rowPartCont2=wRows(partidasCont2W), subCont2=wSubtotal(partidasCont2W);
   const wFrase=fraseIndemn(s3,indemn);
   const wGarRows=[
     {tit:'Continente',dano:dCont,lim:capCont,on:s3.reglaContinente,regla:reglas.continente,ajust:aCont},
@@ -2886,7 +2961,7 @@ const buildWordHTML = (cData) => {
     wFotoRows.push(`<tr>${par.map(wFotoCell).join('')}${par.length<2?`<td width="50%" class='foto-cell'></td>`:''}</tr>`);
   }
   const wFotosHTML=wFotos.length?`<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2 style='text-align:center'>Reportaje fotográfico.</h2>
 <table class='foto-table' width="100%" cellpadding="4" cellspacing="0">${wFotoRows.join('')}</table>`:'';
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -2917,7 +2992,7 @@ const buildWordHTML = (cData) => {
   .foto-table td.foto-cell{width:50%;border:none;background:none;padding:4pt;vertical-align:top}
 </style></head>
 <body>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h1>INFORME PERICIAL</h1>
 <table style='margin-top:16pt'><tr>
   <td><span class='field-label'>Compañía</span><span class='field-value'>${enc.compania||'—'}</span></td>
@@ -2940,7 +3015,7 @@ const buildWordHTML = (cData) => {
 <p class='intro'>El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class='intro'>La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class='page-break'></div>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>1. VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
@@ -2961,23 +3036,27 @@ ${catastroHTML}
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 ${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <div class='page-break'></div>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
 ${meteoHTML(s2.meteo, enc, '')}
 <div class='page-break'></div>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>3. VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${s3.textoAI?'<p>'+s3.textoAI+'</p>':''}
 ${partidas.length>0?`<h3 style='text-align:center'>${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}</h3>
-<table><tr>${wTh}</tr>
-${rowPart}
-${wSub}</table>
+${partidasContW.length>0?`<b>Continente</b><table><tr>${wTh}</tr>${rowPartCont}${subCont}</table>`:''}
+${partidasCont2W.length>0?`<b>Contenido</b><table><tr>${wTh}</tr>${rowPartCont2}${subCont2}</table>`:''}
+<h4 style='text-align:center'>Resumen de Daños</h4>
+<table><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr>
+<tr><td>Total Continente</td><td>${fmtPDF(totNuevoContW)} €</td><td>${fmtPDF(totRealContW)} €</td></tr>
+<tr><td>Total Contenido</td><td>${fmtPDF(totNuevoCont2W)} €</td><td>${fmtPDF(totRealCont2W)} €</td></tr>
+<tr class='subtotal'><td><b>Total estimación de daños</b></td><td><b>${fmtPDF(totNuevoContW+totNuevoCont2W)} €</b></td><td><b>${fmtPDF(totalDano)} €</b></td></tr></table>
 ${wFrase?`<p style='white-space:pre-wrap'>${wFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <div class='page-break'></div>
-<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#9B2226'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${w4Intro?`<p>${w4Intro.replace(/\n/g,'<br/>')}</p>`:''}
 ${w4Desc?`<p style='white-space:pre-wrap'>${w4Desc.replace(/\n/g,'<br/>')}</p>`:''}
@@ -3067,18 +3146,24 @@ const exportPDF = (cData, dniPerito='') => {
   const aC=dC*(s3.reglaContinente?reglas.continente:1);
   const aC2=dC2*(s3.reglaContenido?reglas.contenido:1);
 
-  const dTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','V.Prop.','Garantía','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
-  const rowPart=partidas.map(p=>{
+  const partidasContD  = partidas.filter(p=>(p.garantia||'continente')!=='contenido');
+  const partidasCont2D = partidas.filter(p=>p.garantia==='contenido');
+  const totNuevoContD=sumRepos(partidasContD),   totRealContD=sumReal(partidasContD);
+  const totNuevoCont2D=sumRepos(partidasCont2D), totRealCont2D=sumReal(partidasCont2D);
+  const dTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
+  const dRows = rows => rows.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
     return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td style="text-align:right">${p.uds||1}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
-      +(showIVAd?`<td style="text-align:right">${p.iva??0}%</td><td style="text-align:right">${fmtPDF(iv)}</td>`:'')
+      +(showIVAd?`<td style="text-align:right">${p.ivaOn?(p.iva||21):0}%</td><td style="text-align:right">${fmtPDF(iv)}</td>`:'')
       +(showDeprd?`<td style="text-align:center">${p.depr?'SI':'NO'}</td><td style="text-align:right">${p.depr?fmtPDF(p.pctDepr||0)+'%':'0,00'}</td>`:'')
-      +`<td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:right">${fmtPDF(vreal)}</td><td style="text-align:center">${p.garantia==='contenido'?'Contenido':'Continente'}</td><td>${p.perceptor||'Asegurado 1'}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
+      +`<td style="text-align:right">${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado'}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
-  const dSub=`<tr class="subtotal"><td></td><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(partidas))} €</td>`
-    +(showIVAd?`<td></td><td style="text-align:right">${fmtPDF(sumIVA(partidas))} €</td>`:'')
+  const dSubtotal = rows => `<tr class="subtotal"><td></td><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(rows))} €</td>`
+    +(showIVAd?`<td></td><td style="text-align:right">${fmtPDF(sumIVA(rows))} €</td>`:'')
     +(showDeprd?`<td></td><td></td>`:'')
-    +`<td style="text-align:right">${fmtPDF(totalDano)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td></td></tr>`;
+    +`<td style="text-align:right">${fmtPDF(sumReal(rows))} €</td><td></td><td></td></tr>`;
+  const rowPartContD=dRows(partidasContD), subContD=dSubtotal(partidasContD);
+  const rowPartCont2D=dRows(partidasCont2D), subCont2D=dSubtotal(partidasCont2D);
   const dFrase=fraseIndemn(s3,ind);
   const dGarRows=[
     {tit:'Continente',dano:dC,lim:capC,on:s3.reglaContinente,regla:reglas.continente,ajust:aC},
@@ -3146,7 +3231,7 @@ const exportPDF = (cData, dniPerito='') => {
   }
 </style></head>
 <body>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <div class="ftr">Avda. Josep Tarradellas, 38 · 08029 Barcelona · Teléfono: 93.118.51.38 · @: asesoria@gvperitos.es</div>
 <h1>INFORME PERICIAL</h1>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Compañía</span><span class="fv">${enc.compania||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Referencia</span><span class="fv">${enc.numReferencia||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Póliza</span><span class="fv">${enc.numPoliza||'—'}</span></div></div></div>
@@ -3160,7 +3245,7 @@ const exportPDF = (cData, dniPerito='') => {
 <p class="intro">El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class="intro">La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>1.&nbsp;&nbsp;&nbsp;VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
@@ -3175,23 +3260,28 @@ ${catastroHTML}
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 ${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
 ${meteoHTML(s2.meteo, enc, 'data')}
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>3.&nbsp;&nbsp;&nbsp;VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${s3.textoAI?`<p>${s3.textoAI.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style="text-align:center">${s3.conceptoGarantia||enc.garantia||'Fenómenos atmosféricos'}</h3>
-<table class="data"><thead><tr>${dTh}</tr></thead><tbody>
-${rowPart}
-${dSub}</tbody></table>
+${partidasContD.length>0?`<p style="font-weight:bold">Continente</p><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartContD}${subContD}</tbody></table>`:''}
+${partidasCont2D.length>0?`<p style="font-weight:bold">Contenido</p><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartCont2D}${subCont2D}</tbody></table>`:''}
+<h4 style="text-align:center">Resumen de Daños</h4>
+<table class="data"><thead><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr></thead><tbody>
+<tr><td>Total Continente</td><td style="text-align:right">${fmtPDF(totNuevoContD)} €</td><td style="text-align:right">${fmtPDF(totRealContD)} €</td></tr>
+<tr><td>Total Contenido</td><td style="text-align:right">${fmtPDF(totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totRealCont2D)} €</td></tr>
+<tr class="subtotal"><td>Total estimación de daños</td><td style="text-align:right">${fmtPDF(totNuevoContD+totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td></tr>
+</tbody></table>
 ${dFrase?`<p style="white-space:pre-wrap;margin-top:8pt">${dFrase.replace(/\n/g,'<br/>')}</p>`:''}`:''}
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${d4Intro?`<p>${d4Intro.replace(/\n/g,'<br/>')}</p>`:''}
 ${d4Desc?`<p style="white-space:pre-wrap">${d4Desc.replace(/\n/g,'<br/>')}</p>`:''}
@@ -3211,7 +3301,7 @@ ${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn.replace(/\
 </tr></table>
 ${(anexos?.catastro?.length||anexos?.meteosim?.length||allFac.length||allFotos.length||s2?.meteo)?`
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2 style="text-align:center">Anexos.</h2>
 ${allFotos.length?'<p>- Reportaje fotográfico. Reportaje fotográfico</p>':''}
 ${anexos?.catastro?.length?'<p>- Info catastral.</p>':''}
@@ -3219,7 +3309,7 @@ ${s2?.meteo?'<p>- Verificación meteorológica XEMA (Meteocat).</p>':''}
 ${anexos?.meteosim?.length?'<p>- Info Meteosim.</p>':''}
 ${allFac.length?'<p>- Factura.</p>':''}
 ${allFotos.length?`<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numExpInterno||enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2 style="text-align:center">Reportaje fotográfico.</h2>
 <div class="anex-foto">${allFotos.map(f=>{const isp=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));return `<div class="anex-foto-item">${isp?`<iframe src="${f.url}" style="width:100%;height:200pt;border:none;display:block"></iframe>`:`<img src="${f.url}" onerror="this.style.display='none'"/>`}${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`;}).join('')}</div>`:''}
 `:''}
@@ -3325,7 +3415,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
 
   return (
     <div className="fade">
-      <SecTitle n="0" label="Datos del Encargo" sub="Revisa y edita los datos extraídos por la IA"/>
+      <SecTitle n="0" label="Datos del Encargo" sub="Revisa y edita los datos extraídos"/>
 
       <Card s={{marginBottom:12}}>
         <SectionLabel>🏢 Compañía y Siniestro</SectionLabel>
@@ -3372,7 +3462,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
       </Card>
 
       <Card s={{marginBottom:12}}>
-        <SectionLabel>💰 Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>✨ de la póliza</span>}</SectionLabel>
+        <SectionLabel>💰 Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>de la póliza</span>}</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
@@ -3421,6 +3511,12 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
   const addTokens = (i,o) => onUpdate({...cData,tokenStats:{i:(tokens.i||0)+i,o:(tokens.o||0)+o}});
   const upd = (key,val) => onUpdate({...cData,[key]:val});
+  // Sube una captura automática (Catastro/XEMA) y la añade a Anexos sin pasar por el editor de esa sección.
+  const addAutoAnexo = async (tab,dataUrl,name,cat) => {
+    const item = await uploadAutoAnexo(dataUrl,{name,tab,cat,token,userId:user?.id,informeId:cData._sbId||cData.id});
+    onUpdate({...cData,anexos:{...(cData.anexos||{}),[tab]:[...((cData.anexos||{})[tab]||[]),item]}});
+    return item;
+  };
 
   const secIds = SECCIONES.map(s=>s.id);
   const curIdx = secIds.indexOf(sec);
@@ -3442,8 +3538,8 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     switch(sec){
       case "informe": return <SecInforme enc={cData.encargo||{}} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave}/>;
-      case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} {...commonProps}/>;
-      case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} {...commonProps}/>;
+      case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
+      case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id}/>;
@@ -3474,7 +3570,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           {saveState==="saved" && <div style={{color:C.green,fontSize:11,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
           {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
           <div style={{textAlign:"right"}}>
-            <div style={{color:"rgba(255,255,255,.35)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo IA</div>
+            <div style={{color:"rgba(255,255,255,.35)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:11,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
           </div>
           <div style={{background:"rgba(15,123,77,.3)",borderRadius:5,padding:"4px 10px",color:"rgba(255,255,255,.75)",fontSize:11,display:"flex",alignItems:"center",gap:4}}>

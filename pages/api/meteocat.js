@@ -42,6 +42,27 @@ const haversineKm = (la1, lo1, la2, lo2) => {
 };
 const r1 = n => Math.round(n * 10) / 10;
 
+// Captura de un mapa estático (estación XEMA + lugar del siniestro) — servicio público sin clave,
+// basado en teselas OpenStreetMap. Si no está disponible, se omite sin bloquear la consulta meteo.
+const capturaMapa = async (lat1, lng1, lat2, lng2) => {
+  const dist = haversineKm(lat1, lng1, lat2, lng2);
+  const zoom = dist < 2 ? 14 : dist < 5 ? 13 : dist < 10 ? 12 : dist < 20 ? 11 : dist < 40 ? 10 : 9;
+  const centerLat = (lat1 + lat2) / 2, centerLng = (lng1 + lng2) / 2;
+  const url = `https://staticmap.openstreetmap.de/staticmap.php?center=${centerLat},${centerLng}&zoom=${zoom}&size=900x650&maptype=mapnik` +
+    `&markers=${lat1},${lng1},red-pushpin|${lat2},${lng2},lightblue1`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('image')) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return `data:image/png;base64,${buf.toString('base64')}`;
+  } catch { return null; }
+  finally { clearTimeout(t); }
+};
+
 // "DD/MM/AAAA" -> "AAAA-MM-DD" (o null si no es válida)
 const parseFecha = f => {
   const m = (f || '').match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
@@ -196,6 +217,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: false, error: `Ninguna estación cercana tiene datos registrados para el ${fecha}. Es posible que la fecha sea demasiado reciente o las estaciones estuvieran sin servicio.` });
     }
 
+    const imagen = await capturaMapa(elegida.lat, elegida.lng, punto.lat, punto.lng);
+
     return res.status(200).json({
       ok: true,
       estacio: elegida.nom,
@@ -205,6 +228,7 @@ export default async function handler(req, res) {
       distanciaKm: r1(elegida.dist),
       fecha,
       ...resumen,
+      imagen,
       fuente: "Servei Meteorològic de Catalunya — XEMA (dades obertes)",
       consultadoEl: new Date().toISOString().slice(0, 10),
     });

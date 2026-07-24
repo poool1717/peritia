@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 20 julio 2026 (sesión 12 — rediseño visual del frontend: paleta/tipografía, Dashboard en tabla con filtros, ledger de Sección 3, navegación del editor por folios, estado "exportado"; reconciliada con `main` tras las sesiones 9-11)
+**Última actualización:** 24 julio 2026 (sesión 13 — ronda de optimizaciones pedida por Pol: cabecera con Nº de Referencia, consulta Catastral y captura XEMA automáticas vía API, rediseño completo de la tabla de valoración de Sección 3 en tres bloques, depreciación 100% manual, checkbox de IVA, fix de foco en inputs numéricos, fix de `primerRiesgo` forzado en Hogar, retirada de frases/etiquetas "IA" de la interfaz)
 
 ---
 
@@ -68,6 +68,24 @@ La sesión 12 (rediseño visual del frontend) también se desarrolló en paralel
 - **Reconciliación con `main` — qué se descartó y por qué:** el fix de overlay/backdrop del sidebar en móvil (`position:fixed`, `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`) y el fix de desbordamiento de la topbar del editor (`.editor-topbar`/`.editor-actions` con `flex-wrap`) que esta sesión había reconstruido de forma independiente **son funcionalmente equivalentes** a los que ya trajo la sesión 9 a `main` — se conservó la versión de la sesión 9 (ya probada) y se descartó la propia para no tener dos implementaciones distintas del mismo comportamiento.
 - **Pendiente:** los casos oráculo (463,59 € / 1.291,47 €) — igual que en la sesión 11, no deberían haberse visto afectados (cero cambios en las funciones de cálculo), pero no se han verificado en vivo contra un despliegue real en esta sesión. Pol indicó explícitamente que no es bloqueante para él en este momento. Drawer de filtros de la tabla de escritorio en móvil: fuera de alcance, ya se resolvió ocultando la tabla y mostrando las tarjetas con su propio drawer.
 
+**Sesión 13 (rama `claude/peritia-optimizations-d3r8rw` — ronda de optimizaciones pedida por Pol tras probar la app, resumen previo validado antes de aplicar):** compila limpio (`next build` OK), balance de llaves 0 verificado tras cada edición. No toca `calcPartida`, `resolvePartidas`, `getPartidas`, `sumRepos/sumIVA/sumReal`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion` ni `fraseIndemn` (verificado con `git diff` — cero hunks en esas funciones). La única función de cálculo que cambia es `calcReglas` (ver fix de `primerRiesgo` más abajo), de forma explícita y documentada.
+- **Datos del encargo:** la cabecera "expediente" del informe (preview, Word y PDF) usa ahora siempre `enc.numReferencia`; antes caía a `enc.numExpInterno` si existía.
+- **Sec1 — Consulta Catastral vía API (nuevo `pages/api/catastro.js`):** botón "Consultar Catastro" que geocodifica la dirección del encargo (Nominatim/Photon) y llama a los servicios web oficiales del Catastro (`Consulta_RCCOOR` coordenadas→referencia, `Consulta_DNPRC` referencia→superficie/año) más una captura WMS de la cartografía; rellena los campos y sube la captura a Anexos → Info Catastral automáticamente (nueva función `uploadAutoAnexo` + `addAutoAnexo` en `ReportEditor`, mismo bucket/patrón que los anexos manuales). Se ha quitado el aviso "Cómo obtener los datos" y los hints "Del Catastro" bajo los campos; el enlace manual a la Sede del Catastro se conserva como respaldo. **Sin poder probar contra el servicio real del Catastro desde este entorno de desarrollo (red bloqueada) — pendiente de validar con una dirección real en producción.**
+- **Sec2 — Captura automática del mapa XEMA:** `pages/api/meteocat.js` genera además una imagen estática (estación + lugar del siniestro, servicio público `staticmap.openstreetmap.de`, sin clave) y la sube a Anexos → Info Meteosim al consultar la meteorología. Misma salvedad que el Catastro: no se ha podido probar en vivo desde este entorno.
+- **Sec1 — Continente a primer riesgo:** frase cambiada a "Continente a primer riesgo contratado en póliza." y ahora solo se muestra cuando la póliza realmente lo indica. **Bug corregido:** `primerRiesgo = pol.primerRiesgo||esHogarEnc||false` forzaba primer riesgo en TODOS los siniestros de Hogar aunque la póliza no lo dijera (afectaba a `calcReglas`, a la extracción y a Sec1); ahora `primerRiesgo = !!pol.primerRiesgo` — solo true si la IA lo detectó explícitamente en la póliza. **Cambia el valor preexistente calculado en casos de Hogar sin primer riesgo explícito — pendiente de re-verificar los casos oráculo (463,59 € / 1.291,47 €).**
+- **Sec1 — quitado el bloque "Redacción IA — Sección 1"** completo (función `genTexto` eliminada; era la única generación de texto por IA de Sec1 fuera del flujo Instant Payment).
+- **Sec2 — quitada la frase** "Habla o escribe con tus propias palabras. La IA transformará el texto al lenguaje técnico pericial."
+- **Sec3 — rediseño de la tabla de valoración (cambio más grande de la sesión):**
+  - **Depreciación 100% manual:** las partidas generadas por IA (Baremo o facturas) nacen siempre con `depr:false,pctDepr:0` — se ha quitado la lógica que aplicaba automáticamente el % de depreciación de la póliza (`enc.depreciacionPoliza`/`valorNuevoContinente`/`valorNuevoContenido`) y el aviso azul correspondiente. El checkbox de cada partida sigue desmarcado por defecto; al marcarlo aparece el campo %Depr para que el perito lo rellene.
+  - **Fix de foco en los campos numéricos:** `InpCell` estaba definido *dentro* de `Sec3`, así que React lo trataba como un componente nuevo en cada tecla y desmontaba/remontaba el `<input>`, perdiendo el foco tras cada carácter (afectaba a Uds, V.Unitario, %IVA y %Depr). Se ha movido a nivel de módulo (fuera de `Sec3`), donde su identidad es estable entre renders.
+  - **Columna checkbox de IVA** (nueva, a la izquierda de %IVA): desmarcada por defecto; al marcarla aplica 21% (editable con desplegable 10%/21%); al desmarcarla, IVA=0%. Las partidas extraídas de facturas activan el checkbox automáticamente si la factura trae IVA>0 (dato real del documento, no una decisión de la IA).
+  - **Columnas eliminadas:** "Valor propuesto" (duplicaba V.Real) y "Garantía" (ahora implícita: cada partida se edita dentro de su propia tabla).
+  - **Tabla única dividida en tres:** Tabla Continente y Tabla Contenido (cada una con su propio botón "Fila" y subtotal), más una Tabla Resumen de Daños con Total Continente / Total Contenido / **Total estimación de daños**, columnas "Valor a nuevo" (V.Repos) y "Valor real" (V.Real). El botón "Generar tabla" (antes "Generar tabla con IA") reparte cada partida generada a su tabla usando el campo `garantia` que la IA ya devolvía — sin lógica nueva de reparto.
+  - Cambios replicados en la vista previa (`SecInforme`), el export Word (`buildWordHTML`) y el export PDF (`exportPDF`) para que los tres coincidan con el editor.
+- **Sec4 — reforzado el auto-relleno de "Descripción de la Cobertura":** la extracción de póliza solo pedía el texto de 4 coberturas (INCEN/DAGUA/RCEXP/RGEXT); se ha ampliado a las 7 que soporta la app (+ROBO/DELEC/RCLOC), así que ahora también se autorrellena para siniestros de Robo, Daños eléctricos o RC Locatario (antes se quedaba vacío para esas garantías).
+- **Frases/etiquetas "IA" retiradas de la interfaz visible:** sufijo "✨" quitado de 17 etiquetas de campo del formulario de Nuevo Encargo y de otros puntos sueltos; botones "Mejorar con IA"/"Extraer con IA" → "Mejorar"/"Extraer datos"; subtítulos de Sec2/Sec3/Sec0 sin mencionar "la IA"; indicador de coste "Consumo IA" → "Consumo API". Se han dejado intactos el nombre de marca "PERIT.IA" y los mensajes de error internos de `iaError` (diagnóstico técnico, no copy de producto).
+- **Pendiente de esta sesión:** validar en producción con una dirección real la consulta Catastro y la captura XEMA (sin acceso de red a esos servicios desde este entorno); re-verificar los casos oráculo (463,59 € / 1.291,47 €) tras el fix de `primerRiesgo`.
+
 ---
 
 ## Lo que está completado y funcionando
@@ -103,6 +121,16 @@ La sesión 12 (rediseño visual del frontend) también se desarrolló en paralel
 - [x] **Rediseño visual del frontend (sesión 12):** paleta y tipografía renovadas (`Source Serif 4` + `IBM Plex Mono`), Dashboard con vista de tabla de expedientes (filtros + orden, por defecto) sobre la lista de tarjetas existente (única vista en móvil), rail de navegación del editor con folios numerados, tabla de valoración de Sección 3 con estilo "ledger". Reconciliado con el trabajo ya en `main` de las sesiones 9-11 (mismo mecanismo de sidebar/topbar, sin duplicar).
 - [x] **Drawer de filtros en la vista de tarjetas móvil (sesión 12):** botón "☰ Filtros" con badge + panel inferior, reutilizando el estado de filtros de la tabla; corregido de paso que las tarjetas no aplicaban ningún filtro (iteraban `cases` en vez de la lista filtrada).
 - [x] **Expediente marcado como "exportado" (sesión 12):** al generar PDF o Word, el expediente pasa a `informes.estado='exportado'` reutilizando el `saveToSb` del autoguardado; el Dashboard refleja "Finalizado" sin recargar.
+- [x] **Cabecera del informe = Nº de Referencia (sesión 13):** preview, Word y PDF usan `enc.numReferencia` en la cabecera "expediente"; ya no cae a `numExpInterno`.
+- [x] **Consulta Catastral automática vía API (sesión 13, `pages/api/catastro.js`):** botón "Consultar Catastro" en Sec1 rellena referencia/superficie/año y adjunta la captura de cartografía en Anexos → Info Catastral. Pendiente de validar con dirección real (sin red de prueba en el entorno de desarrollo).
+- [x] **Captura automática del mapa XEMA (sesión 13, `pages/api/meteocat.js`):** al consultar la meteorología se adjunta también una imagen del mapa (estación + siniestro) en Anexos → Info Meteosim. Misma salvedad de validación pendiente.
+- [x] **Fix `primerRiesgo` forzado en Hogar (sesión 13):** ya no se fuerza `true` solo por ser un siniestro de Hogar; solo es `true` si la póliza lo indica explícitamente. Pendiente de re-verificar los casos oráculo.
+- [x] **Sec3 — tabla de valoración en tres bloques (sesión 13):** Continente / Contenido / Resumen de Daños (con Valor a nuevo y Valor real), reemplazando la tabla única con columnas Garantía y Valor propuesto (eliminadas). Reflejado en editor, preview, Word y PDF.
+- [x] **Sec3 — depreciación 100% manual (sesión 13):** la IA ya no aplica ningún % de depreciación; el perito marca el checkbox y escribe el % a mano.
+- [x] **Sec3 — checkbox de IVA por partida (sesión 13):** desmarcado por defecto; al marcarlo aplica 21% editable con desplegable 10%/21%.
+- [x] **Sec3 — fix de foco en inputs numéricos (sesión 13):** `InpCell` movido a nivel de módulo; Uds/V.Unitario/%IVA/%Depr ya no pierden el foco al escribir.
+- [x] **Sec4 — descripción de cobertura ampliada a las 7 garantías (sesión 13):** la extracción de póliza ahora pide también el texto de ROBO/DELEC/RCLOC (antes solo INCEN/DAGUA/RCEXP/RGEXT).
+- [x] **Frases y etiquetas "IA" retiradas de la interfaz (sesión 13):** ✨ y menciones a "la IA" quitadas de labels, botones y subtítulos visibles; se conserva la marca "PERIT.IA" y los mensajes de error técnicos.
 - [x] **Auditoría técnica completa (sesión 6):** revisión de seguridad (Supabase RLS verificado activo, anon key pública por diseño), rendimiento y mantenibilidad. Aplicados 3 endurecimientos prioritarios:
   - **Auth segura:** `sbDb` ya no cae al anon key si falta el token de sesión; rechaza la operación (evita identidad anónima sin user_id).
   - **Guardado verificado:** `saveToSb` ahora confirma el resultado del PATCH y reintenta una vez ante fallo transitorio; nuevo estado `saveState` (idle/saving/saved/error) con indicador visible en la barra del editor. El botón "Guardar cambios" hace `flushSave` (guardado inmediato real) en vez de un spinner falso de 1,2 s.
@@ -164,15 +192,20 @@ La sesión 12 (rediseño visual del frontend) también se desarrolló en paralel
 | Export Word sin fotos | `buildWordHTML` nunca tenía sección de "Reportaje fotográfico" (solo catastro), y Word no siempre descarga imágenes enlazadas por URL remota | Añadida la galería de fotos a `buildWordHTML`; `exportWord` ahora descarga cada imagen remota y la incrusta como base64 solo en el documento exportado (no se guarda en BD) |
 | Los filtros del Dashboard no afectaban a la vista de tarjetas | La vista de tarjetas iteraba sobre `cases` (array completo) en vez de `sorted` (la lista ya filtrada/ordenada que usa la tabla) | La vista de tarjetas ahora itera `sorted` — mismo resultado que la tabla, en desktop y en móvil |
 | PR #11 (rediseño visual) no se podía fusionar (`mergeable_state:"dirty"`) | Se desarrolló sobre una `staging` desactualizada, en paralelo a las sesiones 9-11 que resolvían el mismo problema de responsive directamente sobre `main`, sin visibilidad entre sesiones | Reconstruido sobre `main` actual en una rama nueva (`claude/peritia-frontend-redesign-v2`) vía `cherry-pick` + resolución manual de conflictos, descartando el trabajo duplicado (sidebar/topbar ya resueltos por la sesión 9) |
+| Campos numéricos de la tabla de Sec3 (Uds/V.Unit/%IVA/%Depr) perdían el foco al escribir el segundo dígito | `InpCell` estaba definido dentro de `Sec3`: React lo trataba como un tipo de componente nuevo en cada render y desmontaba/remontaba el `<input>` en cada tecla | `InpCell` movido a nivel de módulo (fuera de `Sec3`), identidad estable entre renders |
+| `primerRiesgo` se forzaba a `true` en todos los siniestros de Hogar aunque la póliza no lo dijera | `primerRiesgo: pol.primerRiesgo\|\|esHogarEnc\|\|false` — el `esHogarEnc` anulaba la detección real de la póliza | `primerRiesgo: !!pol.primerRiesgo` — solo `true` si la IA lo detectó explícitamente en la póliza (afecta a `calcReglas`, extracción y Sec1; pendiente de re-verificar oráculo) |
+| Descripción de cobertura (Sec4) no se autorrellenaba para Robo, Daños eléctricos ni RC Locatario | La extracción de póliza solo pedía el texto de 4 coberturas (INCEN/DAGUA/RCEXP/RGEXT) | Ampliada a las 7 garantías que soporta la app (+ROBO/DELEC/RCLOC) |
 
 ---
 
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~3.674 · Balance llaves: 0
+Líneas: ~3.770 · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
+Proxy meteo: /api/meteocat (XEMA + captura de mapa)
+Proxy catastro: /api/catastro (Consulta_RCCOOR/DNPRC + captura WMS)
 
 Funciones globales clave:
   callClaude(system, content, onTokens, maxTok=1500)
@@ -185,6 +218,7 @@ Funciones globales clave:
   calcIndemnizacion(enc, s1, s3) → max(0, ajustado − franquicia)
   fraseIndemn(s3, indemn) → frase de propuesta según modo y perceptor
   sumReal/sumRepos/sumIVA(rows)
+  uploadAutoAnexo(dataUrl, {name,tab,cat,token,userId,informeId}) → sube una captura automática (Catastro/XEMA) al bucket `anexos`
   sbAuth(path, body) → Supabase Auth REST
   sbDb(path, method, body, token) → Supabase DB REST
 
@@ -234,6 +268,9 @@ Datos hardcodeados:
 - [ ] **Sesión 12 — pendiente:** los casos oráculo (463,59 € / 1.291,47 €) tampoco se han verificado en vivo en esta sesión (mismo caso que la sesión 11) — Pol indicó que no es bloqueante por ahora.
 - [ ] **Sesión 12 — pendiente:** revisar y cerrar/actualizar el PR #11 original (`claude/peritia-frontend-redesign-cd1eod` → `staging`), superado por la rama reconciliada `claude/peritia-frontend-redesign-v2` → `main`.
 - [ ] **`staging` sigue por detrás de `main`** (le faltan las sesiones 9, 10 y ahora 12) — no se ha tocado en esta sesión; conviene decidir si se sigue usando `staging` como paso intermedio o se trabaja directo contra `main` como han hecho ya varias sesiones recientes, para evitar que la divergencia se repita.
+- [x] **Sesión 13 — ronda de optimizaciones:** cabecera con Nº de Referencia, consulta Catastral y captura XEMA automáticas, tabla de valoración de Sec3 en tres bloques (Continente/Contenido/Resumen de Daños), depreciación 100% manual, checkbox de IVA, fix de foco en inputs numéricos, fix de `primerRiesgo` forzado en Hogar, Sec4 ampliada a 7 garantías, frases "IA" retiradas de la interfaz.
+- [ ] **Sesión 13 — pendiente:** validar en producción, con una dirección real, la consulta Catastro (`pages/api/catastro.js`) y la captura del mapa XEMA — no se han podido probar en vivo desde este entorno de desarrollo (sin acceso de red a esos servicios).
+- [ ] **Sesión 13 — pendiente (importante):** re-verificar los casos oráculo de cálculo (463,59 € / 1.291,47 €) tras el fix de `primerRiesgo` — a diferencia de sesiones anteriores, esta sesión SÍ cambia una función de cálculo (`calcReglas`), así que conviene confirmar que ninguno de los dos casos dependía del comportamiento anterior (primer riesgo forzado en Hogar).
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)

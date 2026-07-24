@@ -36,7 +36,8 @@ peritia/
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
 │   └── api/
 │       ├── claude.js        ← proxy seguro Anthropic API
-│       └── meteocat.js      ← proxy datos abiertos XEMA/Meteocat (Sec2)
+│       ├── meteocat.js      ← proxy datos abiertos XEMA/Meteocat (Sec2) + captura de mapa
+│       └── catastro.js      ← proxy Sede Electrónica del Catastro (Sec1) + captura WMS
 ├── supabase/
 │   └── migrations/          ← migraciones SQL (bucket Storage, RLS, etc.)
 ├── package.json

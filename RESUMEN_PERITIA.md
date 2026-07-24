@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.674 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.770 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -37,7 +37,9 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 **Proxy seguro:** `pages/api/claude.js` — inyecta `ANTHROPIC_API_KEY`, añade `anthropic-beta: pdfs-2024-09-25` automáticamente si la petición contiene un PDF, garantiza `max_tokens` y modelo `claude-sonnet-4-6`.
 
-**Proxy meteo:** `pages/api/meteocat.js` — consulta datos abiertos XEMA (Socrata: estaciones `yqwd-vj5e`, medidos `nzvn-apee`) + geocodificación Nominatim. Recibe dirección + fecha, devuelve estación más cercana y resumen del día (racha máx, viento medio, lluvia máx/h y total). Sin clave de pago. Solo Catalunya.
+**Proxy meteo:** `pages/api/meteocat.js` — consulta datos abiertos XEMA (Socrata: estaciones `yqwd-vj5e`, medidos `nzvn-apee`) + geocodificación Nominatim. Recibe dirección + fecha, devuelve estación más cercana y resumen del día (racha máx, viento medio, lluvia máx/h y total) + una captura del mapa (estación + lugar del siniestro, vía `staticmap.openstreetmap.de`, sin clave de pago) que se adjunta automáticamente en Anexos → Info Meteosim. Solo Catalunya.
+
+**Proxy catastro:** `pages/api/catastro.js` — geocodifica la dirección del encargo (Nominatim/Photon) y consulta los servicios web oficiales de la Sede Electrónica del Catastro: `Consulta_RCCOOR` (coordenadas → referencia catastral) y `Consulta_DNPRC` (referencia → superficie construida, año de construcción, uso). También descarga una captura de la cartografía catastral vía WMS (`Cartografia/WMS/ServidorWMS.aspx`). Botón "Consultar Catastro" en Sec1: rellena los campos y adjunta la captura en Anexos → Info Catastral automáticamente. Sin clave de pago, ámbito España (no cubre País Vasco/Navarra, que tienen catastro foral propio). Pendiente de validar con una dirección real en producción.
 
 ---
 
@@ -47,21 +49,22 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ---
 
-## Llamadas a la IA (9 en total)
+## Llamadas a la IA (8 en total)
 
 | # | Dónde | Qué hace | max_tokens |
 |---|---|---|---|
 | 1 | UploadEncargo | Extrae 24 campos del encargo PDF | 3000 |
-| 2 | UploadEncargo | Extrae capitales, umbrales y coberturas de la póliza PDF | 3000 |
-| 3 | Sec1 | Infiere datos del riesgo desde encargo | 1500 |
-| 4 | Sec1 | Genera texto pericial sección 1 (PERITACION) | 1500 |
-| 5 | Sec1 | Mejora texto documental (INSTANT PAYMENT) | 1500 |
-| 6 | Sec2 | Mejora texto de causas y circunstancias | 1500 |
-| 7 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
-| 8 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) | 2000 |
-| 9 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
+| 2 | UploadEncargo | Extrae capitales, umbrales y coberturas de la póliza PDF (incluye texto de cobertura de las 7 garantías: INCEN/DAGUA/RGEXT/ROBO/DELEC/RCEXP/RCLOC) | 3000 |
+| 3 | Sec1 (Instant Payment) | Mejora el texto documental | 1500 |
+| 4 | Sec2 | Mejora texto de causas y circunstancias | 1500 |
+| 5 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
+| 6 | Sec3 | Mejora texto de descripción de daños | 1500 |
+| 7 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) — reparte cada partida a Continente o Contenido según la garantía | 2000 |
+| 8 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
 
 > **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
+> **El bloque "Redacción IA — Sección 1" se ha eliminado.** Ya no hay generación de texto por IA en Sec1 (fuera del flujo Instant Payment); el resto de textos generados por IA (viñetas, ✨, "con IA") se han retirado de los textos visibles de la interfaz — la funcionalidad de fondo se mantiene donde sigue siendo necesaria (extracción de PDFs, mejora de texto, generación de tabla).
+> **La IA ya no aplica depreciación automáticamente.** Las partidas generadas por IA (Baremo o facturas) siempre nacen con `depr:false, pctDepr:0`; es el perito quien marca el checkbox de depreciación y escribe el % manualmente en la tabla.
 
 ---
 
@@ -85,10 +88,15 @@ Eléctrico                           →  DELEC
 
 **Cálculo del continente:**
 ```
-Tipo "Obras de reforma / Primer riesgo"
+Continente a primer riesgo CONTRATADO EN PÓLIZA (enc.primerRiesgo === true,
+detectado explícitamente por la IA al leer la póliza — "capitales a asegurar")
   → Preexistente = Capital asegurado, infraseguro = 0%
+  → Frase informativa (ℹ): "Continente a primer riesgo contratado en póliza."
+    Solo se muestra cuando primerRiesgo es realmente true.
 
-Tipo "Continente completo"
+En cualquier otro caso (incluidos TODOS los casos de Hogar sin primer riesgo
+explícito en póliza — antes se forzaba primerRiesgo=true solo por ser Hogar,
+bug corregido)
   → Preexistente = calcVPreexCont(m², provCode, arqKey, calidad)
                  = m² × getModuloArq(provCode, arqKey, calidad) × getFactorArq(arqKey)
   → getModuloArq: TABLAS_ARQ[prov][tipo][calidadIdx] (€/m² CYPE 2025)
@@ -96,19 +104,25 @@ Tipo "Continente completo"
   → Infraseguro = (Preexistente − Asegurado) / Preexistente × 100
   → Regla proporcional = Asegurado / Preexistente
 ```
+> **Fix de esta sesión:** `primerRiesgo = pol.primerRiesgo||esHogarEnc||false` forzaba primer riesgo (preexistente = asegurado, sin infraseguro) en TODOS los siniestros de Hogar, aunque la póliza no lo dijera. Ahora `primerRiesgo = !!pol.primerRiesgo` — solo es true si la IA detectó explícitamente "Edificio primer riesgo" en la póliza. Afecta a `calcReglas`, Sec1 y a la extracción. **Pendiente de validar contra los casos oráculo (463,59 € / 1.291,47 €)** para confirmar que ninguno dependía del comportamiento anterior.
 
 **Fórmula de valoración de daños (auditada y corregida):**
 ```
-V.Repos     = Uds × V.Unitario
-IVA €       = V.Repos × (IVA% por partida)
-V.Real      = V.Repos × (1 − Depr%) + IVA €
-V.Propuesto = V.Real
-Subtotal    = Σ V.Propuesto (solo items con cobertura = Sí)
+V.Repos  = Uds × V.Unitario
+IVA €    = V.Repos × (IVA% por partida)   — solo si el checkbox de IVA de la fila está marcado
+V.Real   = V.Repos × (1 − Depr%) + IVA €  — Depr% solo si el checkbox de depreciación de la fila está marcado
+Subtotal = Σ V.Real (solo items con cobertura = Sí)
 ```
+> Columna "Valor propuesto" eliminada (era idéntica a V.Real). Columna "Garantía" eliminada de la tabla: cada partida se edita ya dentro de su tabla (Continente o Contenido), que determina el valor de `garantia` internamente.
+
+**Checkbox de IVA por partida (columna nueva, a la izquierda de %IVA):** desmarcado por defecto. Al marcarlo aplica 21% (editable con desplegable 10%/21%); al desmarcarlo, IVA = 0%. En modo Presupuesto la columna de IVA no se muestra (como antes).
+
+**Checkbox de depreciación por partida:** desmarcado por defecto, incluso en las partidas generadas por IA. Al marcarlo aparece el campo %Depr para que el perito escriba el porcentaje manualmente. La IA nunca marca este checkbox ni escribe un %.
 
 **Lógica de IVA por modo:**
-- **Baremo AXA 2025** (sin factura) → IVA = 0% en todas las partidas
-- **Factura / Presupuesto** → IVA del documento por partida (0%, 10% o 21%)
+- **A modo informativo (Baremo)** → IVA = 0% en todas las partidas (checkbox oculto solo en Presupuesto; en Baremo/Factura se muestra pero empieza desmarcado)
+- **Factura** → la IA extrae el IVA de cada línea del documento y marca el checkbox si el IVA extraído es > 0%
+- **Presupuesto** → columna de IVA oculta
 
 **Funciones de cálculo globales (fuente única de verdad):**
 ```javascript
@@ -129,18 +143,27 @@ sec4IndemnAuto(s3, indemn)            → propuesta de indemnización estructura
 ```
 
 **Modos de valoración Sec3 (orden):**
-- **A modo informativo** (antes "Por Baremo") — IA selecciona partidas del baremo por oficio según tipo de daño y condición de activación; IVA = 0%; columna "Oficio"; "Costos indirectos" = 8% del subtotal
+- **A modo informativo** (antes "Por Baremo") — IA selecciona partidas del baremo por oficio según tipo de daño y condición de activación (botón "Generar tabla", sin depreciación automática); IVA = 0%; columna "Oficio"; "Costos indirectos" = 8% del subtotal
 - **Por Presupuesto** — adjuntar PDFs; columna IVA oculta; frase "a la espera de aportación de la factura…"
 - **Por Factura** — adjuntar PDFs; la IA extrae líneas con IVA del documento; frase "…(IVA incl.)"
+
+**Tablas de valoración (rediseño de esta sesión):** la tabla única se ha dividido en tres bloques, cada uno con su propio botón "Fila":
+```
+Tabla Continente   — partidas con garantia="continente", con su propio subtotal
+Tabla Contenido    — partidas con garantia="contenido", con su propio subtotal
+Tabla Resumen de Daños — Total Continente / Total Contenido / Total estimación de daños
+                          columnas: Valor a nuevo (= V.Repos) · Valor real (= V.Real)
+```
+El botón "Generar tabla" reparte automáticamente cada partida generada por la IA a su tabla según el campo `garantia` que ya devolvía la IA (sin lógica nueva).
 
 **Perceptor (presupuesto / factura):** checkbox exclusivo Particular / Reparador. Con Reparador no hay depreciación (columna oculta) y la frase usa "Reparador:".
 
 **Regla proporcional por bloque (continente / contenido):**
 ```
-Cada partida lleva garantia = "continente" | "contenido".
+Cada partida lleva garantia = "continente" | "contenido" (determina en qué tabla se edita: Continente o Contenido).
 regla del bloque = capital asegurado del bloque / valor preexistente del bloque
                    (solo si hay infraseguro y el toggle del bloque está activo)
-primerRiesgo / obrasReforma / esHogar → continente sin infraseguro → regla = 1
+primerRiesgo (real, contratado en póliza) → continente sin infraseguro → regla = 1
 ```
 
 **Fórmula de indemnización:**
@@ -183,7 +206,7 @@ Propuesta de indemnización (sec4IndemnAuto):
 | **PDF** | `window.open + window.print()` nativo | CSP-safe. Abre nueva pestaña → imprimir/guardar como PDF |
 | **Word (.doc)** | HTML-to-DOC via Blob | Editable en Word/LibreOffice, descarga directa |
 
-Ambos incluyen: portada con grid de campos, Sec0–4 completas, tabla de valoración con 12 columnas, tabla de indemnización, cierre con espacio para firma, índice de anexos, fotos 2/página.
+Ambos incluyen: portada con grid de campos (cabecera "expediente" = Nº de Referencia, ya no `numExpInterno`), Sec0–4 completas, las tres tablas de valoración (Continente / Contenido / Resumen de Daños), tabla de indemnización, cierre con espacio para firma, índice de anexos (incluye las capturas automáticas de Catastro y XEMA si se generaron), fotos 2/página.
 
 ---
 
@@ -262,6 +285,15 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Anexos en Supabase Storage (sin base64 en JSONB) | ✅ |
 | Rediseño visual (paleta, tipografía, Dashboard en tabla, ledger Sec3) | ✅ |
 | Expediente marcado como "exportado" al generar PDF/Word | ✅ |
+| Cabecera del informe = Nº de Referencia (antes usaba Nº de Encargo si existía) | ✅ |
+| Consulta Catastral automática vía API (referencia, superficie, año + captura de cartografía en Anexos) | ✅ (pendiente de validar con dirección real) |
+| Captura automática del mapa XEMA en Anexos → Info Meteosim | ✅ (pendiente de validar con dirección real) |
+| Sec3 — tabla de valoración dividida en Continente / Contenido / Resumen de Daños | ✅ |
+| Sec3 — checkbox de IVA por partida (10%/21%, desmarcado por defecto) | ✅ |
+| Sec3 — depreciación 100% manual (la IA nunca la marca ni la calcula) | ✅ |
+| Sec3 — fix de foco: los campos numéricos (Uds/V.Unit/%IVA/%Depr) ya no saltan al escribir | ✅ |
+| Fix: `primerRiesgo` ya no se fuerza a `true` en todos los casos de Hogar | ✅ (validar oráculo) |
+| Frases y etiquetas "IA"/✨ retiradas de la interfaz visible | ✅ |
 
 ---
 
