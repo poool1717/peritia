@@ -39,7 +39,7 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 **Proxy meteo:** `pages/api/meteocat.js` — consulta datos abiertos XEMA (Socrata: estaciones `yqwd-vj5e`, medidos `nzvn-apee`) + geocodificación Nominatim. Recibe dirección + fecha, devuelve estación más cercana y resumen del día (racha máx, viento medio, lluvia máx/h y total) + una captura del mapa (estación + lugar del siniestro, vía `staticmap.openstreetmap.de`, sin clave de pago) que se adjunta automáticamente en Anexos → Info Meteosim. Solo Catalunya.
 
-**Proxy catastro:** `pages/api/catastro.js` — geocodifica la dirección del encargo (Nominatim/Photon) y consulta los servicios web oficiales de la Sede Electrónica del Catastro: `Consulta_RCCOOR` (coordenadas → referencia catastral) y `Consulta_DNPRC` (referencia → superficie construida, año de construcción, uso). También descarga una captura de la cartografía catastral vía WMS (`Cartografia/WMS/ServidorWMS.aspx`). Botón "Consultar Catastro" en Sec1: rellena los campos y adjunta la captura en Anexos → Info Catastral automáticamente. Sin clave de pago, ámbito España (no cubre País Vasco/Navarra, que tienen catastro foral propio). Pendiente de validar con una dirección real en producción.
+**Proxy catastro:** `pages/api/catastro.js` — geocodifica la dirección del encargo (Nominatim/Photon) y consulta los servicios web oficiales de la Sede Electrónica del Catastro: `Consulta_RCCOOR` (coordenadas → referencia catastral) y `Consulta_DNPRC` (referencia → superficie construida, año de construcción, uso). También descarga una captura de la cartografía catastral vía WMS (`Cartografia/WMS/ServidorWMS.aspx`). Botón "Consultar Catastro" en Sec1: rellena los campos y adjunta la captura en Anexos → Info Catastral automáticamente. Sin clave de pago, ámbito España (no cubre País Vasco/Navarra, que tienen catastro foral propio). Validado en producción por Pol.
 
 ---
 
@@ -104,7 +104,7 @@ bug corregido)
   → Infraseguro = (Preexistente − Asegurado) / Preexistente × 100
   → Regla proporcional = Asegurado / Preexistente
 ```
-> **Fix de esta sesión:** `primerRiesgo = pol.primerRiesgo||esHogarEnc||false` forzaba primer riesgo (preexistente = asegurado, sin infraseguro) en TODOS los siniestros de Hogar, aunque la póliza no lo dijera. Ahora `primerRiesgo = !!pol.primerRiesgo` — solo es true si la IA detectó explícitamente "Edificio primer riesgo" en la póliza. Afecta a `calcReglas`, Sec1 y a la extracción. **Pendiente de validar contra los casos oráculo (463,59 € / 1.291,47 €)** para confirmar que ninguno dependía del comportamiento anterior.
+> **Fix de esta sesión:** `primerRiesgo = pol.primerRiesgo||esHogarEnc||false` forzaba primer riesgo (preexistente = asegurado, sin infraseguro) en TODOS los siniestros de Hogar, aunque la póliza no lo dijera. Ahora `primerRiesgo = !!pol.primerRiesgo` — solo es true si la IA detectó explícitamente "Edificio primer riesgo" en la póliza. Afecta a `calcReglas`, Sec1 y a la extracción. **Validado por Pol contra los casos oráculo (463,59 € / 1.291,47 €)** — ninguno dependía del comportamiento anterior.
 
 **Fórmula de valoración de daños (auditada y corregida):**
 ```
@@ -286,8 +286,8 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Rediseño visual (paleta, tipografía, Dashboard en tabla, ledger Sec3) | ✅ |
 | Expediente marcado como "exportado" al generar PDF/Word | ✅ |
 | Cabecera del informe = Nº de Referencia (antes usaba Nº de Encargo si existía) | ✅ |
-| Consulta Catastral automática vía API (referencia, superficie, año + captura de cartografía en Anexos) | ✅ (pendiente de validar con dirección real) |
-| Captura automática del mapa XEMA en Anexos → Info Meteosim | ✅ (pendiente de validar con dirección real) |
+| Consulta Catastral automática vía API (referencia, superficie, año + captura de cartografía en Anexos) | ✅ validado en producción |
+| Captura automática del mapa XEMA en Anexos → Info Meteosim | ✅ validado en producción |
 | Sec3 — tabla de valoración dividida en Continente / Contenido / Resumen de Daños | ✅ |
 | Sec3 — checkbox de IVA por partida (10%/21%, desmarcado por defecto) | ✅ |
 | Sec3 — depreciación 100% manual (la IA nunca la marca ni la calcula) | ✅ |
