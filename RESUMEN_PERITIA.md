@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.770 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~3.885 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -45,7 +45,9 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla`
+
+> **`AutoTextarea`** (con el hook `useAutoGrow`) es la caja de texto estándar: se ajusta sola al volumen de texto —al escribir, al rellenarla la IA y al cambiar el ancho de la ventana— en vez de tener scroll interno. `Txt` y `VoiceBox` la usan por dentro. La interfaz no usa emojis: los iconos son de `lucide-react`.
 
 ---
 
@@ -53,13 +55,13 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 | # | Dónde | Qué hace | max_tokens |
 |---|---|---|---|
-| 1 | UploadEncargo | Extrae 24 campos del encargo PDF | 3000 |
-| 2 | UploadEncargo | Extrae capitales, umbrales y coberturas de la póliza PDF (incluye texto de cobertura de las 7 garantías: INCEN/DAGUA/RGEXT/ROBO/DELEC/RCEXP/RCLOC) | 3000 |
+| 1 | UploadEncargo | Extrae 24 campos del encargo PDF | 4000 |
+| 2 | UploadEncargo | Extrae capitales, umbrales y coberturas de la póliza PDF (incluye texto de cobertura de las 7 garantías: INCEN/DAGUA/RGEXT/ROBO/DELEC/RCEXP/RCLOC) | 8000 |
 | 3 | Sec1 (Instant Payment) | Mejora el texto documental | 1500 |
 | 4 | Sec2 | Mejora texto de causas y circunstancias | 1500 |
 | 5 | Sec2 | Redacta párrafo pericial meteorológico desde datos XEMA | 1500 |
 | 6 | Sec3 | Mejora texto de descripción de daños | 1500 |
-| 7 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) — reparte cada partida a Continente o Contenido según la garantía | 2000 |
+| 7 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) — reparte cada partida a Continente o Contenido según la garantía | 4000 |
 | 8 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
 
 > **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
@@ -248,7 +250,8 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 
 ## UX y navegación
 
-- **Sidebar global** — estado `sidebarOpen` al nivel App, persiste entre Dashboard y Editor. En desktop empuja el contenido (ancho fijo); en <1024px es un overlay `position:fixed` con backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), con su propio botón de cierre (✕) dentro del panel.
+- **Sidebar global** — estado `sidebarOpen` al nivel App, persiste entre Dashboard y Editor. En desktop empuja el contenido (ancho fijo); en <1024px es un overlay `position:fixed` con backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), con su propio botón de cierre dentro del panel.
+- **Editor a pantalla completa** — el contenedor del editor (`.editor-shell`) mide exactamente el alto de la ventana (`100vh`/`100dvh`, `overflow:hidden`), así que el único elemento que hace scroll es el panel de contenido: la barra lateral de secciones y la cabecera quedan fijas. Al cambiar de sección ese panel vuelve al principio automáticamente.
 - **Rail de navegación del editor** — folios numerados (`00`–`06`, `IBM Plex Mono`) con subtítulo en vez de iconos; check verde sobre el número cuando la sección está completa.
 - **Sec 0 "Datos del Encargo"** — primera sección del editor, todos los campos extraídos son editables.
 - **Tick verde en sidebar** — S1: superficieConstruida o textoInstant · S2: textoAI/textoRaw · S3: partidas o pLibres · S4: aiText · Anexos: cualquier archivo.
