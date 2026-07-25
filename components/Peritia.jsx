@@ -592,6 +592,68 @@ const InfoRow = ({label,val}) => (
   </div>
 );
 
+// ─── SISTEMA DE 3 ZONAS (Contexto · Tu trabajo · Resultado) ───────────────────
+// Divisor de zona: separa visualmente qué se consulta, qué se rellena y qué
+// calcula la app dentro de una misma sección. Zona "resultado" con línea más
+// gruesa en C.ink, a juego con la cabecera oscura de ResultZone.
+const ZONE_COLOR = {contexto:C.muted, trabajo:C.accent, resultado:C.ink};
+const ZoneLabel = ({zone,children}) => (
+  <div style={{display:"flex",alignItems:"center",gap:9,margin:"18px 0 9px"}}>
+    <span style={{fontSize:10,fontWeight:700,color:ZONE_COLOR[zone],textTransform:"uppercase",
+      letterSpacing:".07em",whiteSpace:"nowrap"}}>{children}</span>
+    <span style={{flex:1,height:zone==="resultado"?2:1,background:ZONE_COLOR[zone],opacity:zone==="resultado"?1:.4}}/>
+  </div>
+);
+
+// Tira compacta de datos que el perito solo consulta (vienen del encargo, la
+// póliza u otra sección). items: [{k,v,warn}]. onEdit (opcional) muestra un
+// enlace "Editar" que el padre usa para desplegar el formulario completo
+// debajo — no oculta ningún campo, solo pliega la vista de solo-lectura.
+const ContextBar = ({items,onEdit,editing,editLabel}) => (
+  <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",border:`1px solid ${C.border}`,
+    borderRadius:9,background:C.white,padding:"2px 4px",marginBottom:14}}>
+    {items.filter(Boolean).map((it,i)=>(
+      <div key={it.k+i} style={{display:"flex",flexDirection:"column",gap:1,padding:"7px 13px",
+        borderRight:i<items.filter(Boolean).length-1?`1px solid ${C.border}`:"none"}}>
+        <span style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{it.k}</span>
+        <span style={{fontFamily:it.mono!==false?FONT_MONO:"inherit",fontWeight:600,fontSize:12.5,
+          color:it.warn?C.orange:C.ink}}>{it.v}</span>
+      </div>
+    ))}
+    {onEdit&&<button onClick={onEdit} style={{marginLeft:"auto",fontSize:11,fontWeight:600,color:C.accent,
+      background:"none",border:"none",cursor:"pointer",padding:"7px 12px",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+      {editing?"Ocultar":editLabel||"Editar"}
+    </button>}
+  </div>
+);
+
+// Envoltorio de la zona de resultado: línea superior gruesa + cabecera oscura
+// reutilizada de la tabla del dashboard, para que "esto ya es salida" se lea
+// igual en cualquier sección.
+const ResultZone = ({children}) => <div>{children}</div>;
+
+const ResultTable = ({cols,children}) => (
+  <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:9,background:C.white}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+      <thead><tr>
+        {cols.map((h,i)=>(
+          <th key={h} style={{background:C.ink,color:"rgba(255,255,255,.85)",fontSize:10,fontWeight:700,
+            textTransform:"uppercase",letterSpacing:".04em",padding:"7px 10px",
+            textAlign:i===0?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
+        ))}
+      </tr></thead>
+      <tbody>{children}</tbody>
+    </table>
+  </div>
+);
+
+// Etiqueta de origen para texto que el perito no escribió: "Automático" o
+// "De la póliza". Se coloca dentro de SectionLabel (que ya es flex).
+const AutoBadge = ({children}) => (
+  <span style={{marginLeft:"auto",fontSize:9,fontWeight:700,letterSpacing:".04em",padding:"2px 7px",
+    borderRadius:5,background:C.planoLight,color:C.plano,textTransform:"none"}}>{children}</span>
+);
+
 // ─── AI VOICE INPUT ───────────────────────────────────────────────────────────
 const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholder,rows=5}) => {
   const [rec,setRec]   = useState(false);
@@ -1855,10 +1917,20 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
   const n2opciones = ARQ_N2[data.tipoArqNivel1||"Residencial"]||[];
   const n3opciones = ARQ_N3[data.tipoArqNivel2||""]||[];
   const arqLabel = n3opciones.find(x=>x.k===arqKey)?.l||"";
+  const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
+  const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
 
   return (
     <div className="fade">
       <SecTitle n="1" label="Verificación del Riesgo y Póliza" sub="Datos del inmueble asegurado, capitales y detección de infraseguro"/>
+
+      <ContextBar items={[
+        {k:"Cap. continente (póliza)",v:fmtE(parseCap(enc.capitalContinente))},
+        {k:"Cap. contenido (póliza)",v:fmtE(parseCap(enc.capitalContenido))},
+        {k:"Primer riesgo",v:primerRiesgoDetectado?"Sí":"No",mono:false},
+      ]}/>
+
+      <ZoneLabel zone="trabajo">Lo que aportas tras la visita</ZoneLabel>
 
       {/* DATOS DEL RIESGO */}
       <Card s={{marginBottom:14}}>
@@ -1892,9 +1964,28 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           <AlertTriangle size={12}/>Pendiente de rellenar tras la visita presencial</div>}
       </Card>
 
-      {/* TIPO DE ARQUITECTURA */}
+      {/* SUPERFICIE Y ARQUITECTURA — Catastro + Tipo de Arquitectura fusionados:
+          las dos sirven para lo mismo, obtener superficie y módulo de cálculo. */}
       <Card s={{marginBottom:14}}>
-        <SectionLabel>Tipo de Arquitectura</SectionLabel>
+        <SectionLabel>Superficie y Arquitectura</SectionLabel>
+        <Btn primary full onClick={consultarCatastro} disabled={catLoad}>
+          {catLoad?<><Spin/>Consultando Catastro…</>:<><FileImage size={13}/>Consultar Catastro</>}
+        </Btn>
+        {catErr&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>{catErr}</div>}
+        {catOk&&!catErr&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:6}}><Check size={12}/>Datos y captura del Catastro añadidos (revisa los campos y los Anexos).</div>}
+        <a href={`https://www1.sedecatastro.gob.es/cartografia/mapa.aspx?buscar=S&del=&muni=&cp=${encodeURIComponent(enc.lugarIntervencion||"")}`}
+          target="_blank" rel="noreferrer"
+          style={{display:"flex",alignItems:"center",gap:8,background:C.white,color:C.blue,border:`1px solid ${C.border}`,borderRadius:7,
+            padding:"8px 16px",fontSize:12,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
+          <ExternalLink size={13}/>Abrir Sede del Catastro (consulta manual)
+        </a>
+        <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG"/>
+        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Inp label="Superficie construida (m²)" value={data.superficieConstruida} onChange={s("superficieConstruida")} type="number"/>
+          <Inp label="Año de construcción" value={data.anoConstruccion} onChange={s("anoConstruccion")} type="number"/>
+        </div>
+
+        <div style={{height:1,background:C.border,margin:"14px 0"}}/>
         <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Selecciona el tipo para calcular el valor preexistente del continente.</div>
 
         {/* Nivel 1 */}
@@ -1947,88 +2038,59 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         )}
       </Card>
 
-      {/* CATASTRO */}
+      {/* CAPITALES ASEGURADOS — los dos capitales editables, agrupados */}
       <Card s={{marginBottom:14}}>
-        <SectionLabel>Consulta Catastral</SectionLabel>
-        <Btn primary full onClick={consultarCatastro} disabled={catLoad}>
-          {catLoad?<><Spin/>Consultando Catastro…</>:<><FileImage size={13}/>Consultar Catastro</>}
-        </Btn>
-        {catErr&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>{catErr}</div>}
-        {catOk&&!catErr&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:6}}><Check size={12}/>Datos y captura del Catastro añadidos (revisa los campos y los Anexos).</div>}
-        <a href={`https://www1.sedecatastro.gob.es/cartografia/mapa.aspx?buscar=S&del=&muni=&cp=${encodeURIComponent(enc.lugarIntervencion||"")}`}
-          target="_blank" rel="noreferrer"
-          style={{display:"flex",alignItems:"center",gap:8,background:C.white,color:C.blue,border:`1px solid ${C.border}`,borderRadius:7,
-            padding:"8px 16px",fontSize:12,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
-          <ExternalLink size={13}/>Abrir Sede del Catastro (consulta manual)
-        </a>
-        <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG"/>
-        <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Inp label="Superficie construida (m²)" value={data.superficieConstruida} onChange={s("superficieConstruida")} type="number"/>
-          <Inp label="Año de construcción" value={data.anoConstruccion} onChange={s("anoConstruccion")} type="number"/>
-        </div>
-      </Card>
-
-      {/* CONTINENTE */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Continente</SectionLabel>
-        {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
-          <b style={{display:"inline-flex",alignItems:"center",gap:5}}><Info size={12}/>Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
-        </div>}
+        <SectionLabel>Capitales Asegurados</SectionLabel>
         {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
           <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
         <EuroInput label="Capital asegurado continente (de la póliza)" value={data.capContOverride!=null?data.capContOverride:enc.capitalContinente}
           onChange={v=>onChange({...data,capContOverride:v})}
           hint="Introduce el valor que figura en la póliza"/>
-        <div style={{background:infraCont>0?C.redBg:C.greenBg,border:`1px solid ${infraCont>0?"#FECACA":"#A7F3D0"}`,borderRadius:8,padding:14,marginTop:4}}>
-          <div style={{fontSize:11,fontWeight:700,color:infraCont>0?C.red:C.green,marginBottom:10,textTransform:"uppercase"}}>CONTINENTE</div>
-          {[["Valor Asegurado",fmtE(capCont)],["Valor Preexistente",fmtE(vPreex)],["Infraseguro",`${fmt(infraCont)} %`]].map(([k,v],i)=>(
-            <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
-              <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
-              <span style={{fontWeight:700,color:i===2&&infraCont>0?C.red:i===2?C.green:C.ink}}>{v}</span>
-            </div>
-          ))}
-          {!primerRiesgoDetectado&&arqKey&&data.superficieConstruida&&(
-            <div style={{fontSize:10,color:C.muted,marginTop:6}}>
-              {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
-            </div>
-          )}
-          {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
-            <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
-          </div>}
-        </div>
-      </Card>
-
-      {/* CONTENIDO */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Contenido</SectionLabel>
         <EuroInput label="Capital asegurado contenido (de la póliza)" value={data.capCont2Override!=null?data.capCont2Override:(enc.capitalContenido||0)}
           onChange={v=>onChange({...data,capCont2Override:v})}
           hint="Si la póliza no asegura contenido, déjalo en 0,00 €"/>
-        <div style={{marginBottom:12}}>
+        <div style={{marginBottom:0}}>
           <Lbl c="Valor preexistente del contenido (editable)"/>
           <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Por defecto igual al capital asegurado. Puedes ajustarlo si es necesario.</div>
           <EuroInput label="" value={data.vPreexContenido!=null?data.vPreexContenido:enc.capitalContenido}
             onChange={v=>onChange({...data,vPreexContenido:v})}
             hint=""/>
         </div>
-        {(()=>{
-          const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
-          const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
-          return (
-            <div style={{background:infraC2>0?C.redBg:C.greenBg,border:`1px solid ${infraC2>0?"#FECACA":"#A7F3D0"}`,borderRadius:8,padding:14,marginTop:4}}>
-              <div style={{fontSize:11,fontWeight:700,color:infraC2>0?C.red:C.green,marginBottom:10,textTransform:"uppercase"}}>CONTENIDO</div>
-              {[["Valor Asegurado",fmtE(capCont2)],["Valor Preexistente",fmtE(vPCont)],["Infraseguro",`${fmt(infraC2)} %`]].map(([k,v],i)=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${i<2?C.border:"transparent"}`,fontSize:13}}>
-                  <span style={{color:C.muted,fontWeight:i===2?700:400}}>{k}</span>
-                  <span style={{fontWeight:700,color:i===2&&infraC2>0?C.red:i===2?C.green:C.ink}}>{v}</span>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
       </Card>
 
+      <ZoneLabel zone="resultado">Resultado</ZoneLabel>
+
+      {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:10}}>
+        <b style={{display:"inline-flex",alignItems:"center",gap:5}}><Info size={12}/>Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
+      </div>}
+
+      <ResultTable cols={["Bloque","Valor asegurado","Valor preexistente","Infraseguro"]}>
+        <tr style={{borderBottom:`1px solid ${C.border}`,background:infraCont>0?C.redBg:"transparent"}}>
+          <td style={{padding:"8px 10px",fontWeight:600}}>Continente</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(capCont)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(vPreex)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:700,color:infraCont>0?C.red:C.green}}>{fmt(infraCont)} %</td>
+        </tr>
+        <tr style={{background:infraC2>0?C.redBg:"transparent"}}>
+          <td style={{padding:"8px 10px",fontWeight:600}}>Contenido</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(capCont2)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(vPCont)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:700,color:infraC2>0?C.red:C.green}}>{fmt(infraC2)} %</td>
+        </tr>
+      </ResultTable>
+
+      {!primerRiesgoDetectado&&arqKey&&data.superficieConstruida&&(
+        <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+          {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
+        </div>
+      )}
+      {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
+        <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro continente {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
+      </div>}
+      {infraC2>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
+        <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro contenido {fmt(infraC2)}%</b> — Regla proporcional: coeficiente {(capCont2/vPCont).toFixed(4)}
+      </div>}
 
       <NavBottom onNext={onNext} nextLabel="Siguiente — Causas y Circunstancias"/>
     </div>
@@ -2092,15 +2154,22 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
+  const hayResultado = !!(data.meteo||data.textoAI);
+
   return (
     <div className="fade">
       <SecTitle n="2" label="Causas y Circunstancias" sub="Describe el siniestro — por voz o texto."/>
 
+      <ContextBar items={[
+        {k:"Garantía",v:enc.garantia||enc.causa||"—",mono:false},
+        (enc.umbralViento||enc.umbralLluvia)&&{k:"Umbral viento",v:enc.umbralViento?enc.umbralViento+" km/h":"—"},
+        (enc.umbralViento||enc.umbralLluvia)&&{k:"Umbral lluvia",v:enc.umbralLluvia?enc.umbralLluvia+" l/m²/h":"—"},
+      ]}/>
+
+      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
+
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción del Siniestro</SectionLabel>
-        {(enc.umbralViento||enc.umbralLluvia)&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:11,color:C.blue,marginBottom:10,display:"flex",gap:14,flexWrap:"wrap"}}>
-          <b>Umbrales póliza:</b>{enc.umbralViento&&<span> Viento: <b>{enc.umbralViento} km/h</b></span>}{enc.umbralLluvia&&<span> · Lluvia: <b>{enc.umbralLluvia} l/m²/h</b></span>}
-        </div>}
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
           onImprove={improve} improving={improving}
           onApply={()=>onChange({...data,aiApplied:true})} applied={data.aiApplied}
@@ -2121,22 +2190,27 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             {data.meteo&&<span style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={12}/>Estación {data.meteo.estacio} · {data.meteo.distanciaKm} km</span>}
           </div>
           {meteoErr&&<div style={{marginTop:10,background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:7,padding:"8px 12px",fontSize:12,color:C.orange}}>{meteoErr}</div>}
-          {data.meteo&&<>
-            <MeteoTabla m={data.meteo} enc={enc}/>
-            <div style={{marginTop:12}}>
-              <SectionLabel>Texto pericial meteorológico — editable</SectionLabel>
-              <AutoTextarea value={data.meteo.texto} onChange={v=>onChange({...data,meteo:{...data.meteo,texto:v}})}
-                minRows={4} style={{fontSize:13}}
-                placeholder="El texto se genera automáticamente tras la consulta. Puedes editarlo."/>
-              <div style={{fontSize:11,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
-            </div>
-          </>}
+        </Card>
+      )}
+
+      {hayResultado&&<ZoneLabel zone="resultado">Resultado</ZoneLabel>}
+
+      {data.meteo&&(
+        <Card s={{marginBottom:14}}>
+          <MeteoTabla m={data.meteo} enc={enc}/>
+          <div style={{marginTop:12}}>
+            <SectionLabel>Texto pericial meteorológico<AutoBadge>Automático</AutoBadge></SectionLabel>
+            <AutoTextarea value={data.meteo.texto} onChange={v=>onChange({...data,meteo:{...data.meteo,texto:v}})}
+              minRows={4} style={{fontSize:13}}
+              placeholder="El texto se genera automáticamente tras la consulta. Puedes editarlo."/>
+            <div style={{fontSize:11,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
+          </div>
         </Card>
       )}
 
       {data.textoAI&&(
         <Card s={{marginBottom:14}}>
-          <SectionLabel>Texto Pericial — Editable</SectionLabel>
+          <SectionLabel>Texto Pericial<AutoBadge>Automático</AutoBadge></SectionLabel>
           <div style={{display:"flex",gap:6,marginBottom:8}}>
             <Btn sm ghost onClick={improve} disabled={improving}><RefreshCw size={10}/>Regenerar</Btn>
             <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
@@ -2168,6 +2242,7 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
+  const [editParams,setEditParams] = useState(false); // despliega Parámetros de Garantía bajo el contexto
   const [saved,setSaved]         = useState(false);
   const [dragIdx,setDragIdx]     = useState(null);
   const [overIdx,setOverIdx]     = useState(null);
@@ -2360,8 +2435,17 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     <div className="fade">
       <SecTitle n="3" label="Valoración de Daños" sub="Describe los daños y genera la tabla de valoración."/>
 
-      {/* PARÁMETROS DE GARANTÍA — dos bloques */}
-      <Card s={{marginBottom:14}}>
+      <ContextBar
+        onEdit={()=>setEditParams(v=>!v)} editing={editParams} editLabel="Editar parámetros"
+        items={[
+          {k:"Cap. continente",v:fmtE(reglas.capCont)},
+          {k:"Cap. contenido",v:fmtE(reglas.capCont2)},
+          {k:"Franquicia",v:fmtE(parseCap(data.franquiciaVal||enc.franquicia))},
+          {k:"Infraseguro",v:`${fmt(Math.max(reglas.infraCont,reglas.infraContenido))} %`,warn:reglas.infraCont>0||reglas.infraContenido>0},
+        ]}/>
+
+      {/* PARÁMETROS DE GARANTÍA — dos bloques, plegado tras el contexto */}
+      {editParams&&<Card s={{marginBottom:14}}>
         <SectionLabel>Parámetros de Garantía</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
           {[
@@ -2386,7 +2470,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           placeholder={enc.causa||"Fenómenos atmosféricos"} hint="Del encargo — editable"/>
         <EuroInput label="Franquicia (€)" value={data.franquiciaVal||enc.franquicia||"0"} onChange={s("franquiciaVal")}
           hint="De la póliza — editable"/>
-      </Card>
+      </Card>}
+
+      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
 
       {/* DESCRIPCIÓN DE DAÑOS */}
       <Card s={{marginBottom:14}}>
@@ -2406,62 +2492,110 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         )}
       </Card>
 
-      {/* MODO DE VALORACIÓN */}
-      <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[{v:"baremo",l:"A modo informativo"},{v:"presupuesto",l:"Por Presupuesto"},{v:"factura",l:"Por Factura"}].map(m=>(
-          <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
-            style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
-              background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
-              fontWeight:modoVal===m.v?700:400,color:modoVal===m.v?C.accent:C.ink,fontFamily:"inherit"}}>{m.l}
-          </button>
-        ))}
-      </div>
-
-      {/* PERCEPTOR (solo presupuesto / factura) */}
-      {docMode&&<Card s={{marginBottom:14}}>
-        <SectionLabel>Perceptor de la indemnización</SectionLabel>
-        <div style={{display:"flex",gap:20}}>
-          {[{v:"particular",l:"Particular"},{v:"reparador",l:"Reparador"}].map(o=>(
-            <label key={o.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
-              fontWeight:data.perceptorTipo===o.v?700:400,color:data.perceptorTipo===o.v?C.accent:C.ink}}>
-              <input type="checkbox" checked={data.perceptorTipo===o.v} onChange={()=>setPerceptorTipo(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
-              {o.l}
-            </label>
+      {/* CÓMO SE VALORA — modo + la acción que ese modo necesita, en la misma tarjeta */}
+      <Card s={{marginBottom:14}}>
+        <SectionLabel>Cómo se valora</SectionLabel>
+        <div style={{display:"flex",gap:8,marginBottom:docMode||esBaremo?14:0}}>
+          {[{v:"baremo",l:"A modo informativo"},{v:"presupuesto",l:"Por Presupuesto"},{v:"factura",l:"Por Factura"}].map(m=>(
+            <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
+              style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
+                background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
+                fontWeight:modoVal===m.v?700:400,color:modoVal===m.v?C.accent:C.ink,fontFamily:"inherit"}}>{m.l}
+            </button>
           ))}
         </div>
-        {reparador&&<div style={{fontSize:11,color:C.muted,marginTop:8}}>Con perceptor Reparador no se aplica depreciación (columna oculta en la tabla).</div>}
-      </Card>}
 
-      {/* FACTURAS / PRESUPUESTOS */}
-      {docMode&&<Card s={{marginBottom:14}}>
-        <SectionLabel>{esFactura?"Facturas":"Presupuestos"}</SectionLabel>
-        <div onClick={()=>facRef.current.click()}
-          style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:"16px",textAlign:"center",
-            cursor:"pointer",background:C.bg,marginBottom:10}}>
-          <Upload size={20} style={{color:C.muted,marginBottom:6}}/>
-          <div style={{fontSize:12,fontWeight:600,color:C.ink}}>Adjuntar {esFactura?"facturas":"presupuestos"}</div>
-          <div style={{fontSize:11,color:C.muted}}>PDF · Se adjuntarán automáticamente al informe final</div>
-          <input ref={facRef} type="file" multiple accept=".pdf" style={{display:"none"}}
-            onChange={e=>addFactura(e.target.files)}/>
-        </div>
-        {facturas.map(f=>(
-          <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
-            background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:12}}>
-            <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
-            <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
-            <span style={{color:C.muted,fontSize:11}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
-            <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
+        {esBaremo&&<div style={{paddingTop:14,borderTop:`1px dashed ${C.border}`}}>
+          <p style={{fontSize:11,color:C.muted,marginBottom:8}}>La tabla se genera a partir del baremo interno de precios y la descripción de daños de arriba.</p>
+          <Btn primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
+            {genLoad?<><Spin/>Generando…</>:<><Sparkles size={13}/>Generar tabla de valoración</>}
+          </Btn>
+          {/* Resultado de "Generar tabla" a la vista: antes era un alert() del
+              navegador, fácil de pasar por alto o de bloquear. */}
+          {!data.textoRaw&&!data.textoAI&&
+            <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+              Escribe la descripción de los daños para poder generar la tabla.
+            </div>}
+          {genMsg&&(
+            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:12,
+              background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
+              border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
+              color:genMsg.tipo==="error"?C.red:C.orange}}>
+              <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
+              <span style={{flex:1}}>{genMsg.texto}</span>
+              <button onClick={()=>setGenMsg(null)} aria-label="Cerrar aviso"
+                style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
+                <X size={13}/>
+              </button>
+            </div>
+          )}
+        </div>}
+
+        {/* PERCEPTOR (solo presupuesto / factura) */}
+        {docMode&&<div style={{paddingTop:14,borderTop:`1px dashed ${C.border}`}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Perceptor de la indemnización</div>
+          <div style={{display:"flex",gap:20}}>
+            {[{v:"particular",l:"Particular"},{v:"reparador",l:"Reparador"}].map(o=>(
+              <label key={o.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
+                fontWeight:data.perceptorTipo===o.v?700:400,color:data.perceptorTipo===o.v?C.accent:C.ink}}>
+                <input type="checkbox" checked={data.perceptorTipo===o.v} onChange={()=>setPerceptorTipo(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
+                {o.l}
+              </label>
+            ))}
           </div>
-        ))}
-        {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
-          {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
-        </Btn>}
-      </Card>}
+          {reparador&&<div style={{fontSize:11,color:C.muted,marginTop:8}}>Con perceptor Reparador no se aplica depreciación (columna oculta en la tabla).</div>}
 
-      {/* PERJUDICADOS */}
-      <Card s={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",margin:"16px 0 10px"}}>{esFactura?"Facturas":"Presupuestos"}</div>
+          <div onClick={()=>facRef.current.click()}
+            style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:"16px",textAlign:"center",
+              cursor:"pointer",background:C.bg,marginBottom:10}}>
+            <Upload size={20} style={{color:C.muted,marginBottom:6}}/>
+            <div style={{fontSize:12,fontWeight:600,color:C.ink}}>Adjuntar {esFactura?"facturas":"presupuestos"}</div>
+            <div style={{fontSize:11,color:C.muted}}>PDF · Se adjuntarán automáticamente al informe final</div>
+            <input ref={facRef} type="file" multiple accept=".pdf" style={{display:"none"}}
+              onChange={e=>addFactura(e.target.files)}/>
+          </div>
+          {facturas.map(f=>(
+            <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
+              background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:12}}>
+              <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
+              <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
+              <span style={{color:C.muted,fontSize:11}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
+              <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
+            </div>
+          ))}
+          {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
+            {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
+          </Btn>}
+          {genMsg&&(
+            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:12,
+              background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
+              border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
+              color:genMsg.tipo==="error"?C.red:C.orange}}>
+              <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
+              <span style={{flex:1}}>{genMsg.texto}</span>
+              <button onClick={()=>setGenMsg(null)} aria-label="Cerrar aviso"
+                style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
+                <X size={13}/>
+              </button>
+            </div>
+          )}
+        </div>}
+      </Card>
+
+      {/* PERJUDICADOS — plegado a una línea cuando la respuesta es "No" (lo habitual) */}
+      {!data.hayPerjudicados&&<div style={{display:"flex",alignItems:"center",gap:8,background:C.white,
+        border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 14px",marginBottom:14,fontSize:12.5}}>
+        <span style={{fontWeight:600}}>Perjudicados</span>
+        <span style={{color:C.muted}}>— ninguno</span>
+        <button onClick={()=>setHayPerjudicados(true)} style={{marginLeft:"auto",fontSize:11,fontWeight:600,
+          color:C.accent,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+          <Plus size={11} style={{verticalAlign:"-1px",marginRight:3}}/>Añadir
+        </button>
+      </div>}
+      {data.hayPerjudicados&&<Card s={{marginBottom:14}}>
         <SectionLabel>¿Hay perjudicados?</SectionLabel>
-        <div style={{display:"flex",gap:20,marginBottom:data.hayPerjudicados?12:0}}>
+        <div style={{display:"flex",gap:20,marginBottom:12}}>
           {[{v:true,l:"Sí"},{v:false,l:"No"}].map(o=>(
             <label key={String(o.v)} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
               fontWeight:!!data.hayPerjudicados===o.v?700:400,color:!!data.hayPerjudicados===o.v?C.accent:C.ink}}>
@@ -2470,48 +2604,24 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             </label>
           ))}
         </div>
-        {data.hayPerjudicados&&<>
-          <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Nombra cada perjudicado para identificarlo. Aparecerán como opción en el campo «Perceptor» de la tabla.</div>
-          {perjudicados.map((pj,idx)=>(
-            <div key={pj.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <input value={pj.nombre||""} onChange={e=>updPerjudicado(pj.id,e.target.value)}
-                placeholder={`Perjudicado ${idx+1} — nombre`}
-                style={{...inpStyle(false),flex:1,marginBottom:0}}/>
-              <button onClick={()=>delPerjudicado(pj.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={14}/></button>
-            </div>
-          ))}
-          <Btn sm onClick={addPerjudicado}><Plus size={11}/>Añadir perjudicado</Btn>
-        </>}
-      </Card>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Nombra cada perjudicado para identificarlo. Aparecerán como opción en el campo «Perceptor» de la tabla.</div>
+        {perjudicados.map((pj,idx)=>(
+          <div key={pj.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <input value={pj.nombre||""} onChange={e=>updPerjudicado(pj.id,e.target.value)}
+              placeholder={`Perjudicado ${idx+1} — nombre`}
+              style={{...inpStyle(false),flex:1,marginBottom:0}}/>
+            <button onClick={()=>delPerjudicado(pj.id)} style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={14}/></button>
+          </div>
+        ))}
+        <Btn sm onClick={addPerjudicado}><Plus size={11}/>Añadir perjudicado</Btn>
+      </Card>}
+
+      <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
       {/* TABLAS DE VALORACIÓN — Continente / Contenido */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em"}}>
-          {esBaremo?"Valoración — A modo informativo":esPresup?"Valoración — Presupuesto":"Valoración — Factura"}
-        </div>
-        {esBaremo&&<Btn sm primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
-          {genLoad?<><Spin/>Generando…</>:<><Sparkles size={11}/>Generar tabla</>}
-        </Btn>}
+      <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
+        {esBaremo?"Valoración — A modo informativo":esPresup?"Valoración — Presupuesto":"Valoración — Factura"}
       </div>
-      {/* Resultado de "Generar tabla" a la vista: antes era un alert() del
-          navegador, fácil de pasar por alto o de bloquear. */}
-      {esBaremo&&!data.textoRaw&&!data.textoAI&&
-        <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
-          Escribe la descripción de los daños para poder generar la tabla.
-        </div>}
-      {genMsg&&(
-        <div style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:10,padding:"8px 12px",borderRadius:7,fontSize:12,
-          background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
-          border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
-          color:genMsg.tipo==="error"?C.red:C.orange}}>
-          <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
-          <span style={{flex:1}}>{genMsg.texto}</span>
-          <button onClick={()=>setGenMsg(null)} aria-label="Cerrar aviso"
-            style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
-            <X size={13}/>
-          </button>
-        </div>
-      )}
       <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:14}}>
         <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
       </div>
@@ -2698,10 +2808,19 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   const indemn     = Math.max(0,ajustado-franq);
   const modoVal    = s3?.modoValoracion||"baremo";
 
-  // Auto-fill descripción cobertura desde la póliza: copia el texto EXACTO de la
-  // cobertura afectada. Mapea el nombre comercial al código de la póliza (RGEXT, etc.).
-  // La comparación ignora tildes y mayúsculas ("Daños por agua" = "DANOS POR AGUA").
+  // Los tres auto-rellenos de Sección 4 (cobertura, texto intro, propuesta de
+  // indemnización) van en un ÚNICO useEffect que junta todo en un solo patch.
+  // Antes eran 3 useEffect separados, cada uno con su propio onChange({...data,X}):
+  // al montar el componente los tres disparaban en la misma pasada usando el
+  // mismo `data` (todavía vacío) como base, así que cada onChange pisaba por
+  // completo el resultado del anterior — solo sobrevivía el último. Era la causa
+  // de que "Descripción de la Cobertura" pareciera no autorrellenarse nunca.
   useEffect(()=>{
+    const patch = {};
+
+    // Descripción de cobertura: copia el texto EXACTO de la cobertura afectada.
+    // Mapea el nombre comercial al código de la póliza (RGEXT, etc.). La
+    // comparación ignora tildes y mayúsculas ("Daños por agua" = "DANOS POR AGUA").
     if(!data.descripcionCobertura&&enc.descripciones){
       const COD = {"riesgos extensivos":"RGEXT","atmosfericos":"RGEXT","danos por agua":"DAGUA","incendio":"INCEN","robo":"ROBO","danos electricos":"DELEC","rc explotacion":"RCEXP","responsabilidad civil":"RCEXP","rc locatario":"RCLOC"};
       const claves = Object.keys(enc.descripciones);
@@ -2716,24 +2835,20 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
         const v = k?enc.descripciones[k]:"";
         return (typeof v==="string"&&v.trim())?v.trim():"";
       }).filter(Boolean).join("\n\n");
-      if(desc) onChange({...data,descripcionCobertura:desc});
+      if(desc) patch.descripcionCobertura = desc;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[enc?.garantia,enc?.causa,enc?.descripciones]);
 
-  // Auto-fill texto intro (actualiza si el usuario no lo ha personalizado)
-  useEffect(()=>{
+    // Texto intro: se actualiza mientras el perito no lo haya personalizado.
     if(!data.textoIntro||SEC4_INTROS.includes(data.textoIntro))
-      onChange({...data,textoIntro:sec4IntroAuto(modoVal)});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[modoVal]);
+      patch.textoIntro = sec4IntroAuto(modoVal);
 
-  // Auto-genera la propuesta de indemnización y la mantiene actualizada mientras
-  // el perito no la edite a mano (textoIndemnEdited). Reacciona al modo, importe y perceptor.
-  useEffect(()=>{
-    if(!data.textoIndemnEdited) onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn)});
+    // Propuesta de indemnización: se mantiene actualizada mientras el perito
+    // no la edite a mano (textoIndemnEdited).
+    if(!data.textoIndemnEdited) patch.textoIndemn = sec4IndemnAuto(s3,indemn);
+
+    if(Object.keys(patch).length) onChange({...data,...patch});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[modoVal,indemn,s3?.perceptorTipo,s3?.partidas]);
+  },[enc?.garantia,enc?.causa,enc?.descripciones,modoVal,indemn,s3?.perceptorTipo,s3?.partidas]);
 
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
@@ -2748,10 +2863,18 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
     <div className="fade">
       <SecTitle n="4" label="Estudio de Cobertura-Indemnización" sub="Análisis de coberturas aplicables y propuesta de indemnización final"/>
 
+      <ContextBar items={[
+        {k:"Garantía",v:enc.garantia||enc.causa||"—",mono:false},
+        {k:"Modo",v:modoVal==="baremo"?"Informativo":modoVal==="presupuesto"?"Presupuesto":"Factura",mono:false},
+        {k:"Franquicia",v:fmtE(franq)},
+      ]}/>
+
+      <ZoneLabel zone="trabajo">Revisa lo que ya está escrito</ZoneLabel>
+
       {/* TEXTO INTRO MODO VALORACIÓN */}
       <Card s={{marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <SectionLabel>Texto de Valoración</SectionLabel>
+          <SectionLabel>Texto de Valoración<AutoBadge>Automático</AutoBadge></SectionLabel>
           <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal)})}/>
         </div>
         <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
@@ -2760,7 +2883,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
 
       {/* DESCRIPCIÓN COBERTURA */}
       <Card s={{marginBottom:14}}>
-        <SectionLabel>Descripción de la Cobertura</SectionLabel>
+        <SectionLabel>Descripción de la Cobertura<AutoBadge>De la póliza</AutoBadge></SectionLabel>
         <div style={{fontSize:11,color:C.muted,marginBottom:8}}>
           Extraída automáticamente de la póliza para la garantía afectada. Editable.
         </div>
@@ -2769,6 +2892,8 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
         {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange,marginTop:6,display:"flex",alignItems:"center",gap:5}}>
           <AlertTriangle size={12}/>Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
       </Card>
+
+      <ZoneLabel zone="resultado">Resultado final</ZoneLabel>
 
       {/* TABLA GARANTÍAS */}
       <Card s={{marginBottom:14}}>
@@ -2921,6 +3046,9 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
   return (
     <div className="fade">
       <SecTitle label="Anexos" sub="Reportaje fotográfico, datos catastrales, Meteosim y facturas"/>
+
+      {/* Sin tira de contexto aparte: los contadores de cada pestaña ya cumplen esa función. */}
+      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
 
       <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}>
         {tabs.map(t=>{
@@ -3516,15 +3644,34 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
   );
 };
 
+// Los 22 campos editables de la Sección 0 (para el contador de "extraídos").
+const CAMPOS_ENCARGO = ["compania","numReferencia","numPoliza","ramo","garantia","productoContratado",
+  "causa","numExpInterno","fechaEncargo","fechaSiniestro","asegurado","nifAsegurado","lugarIntervencion",
+  "codigoPostal","municipio","provincia","capitalContinente","capitalContenido","franquicia","fechaEfecto",
+  "tipoEncargo","modalidadVisita"];
+// Los 4 marcados con asterisco en el formulario (obligatorios "de verdad" para el informe).
+const CAMPOS_OBLIGATORIOS = ["compania","numReferencia","asegurado","lugarIntervencion"];
+
 // ─── SECCIÓN DATOS DEL ENCARGO (editable dentro del informe) ────────────────
 const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
   const [saved, setSaved] = useState(false);
   const s = f => v => onUpdate({...enc, [f]:v});
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
+  const extraidos = CAMPOS_ENCARGO.filter(f=>enc[f]!=null&&enc[f]!=="").length;
+  const faltanObl = CAMPOS_OBLIGATORIOS.filter(f=>!enc[f]).length;
+
   return (
     <div className="fade">
       <SecTitle n="0" label="Datos del Encargo" sub="Revisa y edita los datos extraídos"/>
+
+      <ContextBar items={[
+        {k:"Origen",v:enc.polizaAdjunta?"Encargo + póliza":"Solo encargo",mono:false},
+        {k:"Extraídos",v:`${extraidos} / ${CAMPOS_ENCARGO.length} campos`},
+        faltanObl>0&&{k:"Obligatorios (*) pendientes",v:String(faltanObl),warn:true},
+      ]}/>
+
+      <ZoneLabel zone="trabajo">Revisa lo extraído</ZoneLabel>
 
       <Card s={{marginBottom:12}}>
         <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
