@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~3.885 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~4.230 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -45,9 +45,11 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge`
 
 > **`AutoTextarea`** (con el hook `useAutoGrow`) es la caja de texto estándar: se ajusta sola al volumen de texto —al escribir, al rellenarla la IA y al cambiar el ancho de la ventana— en vez de tener scroll interno. `Txt` y `VoiceBox` la usan por dentro. La interfaz no usa emojis: los iconos son de `lucide-react`.
+>
+> **Sistema de 3 zonas** (`ZoneLabel`/`ContextBar`/`ResultTable`) — cada sección del editor se organiza en hasta tres bloques: **Contexto** (`ContextBar`, tira compacta con lo que la sección solo consulta — capitales, garantía, franquicia…), **Tu trabajo** (los campos que el perito rellena, bajo un `ZoneLabel`) y **Resultado** (lo que calcula la app, con `ResultTable` — misma cabecera oscura que la tabla del dashboard). No todas las secciones tienen las tres: Datos del Encargo y Anexos no calculan nada, así que no tienen zona de resultado. `ContextBar` admite un `onEdit` opcional (usado en Sec3) que despliega el formulario completo debajo sin ocultar ningún campo — es un `useState` local del componente, no toca los datos guardados.
 
 ---
 
@@ -253,6 +255,7 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 - **Sidebar global** — estado `sidebarOpen` al nivel App, persiste entre Dashboard y Editor. En desktop empuja el contenido (ancho fijo); en <1024px es un overlay `position:fixed` con backdrop semitransparente que lo cierra al hacer clic fuera (clases `.app-sidebar`/`.sb-open`/`.sidebar-backdrop`), con su propio botón de cierre dentro del panel.
 - **Editor a pantalla completa** — el contenedor del editor (`.editor-shell`) mide exactamente el alto de la ventana (`100vh`/`100dvh`, `overflow:hidden`), así que el único elemento que hace scroll es el panel de contenido: la barra lateral de secciones y la cabecera quedan fijas. Al cambiar de sección ese panel vuelve al principio automáticamente.
 - **Rail de navegación del editor** — folios numerados (`00`–`06`, `IBM Plex Mono`) con subtítulo en vez de iconos; check verde sobre el número cuando la sección está completa.
+- **Sistema de 3 zonas** — las 6 secciones del editor (Sec0-4 + Anexos) se organizan en Contexto (`ContextBar`) · Tu trabajo (`ZoneLabel`) · Resultado (`ResultTable`). Cambios notables por sección: en Sec1, Catastro y Tipo de Arquitectura viven en una sola tarjeta "Superficie y Arquitectura", y Continente/Contenido se resumen en una tabla de 2 filas en vez de dos cajas de color; en Sec3, "Parámetros de Garantía" se pliega tras la tira de contexto (enlace "Editar parámetros"), el modo de valoración y su acción (Generar tabla, o Perceptor+Facturas) viven en una sola tarjeta "Cómo se valora", y "¿Hay perjudicados?" se pliega a una línea cuando no hay ninguno.
 - **Sec 0 "Datos del Encargo"** — primera sección del editor, todos los campos extraídos son editables.
 - **Tick verde en sidebar** — S1: superficieConstruida o textoInstant · S2: textoAI/textoRaw · S3: partidas o pLibres · S4: aiText · Anexos: cualquier archivo.
 - **Botón "Aplicar al informe"** — S1, S2 y S3 sincronizan texto IA con el preview.

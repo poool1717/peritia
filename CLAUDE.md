@@ -30,7 +30,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~3.885 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.030 líneas)
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
