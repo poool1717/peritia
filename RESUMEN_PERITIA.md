@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~4.030 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~4.230 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
