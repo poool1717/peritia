@@ -45,11 +45,13 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge` · `BlockRail` (+ hook `useBlockRail`) · `WorkGrid` · `RailStats` · `Formula`
 
 > **`AutoTextarea`** (con el hook `useAutoGrow`) es la caja de texto estándar: se ajusta sola al volumen de texto —al escribir, al rellenarla la IA y al cambiar el ancho de la ventana— en vez de tener scroll interno. `Txt` y `VoiceBox` la usan por dentro. La interfaz no usa emojis: los iconos son de `lucide-react`.
 >
 > **Sistema de 3 zonas** (`ZoneLabel`/`ContextBar`/`ResultTable`) — cada sección del editor se organiza en hasta tres bloques: **Contexto** (`ContextBar`, tira compacta con lo que la sección solo consulta — capitales, garantía, franquicia…), **Tu trabajo** (los campos que el perito rellena, bajo un `ZoneLabel`) y **Resultado** (lo que calcula la app, con `ResultTable` — misma cabecera oscura que la tabla del dashboard). No todas las secciones tienen las tres: Datos del Encargo y Anexos no calculan nada, así que no tienen zona de resultado. `ContextBar` admite un `onEdit` opcional (usado en Sec3) que despliega el formulario completo debajo sin ocultar ningún campo — es un `useState` local del componente, no toca los datos guardados.
+>
+> **Editor a 1180px con rail de navegación** — el panel de contenido del editor pasó de 760px a 1180px de ancho. Dentro de la zona "Tu trabajo", `WorkGrid` reparte el espacio en dos columnas (formulario + `BlockRail`, que se oculta por debajo de 900px); `BlockRail`/`useBlockRail` muestran una barra lateral fija ("En esta sección") que resalta el bloque visible mientras se hace scroll (`IntersectionObserver`) y permite saltar directamente a uno; `RailStats` añade ahí mismo el resultado clave de la sección (valor preexistente, total de partidas, propuesta de indemnización) sin tener que bajar hasta el final. `Formula` muestra, en la zona de Resultado de Sec1/Sec3/Sec4, la fórmula genérica del cálculo junto a un ejemplo resuelto con los números reales de ese informe.
 
 ---
 
