@@ -356,14 +356,14 @@ const MeteoTabla = ({m, enc}) => {
     ["Int. máx. precip.",`${m.precipMaxHoraria} l/m²·h`],
     ["¿Supera umbral?",sup.label]];
   return (
-    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:8}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:14,marginTop:8}}>
       <thead><tr style={{background:C.accentLight}}>
-        {cols.map(([h])=><th key={h} style={{padding:"5px 6px",textAlign:"left",color:C.accent,fontWeight:700,fontSize:10}}>{h}</th>)}
+        {cols.map(([h])=><th key={h} style={{padding:"5px 6px",textAlign:"left",color:C.accent,fontWeight:700,fontSize:12}}>{h}</th>)}
       </tr></thead>
       <tbody><tr style={{borderBottom:`1px solid ${C.border}`}}>
         {cols.map(([h,v])=>{
           const hl = h==="¿Supera umbral?"&&alerta;
-          return <td key={h} style={{padding:"5px 6px",fontSize:11,fontWeight:hl?700:400,color:hl?C.red:C.ink}}>{v}</td>;
+          return <td key={h} style={{padding:"5px 6px",fontSize:13,fontWeight:hl?700:400,color:hl?C.red:C.ink}}>{v}</td>;
         })}
       </tr></tbody>
     </table>
@@ -432,7 +432,7 @@ const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@
 const FONT_MONO = "'IBM Plex Mono',monospace";
 const css = `
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'DM Sans',sans-serif;background:${C.bg};color:${C.ink};font-size:14px}
+  body{font-family:'DM Sans',sans-serif;background:${C.bg};color:${C.ink};font-size:16px}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -448,7 +448,7 @@ const css = `
   :focus-visible{outline:2px solid ${C.accentMid};outline-offset:2px;border-radius:4px}
   @media(max-width:767px){
     input,select,textarea{font-size:16px!important}
-    td input,td select{font-size:11px!important}
+    td input,td select{font-size:13px!important}
     .tbl-scroll{display:block;overflow-x:auto}
     ::-webkit-scrollbar{width:8px}
     .editor-topbar{flex-wrap:wrap;height:auto;padding:8px 12px}
@@ -457,6 +457,12 @@ const css = `
     .dash-table-wrap{display:none!important}
     .dash-cards{display:flex!important}
     .dash-mobile-filterbar{display:flex!important}
+  }
+  /* Rail de bloques: solo tiene sentido con sitio de sobra al lado del
+     formulario. Por debajo de esto, una columna y sin rail. */
+  @media(max-width:900px){
+    .work-grid{grid-template-columns:1fr!important}
+    .block-rail{display:none!important}
   }
   .sidebar-backdrop{display:none}
   .sidebar-close{display:none}
@@ -470,11 +476,11 @@ const css = `
 
 // ─── BASE UI ─────────────────────────────────────────────────────────────────
 const Spin = () => <Loader2 size={14} style={{animation:"spin 1s linear infinite",color:C.accent}}/>;
-const Lbl  = ({c,req}) => <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:5,letterSpacing:"0.05em",textTransform:"uppercase"}}>{c}{req&&<span style={{color:C.accent}}> *</span>}</div>;
+const Lbl  = ({c,req}) => <div style={{fontSize:13,fontWeight:700,color:C.muted,marginBottom:5,letterSpacing:"0.05em",textTransform:"uppercase"}}>{c}{req&&<span style={{color:C.accent}}> *</span>}</div>;
 
 const inpStyle = (dis) => ({
   width:"100%",padding:"9px 12px",border:`1px solid ${C.border}`,borderRadius:9,
-  fontSize:14,background:dis?C.bg:C.white,outline:"none",fontFamily:"inherit",
+  fontSize:16,background:dis?C.bg:C.white,outline:"none",fontFamily:"inherit",
   transition:"border-color .15s",
 });
 
@@ -513,7 +519,7 @@ const Inp = ({label,value,onChange,placeholder,type="text",disabled,required,hin
     <input type={type} value={value||""} onChange={e=>onChange(e.target.value)}
       placeholder={placeholder} disabled={disabled}
       style={mono?{...inpStyle(disabled),fontFamily:FONT_MONO,fontWeight:600}:inpStyle(disabled)}/>
-    {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
+    {hint&&<div style={{fontSize:13,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
 
@@ -529,7 +535,7 @@ const EuroInput = ({label,value,onChange,hint,required,disabled}) => {
         onChange={e=>onChange(e.target.value)}
         placeholder="0,00 €" disabled={disabled}
         style={{...inpStyle(disabled),fontWeight:!focused&&+value>0?600:400}}/>
-      {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
+      {hint&&<div style={{fontSize:13,color:C.muted,marginTop:3}}>{hint}</div>}
     </div>
   );
 };
@@ -542,7 +548,7 @@ const Sel = ({label,value,onChange,options,required,hint}) => (
       <option value="">Seleccionar…</option>
       {options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}
     </select>
-    {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
+    {hint&&<div style={{fontSize:13,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
 
@@ -551,7 +557,7 @@ const Txt = ({label,value,onChange,placeholder,rows=4,disabled,hint}) => (
     {label&&<Lbl c={label}/>}
     <AutoTextarea value={value} onChange={onChange}
       placeholder={placeholder} minRows={rows} disabled={disabled}/>
-    {hint&&<div style={{fontSize:11,color:C.muted,marginTop:3}}>{hint}</div>}
+    {hint&&<div style={{fontSize:13,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
 
@@ -561,7 +567,7 @@ const Btn = ({onClick,children,primary,ghost,danger,disabled,sm,full,outline}) =
     border:outline?`1.5px solid ${C.accent}`:"none",
     background:disabled?"#E5E0D8":primary?C.accent:danger?C.red:ghost||outline?"transparent":C.tag,
     color:disabled?C.muted:primary||danger?C.white:C.ink,
-    fontSize:sm?12:13,fontWeight:600,display:"inline-flex",alignItems:"center",gap:6,
+    fontSize:sm?14:15,fontWeight:600,display:"inline-flex",alignItems:"center",gap:6,
     fontFamily:"inherit",width:full?"100%":"auto",justifyContent:"center",
     cursor:disabled?"not-allowed":"pointer",opacity:disabled?.6:1,transition:"opacity .15s",
   }}>{children}</button>
@@ -573,20 +579,20 @@ const Card = ({children,s}) => (
 
 const SecTitle = ({n,label,sub}) => (
   <div style={{marginBottom:22,paddingBottom:12,borderBottom:`2px solid ${C.accent}`}}>
-    {n&&<div style={{fontSize:10,fontWeight:700,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:4}}>SECCIÓN {n}</div>}
-    <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,color:C.ink}}>{label}</h2>
-    {sub&&<p style={{fontSize:13,color:C.muted,marginTop:4,lineHeight:1.5}}>{sub}</p>}
+    {n&&<div style={{fontSize:12,fontWeight:700,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:4}}>SECCIÓN {n}</div>}
+    <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink}}>{label}</h2>
+    {sub&&<p style={{fontSize:15,color:C.muted,marginTop:4,lineHeight:1.5}}>{sub}</p>}
   </div>
 );
 
 // display:flex para poder alinear un icono de Lucide junto al texto del título.
 const SectionLabel = ({children}) => (
-  <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10,marginTop:4,
+  <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10,marginTop:4,
     display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>{children}</div>
 );
 
 const InfoRow = ({label,val}) => (
-  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:13}}>
+  <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.border}`,fontSize:15}}>
     <span style={{color:C.muted}}>{label}</span>
     <span style={{fontWeight:600,color:C.ink,textAlign:"right",maxWidth:"60%"}}>{val||"—"}</span>
   </div>
@@ -599,7 +605,7 @@ const InfoRow = ({label,val}) => (
 const ZONE_COLOR = {contexto:C.muted, trabajo:C.accent, resultado:C.ink};
 const ZoneLabel = ({zone,children}) => (
   <div style={{display:"flex",alignItems:"center",gap:9,margin:"18px 0 9px"}}>
-    <span style={{fontSize:10,fontWeight:700,color:ZONE_COLOR[zone],textTransform:"uppercase",
+    <span style={{fontSize:12,fontWeight:700,color:ZONE_COLOR[zone],textTransform:"uppercase",
       letterSpacing:".07em",whiteSpace:"nowrap"}}>{children}</span>
     <span style={{flex:1,height:zone==="resultado"?2:1,background:ZONE_COLOR[zone],opacity:zone==="resultado"?1:.4}}/>
   </div>
@@ -615,12 +621,12 @@ const ContextBar = ({items,onEdit,editing,editLabel}) => (
     {items.filter(Boolean).map((it,i)=>(
       <div key={it.k+i} style={{display:"flex",flexDirection:"column",gap:1,padding:"7px 13px",
         borderRight:i<items.filter(Boolean).length-1?`1px solid ${C.border}`:"none"}}>
-        <span style={{fontSize:9,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{it.k}</span>
-        <span style={{fontFamily:it.mono!==false?FONT_MONO:"inherit",fontWeight:600,fontSize:12.5,
+        <span style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{it.k}</span>
+        <span style={{fontFamily:it.mono!==false?FONT_MONO:"inherit",fontWeight:600,fontSize:14.5,
           color:it.warn?C.orange:C.ink}}>{it.v}</span>
       </div>
     ))}
-    {onEdit&&<button onClick={onEdit} style={{marginLeft:"auto",fontSize:11,fontWeight:600,color:C.accent,
+    {onEdit&&<button onClick={onEdit} style={{marginLeft:"auto",fontSize:13,fontWeight:600,color:C.accent,
       background:"none",border:"none",cursor:"pointer",padding:"7px 12px",fontFamily:"inherit",whiteSpace:"nowrap"}}>
       {editing?"Ocultar":editLabel||"Editar"}
     </button>}
@@ -632,12 +638,21 @@ const ContextBar = ({items,onEdit,editing,editLabel}) => (
 // igual en cualquier sección.
 const ResultZone = ({children}) => <div>{children}</div>;
 
+// Explica cómo se calcula un valor de la zona de resultado: fórmula general +
+// un ejemplo resuelto con los números reales. children = el ejemplo (opcional).
+const Formula = ({children}) => (
+  <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:8,padding:"10px 14px",
+    fontSize:13.5,color:C.blue,marginBottom:14,lineHeight:1.6}}>
+    {children}
+  </div>
+);
+
 const ResultTable = ({cols,children}) => (
   <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:9,background:C.white}}>
-    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
       <thead><tr>
         {cols.map((h,i)=>(
-          <th key={h} style={{background:C.ink,color:"rgba(255,255,255,.85)",fontSize:10,fontWeight:700,
+          <th key={h} style={{background:C.ink,color:"rgba(255,255,255,.85)",fontSize:12,fontWeight:700,
             textTransform:"uppercase",letterSpacing:".04em",padding:"7px 10px",
             textAlign:i===0?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
         ))}
@@ -650,8 +665,69 @@ const ResultTable = ({cols,children}) => (
 // Etiqueta de origen para texto que el perito no escribió: "Automático" o
 // "De la póliza". Se coloca dentro de SectionLabel (que ya es flex).
 const AutoBadge = ({children}) => (
-  <span style={{marginLeft:"auto",fontSize:9,fontWeight:700,letterSpacing:".04em",padding:"2px 7px",
+  <span style={{marginLeft:"auto",fontSize:11,fontWeight:700,letterSpacing:".04em",padding:"2px 7px",
     borderRadius:5,background:C.planoLight,color:C.plano,textTransform:"none"}}>{children}</span>
+);
+
+// Rail de bloques: observa (IntersectionObserver, sobre el panel de scroll real
+// del editor — mismo scrollRef que ya usa el "volver arriba al cambiar de
+// sección") qué bloque está visible y deja saltar directo con un clic.
+// blocks: [{id,label}]. Devuelve {active, setRef, goTo} — setRef(id) se pasa
+// como ref al elemento contenedor de cada bloque.
+const useBlockRail = (blocks, scrollRef) => {
+  const [active, setActive] = useState(blocks[0]?.id);
+  const elsRef = useRef({});
+  const ids = blocks.map(b=>b.id).join(",");
+  useEffect(()=>{
+    const root = scrollRef?.current;
+    if(!root) return;
+    const els = blocks.map(b=>elsRef.current[b.id]).filter(Boolean);
+    if(!els.length) return;
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{ if(e.isIntersecting) setActive(e.target.dataset.blockId); });
+    }, {root, threshold:0.3, rootMargin:"-10% 0px -70% 0px"});
+    els.forEach(el=>io.observe(el));
+    return ()=>io.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[ids, scrollRef]);
+  const setRef = id => el => { if(el){ el.dataset.blockId=id; elsRef.current[id]=el; } };
+  const goTo = id => elsRef.current[id]?.scrollIntoView({behavior:"smooth",block:"start"});
+  return {active, setRef, goTo};
+};
+
+const BlockRail = ({blocks,active,onGoTo,stats}) => (
+  <div className="block-rail" style={{position:"sticky",top:0,display:"flex",flexDirection:"column",gap:2}}>
+    <div style={{fontSize:11.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>En esta sección</div>
+    {blocks.map(b=>{
+      const on = active===b.id;
+      return (
+        <div key={b.id} onClick={()=>onGoTo(b.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
+          borderRadius:7,fontSize:13.5,cursor:"pointer",borderLeft:`2px solid ${on?C.accent:"transparent"}`,
+          background:on?C.white:"transparent",color:on?C.accent:C.muted,fontWeight:on?700:400,transition:"background .12s"}}>
+          <span style={{width:5,height:5,borderRadius:"50%",background:on?C.accent:C.border,flexShrink:0}}/>
+          {b.label}
+        </div>
+      );
+    })}
+    {stats}
+  </div>
+);
+
+// Estadística compacta debajo del rail (p.ej. "2 partidas · 5.283,98 €").
+const RailStats = ({label,value,money}) => (
+  <div style={{marginTop:14,padding:"12px 13px",background:C.white,border:`1px solid ${C.border}`,borderRadius:9}}>
+    <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>{label}</div>
+    <div style={{fontFamily:FONT_MONO,fontWeight:700,fontSize:17,color:money?C.green:C.ink}}>{value}</div>
+  </div>
+);
+
+// Columna de trabajo (ancho flexible) + rail de bloques sticky (240px, oculto
+// en pantallas estrechas vía .block-rail en el CSS global).
+const WorkGrid = ({rail,children}) => (
+  <div className="work-grid" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 240px",gap:26,alignItems:"start"}}>
+    <div style={{minWidth:0}}>{children}</div>
+    {rail}
+  </div>
 );
 
 // ─── AI VOICE INPUT ───────────────────────────────────────────────────────────
@@ -687,7 +763,7 @@ const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholde
           </button>
         )}
       </div>
-      {rec&&<div style={{fontSize:11,color:C.red,marginTop:4,display:"flex",alignItems:"center",gap:5}}>
+      {rec&&<div style={{fontSize:13,color:C.red,marginTop:4,display:"flex",alignItems:"center",gap:5}}>
         <span style={{width:6,height:6,borderRadius:"50%",background:C.red,display:"inline-block",animation:"pulse 1s infinite"}}/>
         Grabando — habla con claridad
       </div>}
@@ -727,10 +803,10 @@ const Logo = () => (
       <Sparkles size={14} style={{color:"#fff"}}/>
     </div>
     <div style={{lineHeight:1}}>
-      <div style={{fontFamily:"'Source Serif 4',serif",fontSize:16}}>
+      <div style={{fontFamily:"'Source Serif 4',serif",fontSize:18}}>
         <span style={{color:"#fff"}}>PERIT</span><span style={{color:"#C1494E"}}>.IA</span>
       </div>
-      <div style={{fontSize:9,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase"}}>Informes Periciales</div>
+      <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase"}}>Informes Periciales</div>
     </div>
   </div>
 );
@@ -782,45 +858,45 @@ const LoginScreen = ({onAuth}) => {
       <link rel="stylesheet" href={FONT}/>
       <div style={{width:380,maxWidth:'calc(100vw - 32px)',background:C.white,borderRadius:4,borderTop:`3px solid ${C.accent}`,padding:40,boxShadow:'0 12px 32px rgba(27,36,48,.13)'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:28,fontWeight:400,color:C.ink,letterSpacing:'-.02em'}}>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:30,fontWeight:400,color:C.ink,letterSpacing:'-.02em'}}>
             PERIT<span style={{color:C.accent}}>.IA</span>
           </div>
-          <div style={{fontSize:12,color:C.muted,marginTop:4}}>
+          <div style={{fontSize:14,color:C.muted,marginTop:4}}>
             {mode==='login'?'Accede a tu cuenta':'Crea tu cuenta'}
           </div>
         </div>
 
         <div style={{marginBottom:14}}>
-          <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Email</div>
+          <div style={{fontSize:13,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Email</div>
           <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             placeholder="perito@ejemplo.com"
             style={inpStyle(false)}/>
         </div>
         <div style={{marginBottom:20}}>
-          <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Contraseña</div>
+          <div style={{fontSize:13,fontWeight:600,color:C.muted,marginBottom:5,textTransform:'uppercase',letterSpacing:'.04em'}}>Contraseña</div>
           <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
             placeholder="••••••••"
             style={inpStyle(false)}/>
         </div>
 
-        {emailSent&&<div style={{background:C.greenBg,border:'1px solid #A7F3D0',borderRadius:7,padding:'10px 14px',fontSize:13,color:C.green,marginBottom:14,lineHeight:1.6}}>
+        {emailSent&&<div style={{background:C.greenBg,border:'1px solid #A7F3D0',borderRadius:7,padding:'10px 14px',fontSize:15,color:C.green,marginBottom:14,lineHeight:1.6}}>
           <b style={{display:"inline-flex",alignItems:"center",gap:6}}><Mail size={13}/>Revisa tu correo</b><br/>
           Te hemos enviado un email de confirmación a <b>{email}</b>.<br/>
-          Confirma tu cuenta y luego <button onClick={()=>{setMode('login');setEmailSent(false);}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>inicia sesión</button>.
+          Confirma tu cuenta y luego <button onClick={()=>{setMode('login');setEmailSent(false);}} style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:15,fontFamily:'inherit',padding:0}}>inicia sesión</button>.
         </div>}
 
-        {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
+        {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:14,color:C.red,marginBottom:14}}>{err}</div>}
 
         {!emailSent&&<Btn primary full disabled={load} onClick={submit}>
           {load?'Conectando…':mode==='login'?'Entrar':'Crear cuenta'}
         </Btn>}
 
-        <div style={{textAlign:'center',marginTop:16,fontSize:13,color:C.muted}}>
+        <div style={{textAlign:'center',marginTop:16,fontSize:15,color:C.muted}}>
           {mode==='login'?'¿No tienes cuenta? ':'¿Ya tienes cuenta? '}
           <button onClick={()=>{setMode(mode==='login'?'signup':'login');setErr('');}}
-            style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:13,fontFamily:'inherit',padding:0}}>
+            style={{background:'none',border:'none',color:C.accent,cursor:'pointer',fontWeight:600,fontSize:15,fontFamily:'inherit',padding:0}}>
             {mode==='login'?'Regístrate':'Inicia sesión'}
           </button>
         </div>
@@ -887,12 +963,12 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
 
   const SortTh = ({col,label,align}) => (
     <th onClick={()=>toggleSort(col)} style={{padding:"8px 10px",textAlign:align||"left",color:"rgba(255,255,255,.85)",
-      fontWeight:700,fontSize:10.5,textTransform:"uppercase",letterSpacing:".04em",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"}}>
-      {label} <span style={{opacity:sortCol===col?1:.3,fontSize:9}}>{sortCol===col?(sortDir==="asc"?"▲":"▼"):"▲"}</span>
+      fontWeight:700,fontSize:12.5,textTransform:"uppercase",letterSpacing:".04em",cursor:"pointer",whiteSpace:"nowrap",userSelect:"none"}}>
+      {label} <span style={{opacity:sortCol===col?1:.3,fontSize:11}}>{sortCol===col?(sortDir==="asc"?"▲":"▼"):"▲"}</span>
     </th>
   );
   const FilterTd = ({children}) => <td style={{padding:"5px 8px",background:C.white,borderBottom:`2px solid ${C.border}`}}>{children}</td>;
-  const filterInpStyle = {width:"100%",padding:"5px 7px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:11.5,fontFamily:"inherit",outline:"none"};
+  const filterInpStyle = {width:"100%",padding:"5px 7px",border:`1px solid ${C.border}`,borderRadius:6,fontSize:13.5,fontFamily:"inherit",outline:"none"};
 
   return (
     <div style={{minHeight:"100vh",display:"flex",background:C.bg}}>
@@ -913,22 +989,22 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
           <div style={{padding:"4px 8px",flex:1}}>
             <button onClick={onNew} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
               padding:"9px 12px",background:C.accent,color:"#fff",border:"none",borderRadius:9,
-              cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",marginBottom:14}}>
+              cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"inherit",marginBottom:14}}>
               <Plus size={13}/>Nuevo encargo
             </button>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,padding:"0 2px"}}>Vista</div>
+            <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,.35)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,padding:"0 2px"}}>Vista</div>
             <div style={{display:"flex",background:"rgba(255,255,255,.07)",borderRadius:9,padding:2,gap:2}}>
               {[["tabla","Tabla"],["tarjetas","Tarjetas"]].map(([v,l])=>(
                 <button key={v} onClick={()=>setDashView(v)} style={{flex:1,padding:"6px 0",borderRadius:7,border:"none",cursor:"pointer",
                   background:dashView===v?C.accent:"transparent",color:dashView===v?"#fff":"rgba(255,255,255,.5)",
-                  fontSize:11,fontWeight:600,fontFamily:"inherit"}}>{l}</button>
+                  fontSize:13,fontWeight:600,fontFamily:"inherit"}}>{l}</button>
               ))}
             </div>
           </div>
-          <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,.07)",fontSize:11,color:"rgba(255,255,255,.4)"}}>
+          <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,.07)",fontSize:13,color:"rgba(255,255,255,.4)"}}>
             <div style={{marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.email}</div>
             <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
-              color:"rgba(255,255,255,.35)",fontSize:11,fontFamily:"inherit",padding:0}}>
+              color:"rgba(255,255,255,.35)",fontSize:13,fontFamily:"inherit",padding:0}}>
               Cerrar sesión
             </button>
           </div>
@@ -948,19 +1024,19 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.16)"}>
             <ChevronRight size={13}/>
           </button>}
-          <span style={{fontFamily:"'Source Serif 4',serif",fontSize:15,color:"rgba(255,255,255,.9)"}}>
+          <span style={{fontFamily:"'Source Serif 4',serif",fontSize:17,color:"rgba(255,255,255,.9)"}}>
             PERIT<span style={{color:"rgba(255,255,255,.55)"}}>.IA</span>
           </span>
           <div style={{flex:1}}/>
           {!sidebarOpen&&<>
-            <span style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{user?.email}</span>
+            <span style={{fontSize:13,color:"rgba(255,255,255,.5)"}}>{user?.email}</span>
             <button onClick={onNew} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,
-              padding:"5px 12px",cursor:"pointer",color:"#fff",fontSize:12,fontWeight:600,fontFamily:"inherit",
+              padding:"5px 12px",cursor:"pointer",color:"#fff",fontSize:14,fontWeight:600,fontFamily:"inherit",
               display:"flex",alignItems:"center",gap:5}}>
               <Plus size={12}/>Nuevo
             </button>
             <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
-              color:"rgba(255,255,255,.4)",fontSize:11,fontFamily:"inherit"}}>Salir</button>
+              color:"rgba(255,255,255,.4)",fontSize:13,fontFamily:"inherit"}}>Salir</button>
           </>}
         </div>
 
@@ -968,17 +1044,17 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
         <div style={{maxWidth:dashView==="tabla"?1320:860,margin:"0 auto",padding:"28px 24px",width:"100%",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
             <div>
-              <h1 style={{fontFamily:"'Source Serif 4',serif",fontSize:26,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
-              <p style={{color:C.muted,fontSize:13}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
+              <h1 style={{fontFamily:"'Source Serif 4',serif",fontSize:28,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
+              <p style={{color:C.muted,fontSize:15}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
             </div>
             <Btn primary onClick={onNew}><Plus size={14}/>Nuevo Encargo</Btn>
           </div>
-          {loading&&<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:13}}>Cargando encargos…</div>}
+          {loading&&<div style={{textAlign:"center",padding:40,color:C.muted,fontSize:15}}>Cargando encargos…</div>}
           {!loading&&cases.length===0&&
             <Card s={{textAlign:"center",padding:"60px 40px"}}>
               <Building2 size={44} style={{color:C.border,marginBottom:14}}/>
-              <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
-              <p style={{color:C.muted,fontSize:13,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
+              <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
+              <p style={{color:C.muted,fontSize:15,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
               <Btn primary onClick={onNew}><Plus size={14}/>Crear primer encargo</Btn>
             </Card>
           }
@@ -986,13 +1062,13 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
           {/* VISTA TABLA (oculta en móvil vía CSS) */}
           {!loading&&cases.length>0&&<div className="dash-table-wrap" style={{display:dashView==="tabla"?"block":"none"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <span style={{fontSize:12,color:C.muted}}>Mostrando <b style={{color:C.ink}}>{sorted.length}</b> de <b style={{color:C.ink}}>{cases.length}</b> expedientes</span>
+              <span style={{fontSize:14,color:C.muted}}>Mostrando <b style={{color:C.ink}}>{sorted.length}</b> de <b style={{color:C.ink}}>{cases.length}</b> expedientes</span>
               {filtersActive&&<button onClick={()=>setFilters(DASH_FILTERS_EMPTY)}
                 style={{background:"none",border:`1px solid ${C.border}`,borderRadius:7,padding:"4px 11px",cursor:"pointer",
-                  color:C.accent,fontSize:11,fontWeight:600,fontFamily:"inherit"}}>Limpiar filtros</button>}
+                  color:C.accent,fontSize:13,fontWeight:600,fontFamily:"inherit"}}>Limpiar filtros</button>}
             </div>
             <div style={{overflowX:"auto",border:`1px solid ${C.border}`,borderRadius:10}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1100,background:C.white}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:14,minWidth:1100,background:C.white}}>
                 <thead>
                   <tr style={{background:C.ink}}>
                     <SortTh col="asegurado" label="Asegurado"/>
@@ -1040,7 +1116,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.length===0&&<tr><td colSpan={10} style={{padding:24,textAlign:"center",color:C.muted,fontSize:12}}>Ningún expediente coincide con los filtros.</td></tr>}
+                  {sorted.length===0&&<tr><td colSpan={10} style={{padding:24,textAlign:"center",color:C.muted,fontSize:14}}>Ningún expediente coincide con los filtros.</td></tr>}
                   {sorted.map(({cas,e,done,estado},ri)=>{
                     const [ecolor,ebg] = ESTADO_COLOR[estado];
                     return (
@@ -1055,18 +1131,18 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                         <td style={{padding:"9px 10px",color:C.ink}}>{TIPO_LABEL[e.tipoEncargo]||e.tipoEncargo||"—"}</td>
                         <td style={{padding:"9px 10px",color:C.ink}}>{e.provincia||"—"}</td>
                         <td style={{padding:"9px 10px"}}>
-                          <span style={{background:ebg,color:ecolor,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>{estado}</span>
+                          <span style={{background:ebg,color:ecolor,borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700,whiteSpace:"nowrap"}}>{estado}</span>
                         </td>
                         <td style={{padding:"9px 10px",textAlign:"center"}}>
-                          <span style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700}}>{done}/4</span>
+                          <span style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 10px",fontSize:13,fontWeight:700}}>{done}/4</span>
                         </td>
-                        <td style={{padding:"9px 10px",color:C.muted,fontSize:11,whiteSpace:"nowrap"}}>{fmtUpdated(cas.updatedAt)||"—"}</td>
+                        <td style={{padding:"9px 10px",color:C.muted,fontSize:13,whiteSpace:"nowrap"}}>{fmtUpdated(cas.updatedAt)||"—"}</td>
                         <td style={{padding:"9px 10px",textAlign:"right"}}>
                           <div style={{display:"flex",gap:6,alignItems:"center",justifyContent:"flex-end"}}>
                             {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
                               aria-label="Eliminar encargo"
                               style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
-                                cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
+                                cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:13}}>
                               <Trash2 size={11}/>
                             </button>}
                             <ChevronRight size={14} style={{color:C.muted}}/>
@@ -1084,18 +1160,18 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
           {!loading&&cases.length>0&&<div className="dash-mobile-filterbar" style={{display:"none",justifyContent:"flex-end",marginBottom:10}}>
             <button onClick={()=>setMobileFiltersOpen(true)}
               style={{display:"flex",alignItems:"center",gap:7,padding:"8px 15px",borderRadius:9,
-                border:`1px solid ${C.border}`,background:C.white,cursor:"pointer",fontSize:12.5,
+                border:`1px solid ${C.border}`,background:C.white,cursor:"pointer",fontSize:14.5,
                 fontWeight:600,color:C.ink,fontFamily:"inherit"}}>
               <List size={14}/> Filtros
               {activeFilterCount>0&&<span style={{background:C.accent,color:"#fff",borderRadius:20,minWidth:16,
-                height:16,fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",
+                height:16,fontSize:12,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center",
                 padding:"0 4px"}}>{activeFilterCount}</span>}
             </button>
           </div>}
 
           {/* VISTA TARJETAS (siempre visible en móvil, sin rediseñar) — usa la misma lista filtrada/ordenada que la tabla */}
           {!loading&&cases.length>0&&<div className="dash-cards" style={{display:dashView==="tarjetas"?"flex":"none",flexDirection:"column",gap:8}}>
-            {sorted.length===0&&<div style={{textAlign:"center",padding:30,color:C.muted,fontSize:12}}>Ningún expediente coincide con los filtros.</div>}
+            {sorted.length===0&&<div style={{textAlign:"center",padding:30,color:C.muted,fontSize:14}}>Ningún expediente coincide con los filtros.</div>}
             {sorted.map(({cas,e,done})=>{
               return (
                 <div key={cas.id} onClick={()=>onOpen(cas)}
@@ -1109,19 +1185,19 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                     <FileText size={18} style={{color:C.accent}}/>
                   </div>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:15,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    <div style={{fontWeight:600,fontSize:17,color:C.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                       {e.asegurado||"Sin asegurado"}
                     </div>
-                    <div style={{fontSize:12,color:C.muted,marginTop:2}}>
+                    <div style={{fontSize:14,color:C.muted,marginTop:2}}>
                       {e.compania||"—"} · <span style={{fontFamily:FONT_MONO,fontWeight:600}}>{e.numReferencia||"—"}</span> · {e.lugarIntervencion||""}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                    <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:700}}>{done}/4</div>
+                    <div style={{background:C.greenBg,color:C.green,borderRadius:20,padding:"3px 11px",fontSize:13,fontWeight:700}}>{done}/4</div>
                     {onDelete&&<button onClick={ev=>{ev.stopPropagation();if(confirm("¿Eliminar este encargo?"))onDelete(cas.id);}}
                       aria-label="Eliminar encargo"
                       style={{background:"none",border:`1px solid ${C.border}`,borderRadius:6,padding:"4px 7px",
-                        cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:11}}>
+                        cursor:"pointer",color:C.muted,fontFamily:"inherit",fontSize:13}}>
                       <Trash2 size={11}/>
                     </button>}
                     <ChevronRight size={15} style={{color:C.muted}}/>
@@ -1138,7 +1214,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             <div style={{background:C.white,width:"100%",borderRadius:"16px 16px 0 0",maxHeight:"85vh",
                 overflowY:"auto",padding:"18px 18px 22px",boxSizing:"border-box"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <span style={{fontFamily:"'Source Serif 4',serif",fontSize:18,color:C.ink}}>Filtros</span>
+                <span style={{fontFamily:"'Source Serif 4',serif",fontSize:20,color:C.ink}}>Filtros</span>
                 <button onClick={()=>setMobileFiltersOpen(false)} aria-label="Cerrar filtros"
                   style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={20}/></button>
               </div>
@@ -1175,14 +1251,14 @@ const DropZone = ({label,sublabel,icon:Icon,file,onFile,accept=".pdf",badge,isLo
         background:drag?C.accentLight:isLoading?C.accentLight:file?C.greenBg:C.bg,
         transition:"all .2s",position:"relative",minHeight:120,display:"flex",flexDirection:"column",
         alignItems:"center",justifyContent:"center",gap:7}}>
-      {badge&&<div style={{position:"absolute",top:8,left:8,background:C.accent,color:"#fff",borderRadius:4,fontSize:10,fontWeight:700,padding:"2px 7px"}}>{badge}</div>}
+      {badge&&<div style={{position:"absolute",top:8,left:8,background:C.accent,color:"#fff",borderRadius:4,fontSize:12,fontWeight:700,padding:"2px 7px"}}>{badge}</div>}
       {isLoading
-        ?<><Loader2 size={26} style={{color:C.accent,animation:"spin 1s linear infinite"}}/><div style={{fontWeight:600,fontSize:13,color:C.accent}}>{loadingMsg||"Procesando…"}</div></>
+        ?<><Loader2 size={26} style={{color:C.accent,animation:"spin 1s linear infinite"}}/><div style={{fontWeight:600,fontSize:15,color:C.accent}}>{loadingMsg||"Procesando…"}</div></>
         :file
           ?<><div style={{width:32,height:32,background:C.green,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}><Check size={16} style={{color:"#fff"}}/></div>
-              <div style={{fontWeight:600,fontSize:13,color:C.green}}>{file.name}</div>
-              <div style={{fontSize:11,color:C.muted}}>{(file.size/1024).toFixed(0)} KB · clic para cambiar</div></>
-          :<><Icon size={24} style={{color:drag?C.accent:C.muted}}/><div style={{fontWeight:600,fontSize:13,color:C.ink}}>{label}</div><div style={{fontSize:11,color:C.muted}}>{sublabel}</div></>
+              <div style={{fontWeight:600,fontSize:15,color:C.green}}>{file.name}</div>
+              <div style={{fontSize:13,color:C.muted}}>{(file.size/1024).toFixed(0)} KB · clic para cambiar</div></>
+          :<><Icon size={24} style={{color:drag?C.accent:C.muted}}/><div style={{fontWeight:600,fontSize:15,color:C.ink}}>{label}</div><div style={{fontSize:13,color:C.muted}}>{sublabel}</div></>
       }
       <input ref={ref} type="file" accept={accept} style={{display:"none"}} onChange={e=>e.target.files[0]&&onFile(e.target.files[0])}/>
     </div>
@@ -1360,25 +1436,25 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <div style={{width:48,height:48,background:`linear-gradient(135deg,${C.accent},#C1494E)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
             <Sparkles size={22} style={{color:"#fff"}}/>
           </div>
-          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
-          <p style={{color:C.muted,fontSize:13}}>Adjunta el encargo y la póliza. Los datos se extraerán automáticamente.</p>
+          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
+          <p style={{color:C.muted,fontSize:15}}>Adjunta el encargo y la póliza. Los datos se extraerán automáticamente.</p>
         </div>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:C.ink,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Hoja de Encargo <span style={{color:C.accent}}>*</span></div>
+            <div style={{fontSize:13,fontWeight:700,color:C.ink,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Hoja de Encargo <span style={{color:C.accent}}>*</span></div>
             <DropZone label="Adjuntar encargo" sublabel="PDF de la compañía" icon={FileText} file={encFile} onFile={setEncFile} badge="Obligatorio"/>
           </div>
           <div>
-            <div style={{fontSize:11,fontWeight:700,color:C.ink,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Póliza de Seguro</div>
+            <div style={{fontSize:13,fontWeight:700,color:C.ink,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Póliza de Seguro</div>
             <DropZone label="Adjuntar póliza" sublabel="Para extraer capitales y garantías" icon={Shield} file={polFile} onFile={handlePolFile} badge="Opcional" isLoading={polLoading} loadingMsg="Subiendo póliza…"/>
           </div>
         </div>
-        {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.green,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
+        {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:7,padding:"9px 12px",fontSize:14,color:C.green,marginBottom:14,display:"flex",alignItems:"center",gap:7}}>
           <Check size={13}/>
           <span><b>Listo.</b> {polFile?"Encargo y póliza adjuntos — se extraerán datos de ambos.":"Encargo adjunto. Sin póliza, los capitales se rellenarán manualmente."}</span>
         </div>}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <button onClick={()=>{setData({});setStep("review");}} style={{background:"none",border:"none",color:C.muted,fontSize:12,cursor:"pointer",textDecoration:"underline"}}>Crear sin documentos</button>
+          <button onClick={()=>{setData({});setStep("review");}} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",textDecoration:"underline"}}>Crear sin documentos</button>
           <div style={{display:"flex",gap:10}}>
             <Btn ghost onClick={onCancel}>Cancelar</Btn>
             <Btn primary onClick={processAll} disabled={!encFile}><Sparkles size={13}/>Extraer datos</Btn>
@@ -1392,8 +1468,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg}}>
       <div style={{textAlign:"center",maxWidth:360}}>
         <Loader2 size={40} style={{color:C.accent,animation:"spin 1s linear infinite",marginBottom:16}}/>
-        <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:19,fontWeight:400,marginBottom:6}}>Extrayendo datos…</h3>
-        <p style={{color:C.accent,fontSize:13,fontWeight:600}}>{msg}</p>
+        <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:21,fontWeight:400,marginBottom:6}}>Extrayendo datos…</h3>
+        <p style={{color:C.accent,fontSize:15,fontWeight:600}}>{msg}</p>
       </div>
     </div>
   );
@@ -1402,13 +1478,13 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     <div style={{minHeight:"100vh",background:C.bg,padding:"36px 0",overflowY:"auto"}}>
       <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px"}}>
         <div style={{marginBottom:22}}>
-          <div style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos</div>
-          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
-          <p style={{color:C.muted,fontSize:12,marginTop:3}}>Revisa y corrige antes de continuar</p>
+          <div style={{fontSize:12,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos</div>
+          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
+          <p style={{color:C.muted,fontSize:14,marginTop:3}}>Revisa y corrige antes de continuar</p>
         </div>
         <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
-          {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"4px 11px",fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Encargo: {encFile.name}</div>}
-          {polFile&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 11px",fontSize:11,color:C.blue,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Póliza: {polFile.name}</div>}
+          {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"4px 11px",fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Encargo: {encFile.name}</div>}
+          {polFile&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 11px",fontSize:13,color:C.blue,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Póliza: {polFile.name}</div>}
         </div>
 
         <Card s={{marginBottom:12}}>
@@ -1422,7 +1498,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
               {COMPANIAS.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
             {data.compania&&!COMPANIAS.find(c=>data.compania&&data.compania.toUpperCase().includes(c.toUpperCase()))&&
-              <div style={{fontSize:11,color:C.orange,marginTop:3}}>Valor extraído: "{data.compania}" — selecciona manualmente</div>
+              <div style={{fontSize:13,color:C.orange,marginTop:3}}>Valor extraído: "{data.compania}" — selecciona manualmente</div>
             }
           </div>
           <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -1464,7 +1540,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
             <div>
               <EuroInput label="Capital Continente" value={data.capitalContinente} onChange={s("capitalContinente")}
                 hint={data.tipoContinentePoliza?"Tipo: "+data.tipoContinentePoliza:data.polizaAdjunta?"Extraído de la póliza":"Introduce el valor de la póliza"}/>
-              {data.todosCapitalesContinente&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:5,padding:"5px 9px",fontSize:10,color:C.blue,marginTop:-10,marginBottom:8}}>
+              {data.todosCapitalesContinente&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:5,padding:"5px 9px",fontSize:12,color:C.blue,marginTop:-10,marginBottom:8}}>
                 Todos los capitales en póliza: {data.todosCapitalesContinente}
               </div>}
             </div>
@@ -1508,18 +1584,18 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
-          {n&&<span style={{fontSize:10,color:C.accent,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",display:"block",marginBottom:2}}>SECCIÓN {n}</span>}
+        <div style={{fontFamily:"'Source Serif 4',serif",fontSize:17,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
+          {n&&<span style={{fontSize:12,color:C.accent,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",display:"block",marginBottom:2}}>SECCIÓN {n}</span>}
           {title}
         </div>
         {!done&&<Btn sm ghost onClick={()=>onGoTo(id)}>Completar<ChevronRight size={13}/></Btn>}
-        {done&&<span style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={11}/>Completado</span>}
+        {done&&<span style={{fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={11}/>Completado</span>}
       </div>
       {children}
     </div>
   );
 
-  const Empty = ({msg}) => <div style={{fontSize:12,color:C.border,fontStyle:"italic",padding:"12px 0"}}>{msg}</div>;
+  const Empty = ({msg}) => <div style={{fontSize:14,color:C.border,fontStyle:"italic",padding:"12px 0"}}>{msg}</div>;
 
   return (
     <div className="fade">
@@ -1528,8 +1604,8 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* CABECERA */}
       <Card s={{marginBottom:18,borderLeft:`4px solid ${C.accent}`,padding:24}}>
         <div style={{textAlign:"center",marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
-          <div style={{fontSize:11,color:C.muted,letterSpacing:".1em",textTransform:"uppercase",marginTop:3}}>Intervención Pericial No Auto</div>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:26,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
+          <div style={{fontSize:13,color:C.muted,letterSpacing:".1em",textTransform:"uppercase",marginTop:3}}>Intervención Pericial No Auto</div>
         </div>
         <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
           {[["Compañía",enc.compania],["Nº Referencia",enc.numReferencia],["Nº Póliza",enc.numPoliza],
@@ -1537,8 +1613,8 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             ["Fecha Encargo",enc.fechaEncargo],["Fecha Siniestro",enc.fechaSiniestro],["Nº de Encargo",enc.numExpInterno],
           ].map(([k,v])=>(
             <div key={k} style={{borderBottom:`1px solid ${C.border}`,paddingBottom:7}}>
-              <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>{k}</div>
-              <div style={{fontSize:13,fontWeight:600,color:v?C.ink:C.border,fontFamily:k==="Nº Referencia"?FONT_MONO:"inherit"}}>{v||"—"}</div>
+              <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>{k}</div>
+              <div style={{fontSize:15,fontWeight:600,color:v?C.ink:C.border,fontFamily:k==="Nº Referencia"?FONT_MONO:"inherit"}}>{v||"—"}</div>
             </div>
           ))}
         </div>
@@ -1547,7 +1623,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           <InfoRow label="Asegurado" val={enc.asegurado}/>
           <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
         </div>
-        <div style={{marginTop:14,padding:11,background:C.bg,borderRadius:7,fontSize:11,color:C.muted,lineHeight:1.7,fontStyle:"italic"}}>
+        <div style={{marginTop:14,padding:11,background:C.bg,borderRadius:7,fontSize:13,color:C.muted,lineHeight:1.7,fontStyle:"italic"}}>
           Este informe ha sido emitido a tenor del siniestro declarado en el riesgo asegurado. El que suscribe manifiesta bajo promesa de decir verdad que ha actuado con la mayor objetividad posible.
         </div>
       </Card>
@@ -1558,12 +1634,12 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ["Sec.2",!!(s2?.textoAI)],["Sec.3",partidas.length>0],["Sec.4",!!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||partidas.length>0]
         ].map(([l,done])=>(
           <div key={l} style={{background:done?C.greenBg:C.tag,border:`1px solid ${done?"#A7F3D0":C.border}`,
-            borderRadius:20,padding:"3px 11px",fontSize:11,fontWeight:600,color:done?C.green:C.muted,
+            borderRadius:20,padding:"3px 11px",fontSize:13,fontWeight:600,color:done?C.green:C.muted,
             display:"flex",alignItems:"center",gap:4}}>
             {done&&<Check size={10}/>}{l}
           </div>
         ))}
-        {indemn>0&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:20,padding:"3px 14px",fontSize:12,fontWeight:700,color:C.green,marginLeft:"auto"}}>
+        {indemn>0&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:20,padding:"3px 14px",fontSize:14,fontWeight:700,color:C.green,marginLeft:"auto"}}>
           Indemnización: {fmtE(indemn)}
         </div>}
       </div>
@@ -1571,12 +1647,12 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* SECCIÓN 1 */}
       <Section n="1" title="Verificación del Riesgo y Póliza" id="s1" done={!!(s1?.superficieConstruida||s1?.textoInstant)}>
         {enc.tipoEncargo==="INSTANT_PAYMENT"
-          ? <div style={{fontSize:13,color:C.ink,lineHeight:1.8}}>
+          ? <div style={{fontSize:15,color:C.ink,lineHeight:1.8}}>
               {s1?.textoInstant||(`Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||"—"}. Este siniestro se ha gestionado documentalmente.`)}
             </div>
           : s1?.superficieConstruida
           ?<>
-            <div style={{fontSize:13,color:C.ink,lineHeight:1.8,marginBottom:12}}>
+            <div style={{fontSize:15,color:C.ink,lineHeight:1.8,marginBottom:12}}>
               {[["Tipo de riesgo",s1.tipoRiesgo],["Año de construcción",s1.anoConstruccion],
                 ["Superficie construida",s1.superficieConstruida?" m²":null],
                 ["Calidad de acabados",s1.calidad],["Estado general",s1.estado||"—"],
@@ -1586,24 +1662,24 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
             {(()=>{
               const cat = (anexos?.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
               return cat?<div style={{marginBottom:12}}>
-                <div style={{fontSize:9,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Cartografía catastral</div>
+                <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Cartografía catastral</div>
                 <img src={cat.url} alt="Catastro" style={{maxWidth:"100%",maxHeight:260,objectFit:"contain",border:`1px solid ${C.border}`,borderRadius:6,display:"block"}}/>
-                {cat.caption&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>{cat.caption}</div>}
+                {cat.caption&&<div style={{fontSize:12,color:C.muted,marginTop:3}}>{cat.caption}</div>}
               </div>:null;
             })()}
             <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[["CONTINENTE",capCont,vReal,infraCont],["CONTENIDO",parseFloat(enc.capitalContenido||0),parseFloat(enc.capitalContenido||0),0]].map(([t,aseg,prev,infra])=>(
                 <div key={t} style={{background:infra>0?C.redBg:C.greenBg,border:`1px solid ${infra>0?"#FECACA":"#A7F3D0"}`,borderRadius:7,padding:12}}>
-                  <div style={{fontSize:10,fontWeight:700,color:infra>0?C.red:C.green,marginBottom:7,textTransform:"uppercase"}}>{t}</div>
+                  <div style={{fontSize:12,fontWeight:700,color:infra>0?C.red:C.green,marginBottom:7,textTransform:"uppercase"}}>{t}</div>
                   {[["Valor Asegurado",fmtE(aseg)],["Valor Preexistente",fmtE(prev)],["Infraseguro",`${fmt(infra)} %`]].map(([k,v])=>(
-                    <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                    <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:3}}>
                       <span style={{color:C.muted}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
                     </div>
                   ))}
                 </div>
               ))}
             </div>
-            {s1.aiText&&<div style={{marginTop:12,fontSize:12,color:C.ink,lineHeight:1.8,background:C.bg,borderRadius:7,padding:12,whiteSpace:"pre-wrap"}}>{s1.aiText}</div>}
+            {s1.aiText&&<div style={{marginTop:12,fontSize:14,color:C.ink,lineHeight:1.8,background:C.bg,borderRadius:7,padding:12,whiteSpace:"pre-wrap"}}>{s1.aiText}</div>}
           </>
           :<Empty msg="Completa la Sección 1 para ver los datos del riesgo"/>
         }
@@ -1613,10 +1689,10 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       <Section n="2" title="Causas y Circunstancias" id="s2" done={!!(s2?.textoAI||s2?.textoRaw||s2?.meteo)}>
         {(s2?.textoAI||s2?.textoRaw||s2?.meteo)
           ?<>
-            {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
+            {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
             {s2?.meteo&&<div style={{marginTop:(s2?.textoAI||s2?.textoRaw)?14:0}}>
-              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:13,color:C.ink,marginBottom:6}}>Verificación meteorológica (XEMA)</div>
-              {s2.meteo.texto&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
+              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,color:C.ink,marginBottom:6}}>Verificación meteorológica (XEMA)</div>
+              {s2.meteo.texto&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
               <MeteoTabla m={s2.meteo} enc={enc}/>
             </div>}
           </>
@@ -1627,23 +1703,23 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       <Section n="3" title="Valoración de Daños" id="s3" done={partidas.length>0}>
         {partidas.length>0
           ?<>
-            {s3?.textoAI&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
-            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:14,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
+            {s3?.textoAI&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
+            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:16,fontWeight:400,color:C.ink,marginBottom:8,textAlign:"center"}}>{s3?.conceptoGarantia||enc.garantia||"Fenómenos atmosféricos"}</div>
             {[["Continente",rowsContP],["Contenido",rowsCont2P]].filter(([,rows])=>rows.length>0).map(([titulo,rows])=>(
               <div key={titulo} style={{marginBottom:16}}>
-                <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>{titulo}</div>
-                <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>{titulo}</div>
+                <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
                   <thead><tr style={{background:C.ink}}>
                     {["Oficio","Descripción-concepto","Uds","V.Unit.€","V.Repos.€",...(showIVAp?["%IVA","IVA €"]:[]),...(showDeprp?["Depr","%Depr"]:[]),"V.Real €","Perceptor","Cob."].map((h,hi)=>(
-                      <th key={hi} style={{padding:"6px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
+                      <th key={hi} style={{padding:"6px 6px",textAlign:h==="Descripción-concepto"||h==="Oficio"?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:12}}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
                     {rows.map((p,i)=>{
                       const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
                       return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":"rgba(44,95,107,.04)"}}>
-                        <td style={{padding:"5px 6px",fontSize:11,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
-                        <td style={{padding:"5px 6px",fontSize:11}}>{p.desc}</td>
+                        <td style={{padding:"5px 6px",fontSize:13,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
+                        <td style={{padding:"5px 6px",fontSize:13}}>{p.desc}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.uds||1}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(p.p)}</td>
                         <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vr)}</td>
@@ -1669,11 +1745,11 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                 </table>
               </div>
             ))}
-            <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Resumen de Daños</div>
-            <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Resumen de Daños</div>
+            <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
               <thead><tr style={{background:C.ink}}>
                 {["Garantía","Valor a nuevo","Valor real"].map((h,hi)=>(
-                  <th key={hi} style={{padding:"6px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:10}}>{h}</th>
+                  <th key={hi} style={{padding:"6px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:12}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
@@ -1690,11 +1766,11 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                 <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                   <td style={{padding:"7px 8px",color:C.accent}}>Total estimación de daños</td>
                   <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(totNuevoContP+totNuevoCont2P)}</td>
-                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
+                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontSize:15,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
                 </tr>
               </tbody>
             </table>
-            {fraseIndemn(s3,indemn)&&<div style={{marginTop:12,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>{fraseIndemn(s3,indemn)}</div>}
+            {fraseIndemn(s3,indemn)&&<div style={{marginTop:12,fontSize:15,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>{fraseIndemn(s3,indemn)}</div>}
           </>
           :<Empty msg="Completa la Sección 3 para ver la valoración de daños"/>}
       </Section>
@@ -1709,14 +1785,14 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         <Section n="4" title="Estudio de Cobertura-Indemnización" id="s4" done={s4Done}>
           {s4Done
           ?<>
-            {s4Intro&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s4Intro}</div>}
-            {s4Desc&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14,background:C.bg,borderRadius:7,padding:12}}>{s4Desc}</div>}
+            {s4Intro&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s4Intro}</div>}
+            {s4Desc&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14,background:C.bg,borderRadius:7,padding:12}}>{s4Desc}</div>}
             {totalDano>0&&<>
-              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:14,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
-              <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:14}}>
+              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:16,textAlign:"center",marginBottom:8}}>Resumen por garantías — Propuesta de indemnización</div>
+              <table className="tbl-scroll" style={{width:"100%",borderCollapse:"collapse",fontSize:14,marginBottom:14}}>
                 <thead><tr style={{background:C.accentLight}}>
                   {["Garantía Afectada","D.con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
-                    <th key={h} style={{padding:"6px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:11}}>{h}</th>
+                    <th key={h} style={{padding:"6px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:13}}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
@@ -1731,12 +1807,12 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                   </tr>
                   <tr style={{background:C.accentLight,fontWeight:700}}>
                     <td colSpan={6} style={{padding:"8px",textAlign:"right",color:C.accent}}>TOTAL PROPUESTA DE INDEMNIZACIÓN</td>
-                    <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:14}}>{fmtE(indemn)}</td>
+                    <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:16}}>{fmtE(indemn)}</td>
                   </tr>
                 </tbody>
               </table>
             </>}
-            {s4Indemn&&<div style={{fontSize:13,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s4Indemn}</div>}
+            {s4Indemn&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s4Indemn}</div>}
           </>
           :<Empty msg="Completa la Sección 4 para ver el estudio de cobertura"/>}
         </Section>
@@ -1753,11 +1829,11 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         if(!anyAnex) return null;
         return (
           <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
-            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
+            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:17,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
             {[{label:"Reportaje fotográfico",items:allFotos},{label:"Info catastral",items:allCatastro},{label:"Info Meteosim",items:allMeteosim},{label:"Factura",items:allFacturas}]
               .filter(g=>g.items.length>0).map(g=>(
               <div key={g.label} style={{marginBottom:10}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>- {g.label}. {g.label}</div>
+                <div style={{fontSize:14,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>- {g.label}. {g.label}</div>
                 {g.label==="Reportaje fotográfico"
                   ?<div className="grid3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                     {allFotos.map(f=>{
@@ -1768,12 +1844,12 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                           ?<iframe src={f.url} title={f.name} style={{width:"100%",height:80,border:"none",pointerEvents:"none",display:"block"}}/>
                           :<img src={f.url} alt={f.caption} style={{width:"100%",height:"auto",maxHeight:120,objectFit:"contain",display:"block"}}/>
                         }
-                        {f.caption&&<div style={{fontSize:9,padding:"3px 5px",color:C.muted,textAlign:"center"}}>{f.caption}</div>}
+                        {f.caption&&<div style={{fontSize:11,padding:"3px 5px",color:C.muted,textAlign:"center"}}>{f.caption}</div>}
                       </div>
                       );
                     })}
                   </div>
-                  :<div style={{fontSize:12,color:C.muted}}>
+                  :<div style={{fontSize:14,color:C.muted}}>
                     {g.items.map(f=><div key={f.id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
                       <Receipt size={11} style={{color:C.muted,flexShrink:0}}/>{f.name}
                     </div>)}
@@ -1785,7 +1861,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         );
       })()}
 
-      <div style={{textAlign:"center",color:C.muted,fontSize:12,fontStyle:"italic",paddingTop:8}}>
+      <div style={{textAlign:"center",color:C.muted,fontSize:14,fontStyle:"italic",paddingTop:8}}>
         Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.
       </div>
     </div>
@@ -1793,7 +1869,13 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
 };
 
 // ─── SECCIÓN 1 ────────────────────────────────────────────────────────────────
-const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo}) => {
+const SEC1_BLOCKS = [
+  {id:"s1-b1",label:"Datos del Riesgo"},
+  {id:"s1-b2",label:"Superficie y Arquitectura"},
+  {id:"s1-b3",label:"Capitales Asegurados"},
+];
+
+const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) => {
   const [calSug,setCalSug]     = useState("");
   const [aiLoad,setAiLoad]     = useState(false);
   const [catLoad,setCatLoad]   = useState(false);
@@ -1882,11 +1964,11 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo}) => {
 
       <Card s={{marginBottom:14}}>
         <SectionLabel>Texto de la Sección 1</SectionLabel>
-        <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:12,color:C.blue,marginBottom:10}}>
+        <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.blue,marginBottom:10}}>
           <b>Instant Payment — gestión documental.</b> El texto se genera automáticamente con la dirección del encargo. Edítalo si necesitas ajustarlo.
         </div>
         <AutoTextarea value={data.textoInstant} onChange={v=>onChange({...data,textoInstant:v})}
-          minRows={3} style={{lineHeight:1.7,fontSize:13,marginBottom:8}}/>
+          minRows={3} style={{lineHeight:1.7,fontSize:15,marginBottom:8}}/>
         <Btn sm primary onClick={async ()=>{
           setAiLoad(true);
           const t = await callClaude(
@@ -1919,6 +2001,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
   const arqLabel = n3opciones.find(x=>x.k===arqKey)?.l||"";
   const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
   const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
+  const {active,setRef,goTo} = useBlockRail(SEC1_BLOCKS, scrollRef);
 
   return (
     <div className="fade">
@@ -1932,6 +2015,8 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 
       <ZoneLabel zone="trabajo">Lo que aportas tras la visita</ZoneLabel>
 
+      <WorkGrid rail={<BlockRail blocks={SEC1_BLOCKS} active={active} onGoTo={goTo}/>}>
+      <div ref={setRef("s1-b1")}>
       {/* DATOS DEL RIESGO */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Datos del Riesgo Asegurado</SectionLabel>
@@ -1946,7 +2031,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 
         <div style={{marginBottom:14}}>
           <Lbl c="Calidad de acabados"/>
-          {enc.calidadPóliza&&!data.calidad&&<div style={{fontSize:11,color:C.green,marginBottom:4}}>
+          {enc.calidadPóliza&&!data.calidad&&<div style={{fontSize:13,color:C.green,marginBottom:4}}>
             Detectado en póliza: <b>{enc.calidadPóliza}</b> — seleccionado automáticamente
           </div>}
           <select value={data.calidad||(enc.calidadPóliza||"")} onChange={e=>s("calidad")(e.target.value)}
@@ -1954,16 +2039,18 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             <option value="">Seleccionar…</option>
             {["Básica","Media","Alta"].map(o=><option key={o}>{o}</option>)}
           </select>
-          {calSug&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:5,padding:"7px 10px",marginTop:5,fontSize:11,color:C.green}}>
+          {calSug&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:5,padding:"7px 10px",marginTop:5,fontSize:13,color:C.green}}>
             <b>Sugerencia:</b> {data.calidad||enc.calidadPóliza} — {calSug}
           </div>}
         </div>
         <Sel label="Estado general del riesgo (rellenar tras visita)" value={data.estado} onChange={s("estado")}
           options={["Nuevo","Buen estado","Reformado","Usado","Deteriorado"]}/>
-        {!data.estado&&<div style={{fontSize:11,color:C.orange,marginTop:-10,marginBottom:10,display:"flex",alignItems:"center",gap:5}}>
+        {!data.estado&&<div style={{fontSize:13,color:C.orange,marginTop:-10,marginBottom:10,display:"flex",alignItems:"center",gap:5}}>
           <AlertTriangle size={12}/>Pendiente de rellenar tras la visita presencial</div>}
       </Card>
+      </div>
 
+      <div ref={setRef("s1-b2")}>
       {/* SUPERFICIE Y ARQUITECTURA — Catastro + Tipo de Arquitectura fusionados:
           las dos sirven para lo mismo, obtener superficie y módulo de cálculo. */}
       <Card s={{marginBottom:14}}>
@@ -1971,12 +2058,12 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         <Btn primary full onClick={consultarCatastro} disabled={catLoad}>
           {catLoad?<><Spin/>Consultando Catastro…</>:<><FileImage size={13}/>Consultar Catastro</>}
         </Btn>
-        {catErr&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>{catErr}</div>}
-        {catOk&&!catErr&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:6}}><Check size={12}/>Datos y captura del Catastro añadidos (revisa los campos y los Anexos).</div>}
+        {catErr&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>{catErr}</div>}
+        {catOk&&!catErr&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:6}}><Check size={12}/>Datos y captura del Catastro añadidos (revisa los campos y los Anexos).</div>}
         <a href={`https://www1.sedecatastro.gob.es/cartografia/mapa.aspx?buscar=S&del=&muni=&cp=${encodeURIComponent(enc.lugarIntervencion||"")}`}
           target="_blank" rel="noreferrer"
           style={{display:"flex",alignItems:"center",gap:8,background:C.white,color:C.blue,border:`1px solid ${C.border}`,borderRadius:7,
-            padding:"8px 16px",fontSize:12,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
+            padding:"8px 16px",fontSize:14,fontWeight:600,textDecoration:"none",margin:"12px 0",justifyContent:"center"}}>
           <ExternalLink size={13}/>Abrir Sede del Catastro (consulta manual)
         </a>
         <Inp label="Referencia Catastral" value={data.refCatastral} onChange={s("refCatastral")} placeholder="Ej: 0731107EG1303S0001UG"/>
@@ -1986,7 +2073,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         </div>
 
         <div style={{height:1,background:C.border,margin:"14px 0"}}/>
-        <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Selecciona el tipo para calcular el valor preexistente del continente.</div>
+        <div style={{fontSize:14,color:C.muted,marginBottom:12}}>Selecciona el tipo para calcular el valor preexistente del continente.</div>
 
         {/* Nivel 1 */}
         <div style={{marginBottom:12}}>
@@ -1997,7 +2084,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
                 style={{flex:1,padding:"10px 12px",borderRadius:7,cursor:"pointer",textAlign:"center",
                   border:`2px solid ${(data.tipoArqNivel1||"Residencial")===n1?C.accent:C.border}`,
                   background:(data.tipoArqNivel1||"Residencial")===n1?C.accentLight:C.white,
-                  fontWeight:700,fontSize:13,color:(data.tipoArqNivel1||"Residencial")===n1?C.accent:C.ink}}>
+                  fontWeight:700,fontSize:15,color:(data.tipoArqNivel1||"Residencial")===n1?C.accent:C.ink}}>
                 {n1}
               </div>
             ))}
@@ -2026,22 +2113,24 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 
         {/* Módulo €/m² resultante */}
         {arqKey&&data.superficieConstruida&&(
-          <div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"10px 13px",fontSize:12}}>
+          <div style={{background:C.accentLight,border:"1px solid #F0C0C0",borderRadius:7,padding:"10px 13px",fontSize:14}}>
             <div style={{fontWeight:700,color:C.accent,marginBottom:4}}>Módulo de cálculo</div>
             <div style={{color:C.muted}}>
-              {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} (factor completo) = <b style={{color:C.ink,fontSize:13}}>{fmtE(vPreexCalc)}</b>
+              {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} (factor completo) = <b style={{color:C.ink,fontSize:15}}>{fmtE(vPreexCalc)}</b>
             </div>
-            <div style={{fontSize:10,color:C.muted,marginTop:3}}>
+            <div style={{fontSize:12,color:C.muted,marginTop:3}}>
               Factor incluye: gastos generales (13%), SS (1%), BI (6%), IVA, honorarios y tasas — según tablas
             </div>
           </div>
         )}
       </Card>
+      </div>
 
+      <div ref={setRef("s1-b3")}>
       {/* CAPITALES ASEGURADOS — los dos capitales editables, agrupados */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Capitales Asegurados</SectionLabel>
-        {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:12,color:"#92400E",lineHeight:1.6}}>
+        {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:14,color:"#92400E",lineHeight:1.6}}>
           <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
         <EuroInput label="Capital asegurado continente (de la póliza)" value={data.capContOverride!=null?data.capContOverride:enc.capitalContinente}
@@ -2052,18 +2141,28 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           hint="Si la póliza no asegura contenido, déjalo en 0,00 €"/>
         <div style={{marginBottom:0}}>
           <Lbl c="Valor preexistente del contenido (editable)"/>
-          <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Por defecto igual al capital asegurado. Puedes ajustarlo si es necesario.</div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:6}}>Por defecto igual al capital asegurado. Puedes ajustarlo si es necesario.</div>
           <EuroInput label="" value={data.vPreexContenido!=null?data.vPreexContenido:enc.capitalContenido}
             onChange={v=>onChange({...data,vPreexContenido:v})}
             hint=""/>
         </div>
       </Card>
+      </div>
+      </WorkGrid>
 
       <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
-      {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:10}}>
+      {primerRiesgoDetectado&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:14,color:C.blue,marginBottom:10}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><Info size={12}/>Continente a primer riesgo contratado en póliza.</b> El valor preexistente es igual al capital asegurado.
       </div>}
+
+      {!primerRiesgoDetectado&&<Formula>
+        <b style={{fontFamily:FONT_MONO}}>V.Preexistente</b> = Módulo €/m² × Superficie × Factor &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>Infraseguro %</b> = (V.Preexistente − V.Asegurado) / V.Preexistente × 100
+        {arqKey&&data.superficieConstruida&&<div style={{color:C.muted,marginTop:4}}>
+          Continente: {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} = <b>{fmtE(vPreexCalc)}</b>
+          {infraCont>0&&<> &nbsp;→&nbsp; ({fmtE(vPreexCalc)} − {fmtE(capCont)}) / {fmtE(vPreexCalc)} × 100 = <b>{fmt(infraCont)} %</b></>}
+        </div>}
+      </Formula>}
 
       <ResultTable cols={["Bloque","Valor asegurado","Valor preexistente","Infraseguro"]}>
         <tr style={{borderBottom:`1px solid ${C.border}`,background:infraCont>0?C.redBg:"transparent"}}>
@@ -2081,14 +2180,14 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       </ResultTable>
 
       {!primerRiesgoDetectado&&arqKey&&data.superficieConstruida&&(
-        <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+        <div style={{fontSize:13,color:C.muted,marginTop:8}}>
           {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
         </div>
       )}
-      {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
+      {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro continente {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
       </div>}
-      {infraC2>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:11,color:C.orange}}>
+      {infraC2>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro contenido {fmt(infraC2)}%</b> — Regla proporcional: coeficiente {(capCont2/vPCont).toFixed(4)}
       </div>}
 
@@ -2098,7 +2197,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 };
 
 // ─── SECCIÓN 2 ────────────────────────────────────────────────────────────────
-const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave,onAutoAnexo}) => {
+const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave,onAutoAnexo,scrollRef}) => {
   const [improving,setImproving] = useState(false);
   const [saved,setSaved]         = useState(false);
   const [meteoLoad,setMeteoLoad] = useState(false);
@@ -2155,6 +2254,9 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   const hayResultado = !!(data.meteo||data.textoAI);
+  const sec2Blocks = [{id:"s2-b1",label:"Descripción del Siniestro"},
+    esAtmosferico&&{id:"s2-b2",label:"Verificación Meteorológica"}].filter(Boolean);
+  const {active,setRef,goTo} = useBlockRail(sec2Blocks, scrollRef);
 
   return (
     <div className="fade">
@@ -2168,6 +2270,8 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 
       <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
 
+      <WorkGrid rail={<BlockRail blocks={sec2Blocks} active={active} onGoTo={goTo}/>}>
+      <div ref={setRef("s2-b1")}>
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción del Siniestro</SectionLabel>
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
@@ -2175,23 +2279,27 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
           onApply={()=>onChange({...data,aiApplied:true})} applied={data.aiApplied}
           placeholder="Describe el siniestro: cómo ocurrió, qué daños encontraste, qué te dijeron los afectados…" rows={5}/>
       </Card>
+      </div>
 
       {/* CONSULTA METEOROLÓGICA XEMA — solo si el siniestro es atmosférico */}
       {esAtmosferico&&(
+        <div ref={setRef("s2-b2")}>
         <Card s={{marginBottom:14}}>
           <SectionLabel>Verificación Meteorológica (XEMA · Meteocat)</SectionLabel>
-          <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:12,color:C.blue,marginBottom:12}}>
+          <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:14,color:C.blue,marginBottom:12}}>
             Consulta automática a la estación automática oficial más cercana al lugar del siniestro. Compara el viento y la lluvia registrados el día del siniestro con los umbrales de la póliza.
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <Btn outline onClick={consultarMeteo} disabled={meteoLoad}>
               {meteoLoad?<><Loader2 size={12} style={{animation:"spin 1s linear infinite"}}/>Consultando…</>:<><Search size={12}/>{data.meteo?"Volver a consultar":"Consultar datos meteorológicos"}</>}
             </Btn>
-            {data.meteo&&<span style={{fontSize:11,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={12}/>Estación {data.meteo.estacio} · {data.meteo.distanciaKm} km</span>}
+            {data.meteo&&<span style={{fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={12}/>Estación {data.meteo.estacio} · {data.meteo.distanciaKm} km</span>}
           </div>
-          {meteoErr&&<div style={{marginTop:10,background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:7,padding:"8px 12px",fontSize:12,color:C.orange}}>{meteoErr}</div>}
+          {meteoErr&&<div style={{marginTop:10,background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.orange}}>{meteoErr}</div>}
         </Card>
+        </div>
       )}
+      </WorkGrid>
 
       {hayResultado&&<ZoneLabel zone="resultado">Resultado</ZoneLabel>}
 
@@ -2201,9 +2309,9 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
           <div style={{marginTop:12}}>
             <SectionLabel>Texto pericial meteorológico<AutoBadge>Automático</AutoBadge></SectionLabel>
             <AutoTextarea value={data.meteo.texto} onChange={v=>onChange({...data,meteo:{...data.meteo,texto:v}})}
-              minRows={4} style={{fontSize:13}}
+              minRows={4} style={{fontSize:15}}
               placeholder="El texto se genera automáticamente tras la consulta. Puedes editarlo."/>
-            <div style={{fontSize:11,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
+            <div style={{fontSize:13,color:C.muted,marginTop:4}}>Este bloque (tabla + texto) se incluye en la Sección 2 del informe exportado.</div>
           </div>
         </Card>
       )}
@@ -2216,8 +2324,8 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
           </div>
           <AutoTextarea value={data.textoAI} onChange={v=>onChange({...data,textoAI:v,aiEdited:true})}
-            minRows={6} style={{fontSize:13}}/>
-          {data.aiEdited&&<div style={{fontSize:11,color:C.orange,marginTop:3}}>Texto editado manualmente</div>}
+            minRows={6} style={{fontSize:15}}/>
+          {data.aiEdited&&<div style={{fontSize:13,color:C.orange,marginTop:3}}>Texto editado manualmente</div>}
         </Card>
       )}
 
@@ -2234,11 +2342,17 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 // tecla, perdiendo el foco. A nivel de módulo su identidad es estable entre renders.
 const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
   <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
-    style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,
+    style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:12,
       fontFamily:type==="number"?FONT_MONO:"inherit",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
 );
 
-const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave}) => {
+const SEC3_BLOCKS = [
+  {id:"s3-b1",label:"Descripción de Daños"},
+  {id:"s3-b2",label:"Cómo se valora"},
+  {id:"s3-b3",label:"Perjudicados"},
+];
+
+const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave,scrollRef}) => {
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
@@ -2430,6 +2544,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     onChange({...data,facturas:[...facturas,...news]});
   };
   const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
+  const {active,setRef,goTo} = useBlockRail(SEC3_BLOCKS, scrollRef);
 
   return (
     <div className="fade">
@@ -2453,15 +2568,15 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             {tit:"Contenido", cap:reglas.capCont2,pre:reglas.vPreexContenido,infra:reglas.infraContenido,regla:reglas.contenido,field:"reglaContenido",on:!!data.reglaContenido},
           ].map(b=>(
             <div key={b.tit} style={{border:`1px solid ${b.infra>0?"#FECACA":C.border}`,borderRadius:8,padding:13,background:b.infra>0?C.redBg:C.bg}}>
-              <div style={{fontSize:11,fontWeight:700,color:b.infra>0?C.red:C.accent,marginBottom:9,textTransform:"uppercase",letterSpacing:".05em"}}>{b.tit}</div>
+              <div style={{fontSize:13,fontWeight:700,color:b.infra>0?C.red:C.accent,marginBottom:9,textTransform:"uppercase",letterSpacing:".05em"}}>{b.tit}</div>
               {[["Capital asegurado",fmtE(b.cap)],["Valor preexistente",fmtE(b.pre)],["Infraseguro",`${fmt(b.infra)} %`]].map(([k,v],idx)=>(
-                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:idx<2?`1px solid ${C.border}`:"none",fontSize:12}}>
+                <div key={k} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:idx<2?`1px solid ${C.border}`:"none",fontSize:14}}>
                   <span style={{color:C.muted}}>{k}</span><span style={{fontWeight:600,color:idx===2&&b.infra>0?C.red:C.ink}}>{v}</span>
                 </div>
               ))}
               <label style={{display:"flex",alignItems:"center",gap:8,marginTop:10,cursor:"pointer"}}>
                 <input type="checkbox" checked={b.on} onChange={e=>onChange({...data,[b.field]:e.target.checked})} style={{width:15,height:15,cursor:"pointer"}}/>
-                <span style={{fontSize:12,color:b.on?C.orange:C.muted}}>Aplicar regla proporcional{b.on&&b.regla<1?` (${fmt(b.regla*100)} %)`:""}</span>
+                <span style={{fontSize:14,color:b.on?C.orange:C.muted}}>Aplicar regla proporcional{b.on&&b.regla<1?` (${fmt(b.regla*100)} %)`:""}</span>
               </label>
             </div>
           ))}
@@ -2474,6 +2589,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
       <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
 
+      <WorkGrid rail={<BlockRail blocks={SEC3_BLOCKS} active={active} onGoTo={goTo}
+        stats={<RailStats label="Partidas · Total" value={`${partidas.length} · ${fmt(totReal)} €`} money/>}/>}>
+      <div ref={setRef("s3-b1")}>
       {/* DESCRIPCIÓN DE DAÑOS */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción de los Daños</SectionLabel>
@@ -2487,11 +2605,13 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
               <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado al informe</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
             </div>
             <AutoTextarea value={data.textoAI} onChange={v=>onChange({...data,textoAI:v})}
-              minRows={4} style={{fontSize:13}}/>
+              minRows={4} style={{fontSize:15}}/>
           </div>
         )}
       </Card>
+      </div>
 
+      <div ref={setRef("s3-b2")}>
       {/* CÓMO SE VALORA — modo + la acción que ese modo necesita, en la misma tarjeta */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Cómo se valora</SectionLabel>
@@ -2499,25 +2619,25 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           {[{v:"baremo",l:"A modo informativo"},{v:"presupuesto",l:"Por Presupuesto"},{v:"factura",l:"Por Factura"}].map(m=>(
             <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
               style={{padding:"7px 16px",borderRadius:7,border:`1.5px solid ${modoVal===m.v?C.accent:C.border}`,
-                background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:12,
+                background:modoVal===m.v?C.accentLight:C.white,cursor:"pointer",fontSize:14,
                 fontWeight:modoVal===m.v?700:400,color:modoVal===m.v?C.accent:C.ink,fontFamily:"inherit"}}>{m.l}
             </button>
           ))}
         </div>
 
         {esBaremo&&<div style={{paddingTop:14,borderTop:`1px dashed ${C.border}`}}>
-          <p style={{fontSize:11,color:C.muted,marginBottom:8}}>La tabla se genera a partir del baremo interno de precios y la descripción de daños de arriba.</p>
+          <p style={{fontSize:13,color:C.muted,marginBottom:8}}>La tabla se genera a partir del baremo interno de precios y la descripción de daños de arriba.</p>
           <Btn primary onClick={genFromBaremo} disabled={genLoad||(!data.textoRaw&&!data.textoAI)}>
             {genLoad?<><Spin/>Generando…</>:<><Sparkles size={13}/>Generar tabla de valoración</>}
           </Btn>
           {/* Resultado de "Generar tabla" a la vista: antes era un alert() del
               navegador, fácil de pasar por alto o de bloquear. */}
           {!data.textoRaw&&!data.textoAI&&
-            <div style={{fontSize:11,color:C.muted,marginTop:8}}>
+            <div style={{fontSize:13,color:C.muted,marginTop:8}}>
               Escribe la descripción de los daños para poder generar la tabla.
             </div>}
           {genMsg&&(
-            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:12,
+            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:14,
               background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
               border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
               color:genMsg.tipo==="error"?C.red:C.orange}}>
@@ -2533,34 +2653,34 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
         {/* PERCEPTOR (solo presupuesto / factura) */}
         {docMode&&<div style={{paddingTop:14,borderTop:`1px dashed ${C.border}`}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Perceptor de la indemnización</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Perceptor de la indemnización</div>
           <div style={{display:"flex",gap:20}}>
             {[{v:"particular",l:"Particular"},{v:"reparador",l:"Reparador"}].map(o=>(
-              <label key={o.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
+              <label key={o.v} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:15,
                 fontWeight:data.perceptorTipo===o.v?700:400,color:data.perceptorTipo===o.v?C.accent:C.ink}}>
                 <input type="checkbox" checked={data.perceptorTipo===o.v} onChange={()=>setPerceptorTipo(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
                 {o.l}
               </label>
             ))}
           </div>
-          {reparador&&<div style={{fontSize:11,color:C.muted,marginTop:8}}>Con perceptor Reparador no se aplica depreciación (columna oculta en la tabla).</div>}
+          {reparador&&<div style={{fontSize:13,color:C.muted,marginTop:8}}>Con perceptor Reparador no se aplica depreciación (columna oculta en la tabla).</div>}
 
-          <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",margin:"16px 0 10px"}}>{esFactura?"Facturas":"Presupuestos"}</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".06em",margin:"16px 0 10px"}}>{esFactura?"Facturas":"Presupuestos"}</div>
           <div onClick={()=>facRef.current.click()}
             style={{border:`2px dashed ${C.border}`,borderRadius:8,padding:"16px",textAlign:"center",
               cursor:"pointer",background:C.bg,marginBottom:10}}>
             <Upload size={20} style={{color:C.muted,marginBottom:6}}/>
-            <div style={{fontSize:12,fontWeight:600,color:C.ink}}>Adjuntar {esFactura?"facturas":"presupuestos"}</div>
-            <div style={{fontSize:11,color:C.muted}}>PDF · Se adjuntarán automáticamente al informe final</div>
+            <div style={{fontSize:14,fontWeight:600,color:C.ink}}>Adjuntar {esFactura?"facturas":"presupuestos"}</div>
+            <div style={{fontSize:13,color:C.muted}}>PDF · Se adjuntarán automáticamente al informe final</div>
             <input ref={facRef} type="file" multiple accept=".pdf" style={{display:"none"}}
               onChange={e=>addFactura(e.target.files)}/>
           </div>
           {facturas.map(f=>(
             <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
-              background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:12}}>
+              background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:14}}>
               <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
               <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
-              <span style={{color:C.muted,fontSize:11}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
+              <span style={{color:C.muted,fontSize:13}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
               <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
             </div>
           ))}
@@ -2568,7 +2688,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
           </Btn>}
           {genMsg&&(
-            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:12,
+            <div style={{display:"flex",alignItems:"flex-start",gap:7,marginTop:10,padding:"8px 12px",borderRadius:7,fontSize:14,
               background:genMsg.tipo==="error"?C.redBg:C.orangeBg,
               border:`1px solid ${genMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
               color:genMsg.tipo==="error"?C.red:C.orange}}>
@@ -2582,13 +2702,15 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           )}
         </div>}
       </Card>
+      </div>
 
+      <div ref={setRef("s3-b3")}>
       {/* PERJUDICADOS — plegado a una línea cuando la respuesta es "No" (lo habitual) */}
       {!data.hayPerjudicados&&<div style={{display:"flex",alignItems:"center",gap:8,background:C.white,
-        border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 14px",marginBottom:14,fontSize:12.5}}>
+        border:`1px solid ${C.border}`,borderRadius:9,padding:"10px 14px",marginBottom:14,fontSize:14.5}}>
         <span style={{fontWeight:600}}>Perjudicados</span>
         <span style={{color:C.muted}}>— ninguno</span>
-        <button onClick={()=>setHayPerjudicados(true)} style={{marginLeft:"auto",fontSize:11,fontWeight:600,
+        <button onClick={()=>setHayPerjudicados(true)} style={{marginLeft:"auto",fontSize:13,fontWeight:600,
           color:C.accent,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
           <Plus size={11} style={{verticalAlign:"-1px",marginRight:3}}/>Añadir
         </button>
@@ -2597,14 +2719,14 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         <SectionLabel>¿Hay perjudicados?</SectionLabel>
         <div style={{display:"flex",gap:20,marginBottom:12}}>
           {[{v:true,l:"Sí"},{v:false,l:"No"}].map(o=>(
-            <label key={String(o.v)} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,
+            <label key={String(o.v)} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:15,
               fontWeight:!!data.hayPerjudicados===o.v?700:400,color:!!data.hayPerjudicados===o.v?C.accent:C.ink}}>
               <input type="checkbox" checked={!!data.hayPerjudicados===o.v} onChange={()=>setHayPerjudicados(o.v)} style={{width:16,height:16,cursor:"pointer"}}/>
               {o.l}
             </label>
           ))}
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Nombra cada perjudicado para identificarlo. Aparecerán como opción en el campo «Perceptor» de la tabla.</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:8}}>Nombra cada perjudicado para identificarlo. Aparecerán como opción en el campo «Perceptor» de la tabla.</div>
         {perjudicados.map((pj,idx)=>(
           <div key={pj.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
             <input value={pj.nombre||""} onChange={e=>updPerjudicado(pj.id,e.target.value)}
@@ -2615,16 +2737,27 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         ))}
         <Btn sm onClick={addPerjudicado}><Plus size={11}/>Añadir perjudicado</Btn>
       </Card>}
+      </div>
+      </WorkGrid>
 
       <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
       {/* TABLAS DE VALORACIÓN — Continente / Contenido */}
-      <div style={{fontSize:11,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>
         {esBaremo?"Valoración — A modo informativo":esPresup?"Valoración — Presupuesto":"Valoración — Factura"}
       </div>
-      <div style={{fontSize:11,color:C.blue,background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"6px 10px",marginBottom:14}}>
-        <b>Fórmula:</b> V.Real = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
-      </div>
+      <Formula>
+        <b style={{fontFamily:FONT_MONO}}>V.Real</b> = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>V.Repos</b> = Uds × V.Unitario
+        &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
+        {(()=>{
+          const ejemplo = rowsActivas.find(p=>p.ivaOn||p.depr);
+          if(!ejemplo) return null;
+          const {vRepos,ivaAmt,vReal} = calc(ejemplo);
+          return <div style={{color:C.muted,marginTop:4}}>
+            {ejemplo.desc||"Partida"}: {fmt(vRepos)} €{ejemplo.depr?` × (1 − ${fmt(ejemplo.pctDepr||0)}%)`:""}{ejemplo.ivaOn?` + ${fmt(ivaAmt)} € IVA`:""} = <b>{fmt(vReal)} €</b>
+          </div>;
+        })()}
+      </Formula>
 
       {[{key:"continente",titulo:"Continente",rows:partidasCont,sub:{repos:sumRepos(activasCont),iva:sumIVA(activasCont),real:totRealCont}},
         {key:"contenido",titulo:"Contenido",rows:partidasCont2,sub:{repos:sumRepos(activasCont2),iva:sumIVA(activasCont2),real:totRealCont2}}].map(tabla=>(
@@ -2634,14 +2767,14 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             <Btn sm onClick={()=>addRow(tabla.key)}><Plus size={11}/>Fila</Btn>
           </div>
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:10,minWidth:820}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{background:C.ink}}>
-                {["","Oficio","Descripción-concepto","Uds","V.Unitario €","V.Repos €",...(showIVA?["IVA","%IVA","IVA €"]:[]),...(showDepr?["Depr","%Depr"]:[]),"V.Real €","Perceptor","Cob.",""].map((h,hi)=>(
-                  <th key={hi} style={{padding:"6px 5px",textAlign:h==="Descripción-concepto"||h==="Oficio"||h===""?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
+                {["","Oficio","Descripción","Uds","V.Unit €","V.Repos €",...(showIVA?["IVA"]:[]),...(showDepr?["Depr"]:[]),"V.Real €","Perceptor","Cob.",""].map((h,hi)=>(
+                  <th key={hi} style={{padding:"7px 6px",textAlign:h==="Descripción"||h==="Oficio"||h===""?"left":"center",color:"rgba(255,255,255,.85)",fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>
                 ))}
               </tr></thead>
               <tbody>
-                {tabla.rows.length===0&&<tr><td colSpan={10+(showIVA?3:0)+(showDepr?2:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:12}}>
+                {tabla.rows.length===0&&<tr><td colSpan={10+(showIVA?1:0)+(showDepr?1:0)} style={{padding:20,textAlign:"center",color:C.muted,fontSize:14}}>
                   Sin partidas de {tabla.titulo.toLowerCase()} todavía
                 </td></tr>}
                 {tabla.rows.map(p=>{
@@ -2654,46 +2787,53 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                       onDrop={e=>{e.preventDefault();moveRow(dragIdx,i);setDragIdx(null);setOverIdx(null);}}
                       style={{borderBottom:`1px solid ${C.border}`,opacity:dragIdx===i?0.4:1,
                         background:overIdx===i&&dragIdx!=null&&dragIdx!==i?C.blueBg:"transparent"}}>
-                      <td style={{padding:"3px 2px",textAlign:"center"}}>
+                      <td style={{padding:"4px 3px",textAlign:"center"}}>
                         <div draggable onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
                           style={{cursor:"grab",color:C.muted,display:"inline-flex"}} title="Arrastrar para reordenar"><GripVertical size={13}/></div>
                       </td>
                       <td style={{padding:"4px 5px",minWidth:90}}>
                         <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
-                          style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
+                          style={{width:"100%",padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:13,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
                       </td>
-                      <td style={{padding:"4px 5px",minWidth:180}}>
+                      <td style={{padding:"4px 5px",minWidth:170}}>
                         <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
-                          style={{width:"100%",padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:10,fontFamily:"inherit"}}/>
+                          style={{width:"100%",padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:13,fontFamily:"inherit"}}/>
                       </td>
-                      <td style={{padding:"3px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
-                      <td style={{padding:"3px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
+                      <td style={{padding:"4px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
+                      <td style={{padding:"4px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
                       <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontFamily:FONT_MONO}}>{fmt(vRepos)}</td>
-                      {showIVA&&<td style={{padding:"3px 4px",textAlign:"center"}}>
-                        <input type="checkbox" checked={!!p.ivaOn} onChange={e=>toggleIVA(i,e.target.checked)} style={{cursor:"pointer"}}/>
+                      {/* IVA: casilla + % (si está activa) + importe, todo en una columna en vez de 3 */}
+                      {showIVA&&<td style={{padding:"4px 4px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                          <input type="checkbox" checked={!!p.ivaOn} onChange={e=>toggleIVA(i,e.target.checked)} style={{cursor:"pointer"}}/>
+                          {p.ivaOn&&<select value={p.iva||21} onChange={e=>updP(i,"iva",+e.target.value)}
+                            style={{fontSize:12,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
+                            <option value={10}>10%</option><option value={21}>21%</option>
+                          </select>}
+                        </div>
+                        {p.ivaOn&&<div style={{textAlign:"center",fontSize:11.5,color:C.muted,fontFamily:FONT_MONO,marginTop:2}}>{fmt(ivaAmt)} €</div>}
                       </td>}
-                      {showIVA&&<td style={{padding:"3px 4px"}}>{p.ivaOn&&
-                        <select value={p.iva||21} onChange={e=>updP(i,"iva",+e.target.value)}
-                          style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
-                          <option value={10}>10%</option><option value={21}>21%</option>
-                        </select>}
+                      {/* Depreciación: casilla + % en una sola columna en vez de 2 */}
+                      {showDepr&&<td style={{padding:"4px 4px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+                          <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
+                          {p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={32} min={0} max={100}/>}
+                        </div>
                       </td>}
-                      {showIVA&&<td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(ivaAmt)}</td>}
-                      {showDepr&&<td style={{padding:"3px 4px",textAlign:"center"}}>
-                        <input type="checkbox" checked={!!p.depr} onChange={e=>updP(i,"depr",e.target.checked)} style={{cursor:"pointer"}}/>
-                      </td>}
-                      {showDepr&&<td style={{padding:"3px 4px"}}>{p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={36} min={0} max={100}/>}</td>}
                       <td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(vReal)}</td>
-                      <td style={{padding:"3px 4px"}}>
+                      <td style={{padding:"4px 4px"}}>
                         <select value={p.perceptor||"Asegurado"} onChange={e=>updP(i,"perceptor",e.target.value)}
-                          style={{fontSize:9,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
+                          style={{fontSize:12,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
                           {[...new Set([...perceptorOpciones,p.perceptor].filter(Boolean))].map(o=><option key={o} value={o}>{o}</option>)}
                         </select>
                       </td>
-                      <td style={{padding:"3px 4px",textAlign:"center"}}>
+                      {/* Cobertura: punto de color en vez de botón de texto "Sí/No" — libera ancho */}
+                      <td style={{padding:"4px 4px",textAlign:"center"}}>
                         <button onClick={()=>updP(i,"cobertura",p.cobertura===false)}
-                          style={{background:"none",border:"none",cursor:"pointer",fontWeight:700,fontSize:11,fontFamily:"inherit",
-                            color:p.cobertura!==false?C.green:C.red}}>{p.cobertura!==false?"Sí":"No"}</button>
+                          title={p.cobertura!==false?"Con cobertura":"Sin cobertura"}
+                          style={{background:"none",border:"none",cursor:"pointer",padding:4,display:"inline-flex"}}>
+                          <span style={{width:9,height:9,borderRadius:"50%",display:"inline-block",background:p.cobertura!==false?C.green:C.red}}/>
+                        </button>
                       </td>
                       <td><button onClick={()=>delP(i)} aria-label="Eliminar partida" style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:"2px"}}><X size={11}/></button></td>
                     </tr>
@@ -2701,15 +2841,12 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                 })}
                 {tabla.rows.length>0&&<tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                   <td/><td/>
-                  <td style={{padding:"7px 5px",color:C.accent,fontSize:11}}>Subtotal</td>
+                  <td style={{padding:"7px 5px",color:C.accent,fontSize:13}}>Subtotal</td>
                   <td/><td/>
                   <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(tabla.sub.repos)} €</td>
-                  {showIVA&&<td/>}
-                  {showIVA&&<td/>}
-                  {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(tabla.sub.iva)} €</td>}
+                  {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO,fontSize:13}}>{fmt(tabla.sub.iva)} €</td>}
                   {showDepr&&<td/>}
-                  {showDepr&&<td/>}
-                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:12,fontFamily:FONT_MONO}}>{fmt(tabla.sub.real)} €</td>
+                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:14,fontFamily:FONT_MONO}}>{fmt(tabla.sub.real)} €</td>
                   <td colSpan={3}/>
                 </tr>}
               </tbody>
@@ -2722,10 +2859,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       {partidas.length>0&&<Card s={{marginBottom:14}}>
         <SectionLabel>Resumen de Daños</SectionLabel>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
             <thead><tr style={{background:C.ink}}>
               {["Garantía","Valor a nuevo","Valor real"].map((h,hi)=>(
-                <th key={hi} style={{padding:"7px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:11}}>{h}</th>
+                <th key={hi} style={{padding:"7px 8px",textAlign:hi===0?"left":"right",color:"rgba(255,255,255,.85)",fontWeight:700,fontSize:13}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -2742,7 +2879,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
               <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                 <td style={{padding:"9px 8px",color:C.accent}}>Total estimación de daños</td>
                 <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totRepos)} €</td>
-                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontSize:13,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
+                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontSize:15,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
               </tr>
             </tbody>
           </table>
@@ -2750,7 +2887,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
         {/* FRASE DE INDEMNIZACIÓN */}
         {docMode&&fraseIndemn(data,indemn)&&(
-          <div style={{marginTop:14,background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:14,fontSize:13,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>
+          <div style={{marginTop:14,background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:14,fontSize:15,color:C.ink,whiteSpace:"pre-wrap",lineHeight:1.7}}>
             {fraseIndemn(data,indemn)}
           </div>
         )}
@@ -2790,7 +2927,12 @@ const sec4IndemnAuto = (s3, indemn) => {
   return `Se propone indemnización a modo informativo de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur}`;
 };
 
-const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
+const SEC4_BLOCKS = [
+  {id:"s4-b1",label:"Texto de Valoración"},
+  {id:"s4-b2",label:"Descripción de la Cobertura"},
+];
+
+const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef}) => {
   const [saved,setSaved] = useState(false);
   const s = f => v => onChange({...data,[f]:v});
 
@@ -2853,11 +2995,13 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   const RestoreBtn = ({onClick}) => (
-    <button onClick={onClick} style={{fontSize:11,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit",
+    <button onClick={onClick} style={{fontSize:13,color:C.accent,background:"none",border:"none",cursor:"pointer",padding:"2px 6px",fontFamily:"inherit",
       display:"inline-flex",alignItems:"center",gap:5}}>
       <RefreshCw size={11}/>Restaurar
     </button>
   );
+
+  const {active,setRef,goTo} = useBlockRail(SEC4_BLOCKS, scrollRef);
 
   return (
     <div className="fade">
@@ -2871,38 +3015,49 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
 
       <ZoneLabel zone="trabajo">Revisa lo que ya está escrito</ZoneLabel>
 
+      <WorkGrid rail={<BlockRail blocks={SEC4_BLOCKS} active={active} onGoTo={goTo}
+        stats={<RailStats label="Propuesta de indemnización" value={`${fmtE(indemn)}`} money/>}/>}>
+      <div ref={setRef("s4-b1")}>
       {/* TEXTO INTRO MODO VALORACIÓN */}
       <Card s={{marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
           <SectionLabel>Texto de Valoración<AutoBadge>Automático</AutoBadge></SectionLabel>
           <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal)})}/>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
         <Txt value={data.textoIntro||sec4IntroAuto(modoVal)} onChange={s("textoIntro")} rows={2}/>
       </Card>
+      </div>
 
+      <div ref={setRef("s4-b2")}>
       {/* DESCRIPCIÓN COBERTURA */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Descripción de la Cobertura<AutoBadge>De la póliza</AutoBadge></SectionLabel>
-        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>
+        <div style={{fontSize:13,color:C.muted,marginBottom:8}}>
           Extraída automáticamente de la póliza para la garantía afectada. Editable.
         </div>
         <Txt value={data.descripcionCobertura} onChange={s("descripcionCobertura")} rows={5}
           placeholder={enc.garantia?"Buscando cobertura para "+enc.garantia+"…":"Adjunta la póliza en el paso inicial para extraer automáticamente la descripción de la cobertura"}/>
-        {!data.descripcionCobertura&&<div style={{fontSize:11,color:C.orange,marginTop:6,display:"flex",alignItems:"center",gap:5}}>
+        {!data.descripcionCobertura&&<div style={{fontSize:13,color:C.orange,marginTop:6,display:"flex",alignItems:"center",gap:5}}>
           <AlertTriangle size={12}/>Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
       </Card>
+      </div>
+      </WorkGrid>
 
       <ZoneLabel zone="resultado">Resultado final</ZoneLabel>
+
+      <Formula>
+        <b style={{fontFamily:FONT_MONO}}>Indemnización</b> = max(0, Valor ajustado − Franquicia) &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>Valor ajustado</b> = Daño con cobertura × Regla proporcional (si aplica)
+      </Formula>
 
       {/* TABLA GARANTÍAS */}
       <Card s={{marginBottom:14}}>
         <SectionLabel>Resumen por Garantías</SectionLabel>
         <div style={{overflowX:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:14}}>
             <thead><tr style={{background:C.accentLight}}>
               {["Garantía Afectada","Daño con cobertura","Límite aseg.","Regla proporcional","Valor ajustado","Franquicia","Indemnización"].map(h=>(
-                <th key={h} style={{padding:"7px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:11}}>{h}</th>
+                <th key={h} style={{padding:"7px 8px",textAlign:h==="Garantía Afectada"?"left":"right",color:C.accent,fontWeight:700,fontSize:13}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -2926,15 +3081,37 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
                 <td/><td/>
                 <td style={{padding:"8px",textAlign:"right"}}>{fmtE(ajustado)}</td>
                 <td style={{padding:"8px",textAlign:"right"}}>{fmtE(franq)}</td>
-                <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:14}}>{fmtE(indemn)}</td>
+                <td style={{padding:"8px",textAlign:"right",color:C.accent,fontSize:16}}>{fmtE(indemn)}</td>
               </tr>
-              <tr><td style={{padding:"6px 8px",fontSize:12,color:C.muted}}>Franquicia</td><td colSpan={5}/><td style={{padding:"6px 8px",textAlign:"right",fontSize:12}}>{fmtE(franq)}</td></tr>
+              <tr><td style={{padding:"6px 8px",fontSize:14,color:C.muted}}>Franquicia</td><td colSpan={5}/><td style={{padding:"6px 8px",textAlign:"right",fontSize:14}}>{fmtE(franq)}</td></tr>
             </tbody>
           </table>
         </div>
+
+        {/* Cadena de cálculo: de dónde sale la indemnización, paso a paso */}
+        <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:8,background:C.white,
+          border:`1px solid ${C.border}`,borderRadius:9,padding:"14px 16px",marginTop:12,fontSize:13.5}}>
+          {[
+            {k:"Daño con cobertura",v:fmtE(totalDano)},
+            {k:"Regla proporcional",v:(s3?.reglaContinente||s3?.reglaContenido)?"Aplica":"No aplica"},
+            {k:"Valor ajustado",v:fmtE(ajustado)},
+            {k:"− Franquicia",v:fmtE(franq),bg:C.orangeBg,border:"#FED7AA",color:C.orange},
+            {k:"Indemnización",v:fmtE(indemn),bg:C.greenBg,border:"#A7F3D0",color:C.green},
+          ].map((step,idx,arr)=>(
+            <div key={step.k} style={{display:"contents"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:2,padding:"6px 12px",borderRadius:7,
+                background:step.bg||C.bg,border:step.border?`1px solid ${step.border}`:"none"}}>
+                <span style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{step.k}</span>
+                <span style={{fontFamily:FONT_MONO,fontWeight:700,fontSize:15,color:step.color||C.ink}}>{step.v}</span>
+              </div>
+              {idx<arr.length-1&&<span style={{color:C.border,fontSize:17}}>→</span>}
+            </div>
+          ))}
+        </div>
+
         <div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:16,marginTop:14,textAlign:"center"}}>
-          <div style={{fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:30,color:C.green}}>{fmtE(indemn)}</div>
+          <div style={{fontSize:12,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
+          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:32,color:C.green}}>{fmtE(indemn)}</div>
         </div>
       </Card>
 
@@ -2944,7 +3121,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave}) => {
           <SectionLabel>Propuesta de Indemnización</SectionLabel>
           <RestoreBtn onClick={()=>onChange({...data,textoIndemn:sec4IndemnAuto(s3,indemn),textoIndemnEdited:false})}/>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Auto-generado según modo, perceptor y cobertura. Editable.</div>
+        <div style={{fontSize:13,color:C.muted,marginBottom:8}}>Auto-generado según modo, perceptor y cobertura. Editable.</div>
         <Txt value={data.textoIndemn||sec4IndemnAuto(s3,indemn)} onChange={v=>onChange({...data,textoIndemn:v,textoIndemnEdited:true})}
           rows={sec4IndemnAuto(s3,indemn)==="NO se propone indemnización."?2:5}
           placeholder="Completar la Sección 3 para generar la propuesta automáticamente…"/>
@@ -2974,12 +3151,16 @@ const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeI
   return {id:Date.now()+Math.random(), name, url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type:blob.type||'image/png', caption:'', cat:cat||'Documento'};
 };
 
-const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
+const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId,scrollRef}) => {
+  // "Facturas" y "Presupuestos" van en pestañas separadas (antes compartían una
+  // sola con un contador conjunto): son documentos distintos y así se ve de un
+  // vistazo cuál de los dos falta sin tener que entrar a mirar.
   const tabs = [
     {id:"fotos",    icon:Camera,     label:"Reportaje Fotográfico"},
     {id:"catastro", icon:FileImage,  label:"Info Catastral"},
     {id:"meteosim", icon:Image,      label:"Info Meteosim"},
-    {id:"facturas", icon:Receipt,    label:"Facturas / Presupuestos"},
+    {id:"facturas", icon:Receipt,    label:"Facturas"},
+    {id:"presupuestos", icon:FileText, label:"Presupuestos"},
   ];
   const [tab,setTab]       = useState("fotos");
   const [saved,setSaved]   = useState(false);
@@ -3045,7 +3226,7 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
 
   return (
     <div className="fade">
-      <SecTitle label="Anexos" sub="Reportaje fotográfico, datos catastrales, Meteosim y facturas"/>
+      <SecTitle label="Anexos" sub="Reportaje fotográfico, datos catastrales, Meteosim, facturas y presupuestos"/>
 
       {/* Sin tira de contexto aparte: los contadores de cada pestaña ya cumplen esa función. */}
       <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
@@ -3056,10 +3237,10 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
           return (
             <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 16px",
               borderRadius:7,border:`1px solid ${tab===t.id?C.accent:C.border}`,
-              background:tab===t.id?C.accentLight:C.white,cursor:"pointer",fontSize:13,
+              background:tab===t.id?C.accentLight:C.white,cursor:"pointer",fontSize:15,
               fontWeight:tab===t.id?700:400,color:tab===t.id?C.accent:C.ink,fontFamily:"inherit"}}>
               <t.icon size={13}/>{t.label}
-              {cnt>0&&<span style={{background:C.accent,color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:10,display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{cnt}</span>}
+              {cnt>0&&<span style={{background:C.accent,color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:12,display:"inline-flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{cnt}</span>}
             </button>
           );
         })}
@@ -3075,17 +3256,17 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
           textAlign:"center",cursor:"pointer",background:dragging?C.accentLight:C.bg,
           marginBottom:14,transition:"background .12s,border-color .12s"}}>
         <Upload size={24} style={{color:dragging?C.accent:C.muted,marginBottom:7}}/>
-        <div style={{fontSize:13,fontWeight:600,color:dragging?C.accent:C.ink}}>
+        <div style={{fontSize:15,fontWeight:600,color:dragging?C.accent:C.ink}}>
           {dragging?"Suelta aquí para añadir":"Arrastra archivos o haz clic para seleccionar"}
         </div>
-        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Imágenes y PDFs</div>
+        <div style={{fontSize:14,color:C.muted,marginTop:2}}>Imágenes y PDFs</div>
         <input ref={fRef} type="file" multiple accept="image/*,.pdf" style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
       </div>
 
-      {uploading.length>0&&<div style={{display:"flex",alignItems:"center",gap:7,fontSize:12,color:C.muted,marginBottom:10}}>
+      {uploading.length>0&&<div style={{display:"flex",alignItems:"center",gap:7,fontSize:14,color:C.muted,marginBottom:10}}>
         <Spin/>Subiendo {uploading.length} archivo{uploading.length>1?'s':''}…
       </div>}
-      {uploadErr&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{uploadErr}</div>}
+      {uploadErr&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:14,color:C.red,marginBottom:14}}>{uploadErr}</div>}
 
       {bucket.length>0
         ?<div className="grid3" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
@@ -3104,16 +3285,16 @@ const SecAnexos = ({data,onChange,s3,onPrev,onSave,token,userId,informeId}) => {
               </div>
               <div style={{padding:8}}>
                 {tab==="fotos"&&<select value={item.cat} onChange={e=>updI(item.id,"cat",e.target.value)}
-                  style={{width:"100%",padding:"3px 6px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:10,marginBottom:5,fontFamily:"inherit"}}>
+                  style={{width:"100%",padding:"3px 6px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:12,marginBottom:5,fontFamily:"inherit"}}>
                   {CATS.map(c=><option key={c}>{c}</option>)}
                 </select>}
                 <input value={item.caption} onChange={e=>updI(item.id,"caption",e.target.value)} placeholder="Pie de foto…"
-                  style={{width:"100%",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:10,fontFamily:"inherit",boxSizing:"border-box"}}/>
+                  style={{width:"100%",padding:"4px 6px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:12,fontFamily:"inherit",boxSizing:"border-box"}}/>
               </div>
             </div>
           ))}
         </div>
-        :<div style={{textAlign:"center",padding:28,color:C.muted,fontSize:13}}>Sin archivos en este apartado</div>
+        :<div style={{textAlign:"center",padding:28,color:C.muted,fontSize:15}}>Sin archivos en este apartado</div>
       }
 
       <NavBottom onPrev={onPrev} onSave={handleSave} saved={saved}
@@ -3604,7 +3785,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:C.white,borderRadius:12,padding:30,width:420,maxWidth:'calc(100vw - 32px)',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:18,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
+          <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
           <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
@@ -3623,20 +3804,20 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
           <Lbl c="DNI del Perito (para la página de firma)"/>
           <input value={dni} onChange={e=>setDni(e.target.value)} placeholder="Ej: B13809660"
             style={{...inpStyle(false),marginBottom:4}}/>
-          <div style={{fontSize:11,color:C.muted}}>Datos del perito para el documento exportado</div>
+          <div style={{fontSize:13,color:C.muted}}>Datos del perito para el documento exportado</div>
         </div>
-        {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:12,color:C.red,marginBottom:14}}>{err}</div>}
+        {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:14,color:C.red,marginBottom:14}}>{err}</div>}
         <div style={{display:'flex',gap:10}}>
           <button onClick={handlePDF} disabled={pdfLoad||wrdLoad}
-            style={{flex:1,padding:'11px 0',borderRadius:8,border:'none',background:pdfLoad?'#E5E0D8':pdfOk?C.green:C.accent,color:'#fff',fontSize:13,fontWeight:700,cursor:pdfLoad||wrdLoad?'not-allowed':'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:'background .2s'}}>
+            style={{flex:1,padding:'11px 0',borderRadius:8,border:'none',background:pdfLoad?'#E5E0D8':pdfOk?C.green:C.accent,color:'#fff',fontSize:15,fontWeight:700,cursor:pdfLoad||wrdLoad?'not-allowed':'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:'background .2s'}}>
             {pdfOk?<><Check size={15}/>Abierto en nueva pestaña</>:<><FileText size={15}/>Generar PDF</>}
           </button>
           <button onClick={handleWord} disabled={pdfLoad||wrdLoad}
-            style={{flex:1,padding:'11px 0',borderRadius:8,border:`1.5px solid ${C.accent}`,background:wrdOk?C.green:'transparent',color:wrdOk?'#fff':C.accent,fontSize:13,fontWeight:700,cursor:pdfLoad||wrdLoad?'not-allowed':'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:'all .2s'}}>
+            style={{flex:1,padding:'11px 0',borderRadius:8,border:`1.5px solid ${C.accent}`,background:wrdOk?C.green:'transparent',color:wrdOk?'#fff':C.accent,fontSize:15,fontWeight:700,cursor:pdfLoad||wrdLoad?'not-allowed':'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',gap:7,transition:'all .2s'}}>
             {wrdLoad?<><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/>Generando…</>:wrdOk?<><Check size={15}/>Word descargado</>:<><FileText size={15}/>Generar Word</>}
           </button>
         </div>
-        <div style={{fontSize:11,color:C.muted,textAlign:'center',marginTop:12}}>
+        <div style={{fontSize:13,color:C.muted,textAlign:'center',marginTop:12}}>
           PDF · fiel a la plantilla GVP &nbsp;·&nbsp; Word · editable en Microsoft Word
         </div>
       </div>
@@ -3653,13 +3834,20 @@ const CAMPOS_ENCARGO = ["compania","numReferencia","numPoliza","ramo","garantia"
 const CAMPOS_OBLIGATORIOS = ["compania","numReferencia","asegurado","lugarIntervencion"];
 
 // ─── SECCIÓN DATOS DEL ENCARGO (editable dentro del informe) ────────────────
-const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
+const SEC0_BLOCKS = [
+  {id:"e-b1",label:"Compañía y Siniestro"},
+  {id:"e-b2",label:"Asegurado y Localización"},
+  {id:"e-b3",label:"Capitales Asegurados"},
+];
+
+const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
   const [saved, setSaved] = useState(false);
   const s = f => v => onUpdate({...enc, [f]:v});
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   const extraidos = CAMPOS_ENCARGO.filter(f=>enc[f]!=null&&enc[f]!=="").length;
   const faltanObl = CAMPOS_OBLIGATORIOS.filter(f=>!enc[f]).length;
+  const {active,setRef,goTo} = useBlockRail(SEC0_BLOCKS, scrollRef);
 
   return (
     <div className="fade">
@@ -3673,6 +3861,8 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
 
       <ZoneLabel zone="trabajo">Revisa lo extraído</ZoneLabel>
 
+      <WorkGrid rail={<BlockRail blocks={SEC0_BLOCKS} active={active} onGoTo={goTo}/>}>
+      <div ref={setRef("e-b1")}>
       <Card s={{marginBottom:12}}>
         <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
         <div style={{marginBottom:14}}>
@@ -3702,7 +3892,9 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           <Inp label="Fecha Siniestro" value={enc.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
         </div>
       </Card>
+      </div>
 
+      <div ref={setRef("e-b2")}>
       <Card s={{marginBottom:12}}>
         <SectionLabel><MapPin size={12}/>Asegurado y Localización</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -3716,14 +3908,16 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
         </div>
       </Card>
+      </div>
 
+      <div ref={setRef("e-b3")}>
       <Card s={{marginBottom:12}}>
-        <SectionLabel><DollarSign size={12}/>Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:11}}>de la póliza</span>}</SectionLabel>
+        <SectionLabel><DollarSign size={12}/>Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:13}}>de la póliza</span>}</SectionLabel>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
               hint={enc.tipoContinentePoliza?"Tipo: "+enc.tipoContinentePoliza:enc.polizaAdjunta?"Extraído de la póliza":""}/>
-            {enc.todosCapitalesContinente&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:5,padding:"5px 9px",fontSize:10,color:C.blue,marginTop:-10,marginBottom:8}}>
+            {enc.todosCapitalesContinente&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:5,padding:"5px 9px",fontSize:12,color:C.blue,marginTop:-10,marginBottom:8}}>
               Capitales en póliza: {enc.todosCapitalesContinente}
             </div>}
           </div>
@@ -3753,6 +3947,8 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave}) => {
           </div>
         </div>
       </Card>
+      </div>
+      </WorkGrid>
 
       <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Verificación del Riesgo"/>
     </div>
@@ -3793,17 +3989,17 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     }
   };
 
-  const commonProps = {onNext:goNext,onPrev:goPrev,onSave:handleSave,onTokens:addTokens};
+  const commonProps = {onNext:goNext,onPrev:goPrev,onSave:handleSave,onTokens:addTokens,scrollRef:contentRef};
 
   const renderSec = () => {
     switch(sec){
       case "informe": return <SecInforme enc={cData.encargo||{}} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
-      case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave}/>;
+      case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave} scrollRef={contentRef}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
-      case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id}/>;
+      case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id} scrollRef={contentRef}/>;
       default: return null;
     }
   };
@@ -3814,31 +4010,31 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     <div className="editor-shell" style={{display:"flex",flexDirection:"column"}}>
       {/* TOP BAR */}
       <div className="editor-topbar" style={{background:C.sidebar,height:50,display:"flex",alignItems:"center",padding:"0 16px",gap:12,flexShrink:0}}>
-        <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
+        <button onClick={onBack} style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 10px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:14,fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
           <Home size={12}/>Inicio
         </button>
         <button onClick={()=>setSidebarOpen(v=>!v)} title={sidebarOpen?"Ocultar menú":"Mostrar menú"} aria-label={sidebarOpen?"Ocultar menú":"Mostrar menú"}
-          style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:12,fontFamily:"inherit",display:"flex",alignItems:"center",gap:3}}>
+          style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,padding:"5px 8px",cursor:"pointer",color:"rgba(255,255,255,.7)",fontSize:14,fontFamily:"inherit",display:"flex",alignItems:"center",gap:3}}>
           {sidebarOpen?<ChevronLeft size={13}/>:<ChevronRight size={13}/>}
         </button>
         <div style={{width:1,height:22,background:"rgba(255,255,255,.1)"}}/>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{color:"#fff",fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cData.encargo?.asegurado||"Nuevo informe"}</div>
-          <div style={{color:"rgba(255,255,255,.4)",fontSize:10}}>{cData.encargo?.compania||""} · <span style={{fontFamily:FONT_MONO}}>{cData.encargo?.numReferencia||""}</span></div>
+          <div style={{color:"#fff",fontWeight:600,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cData.encargo?.asegurado||"Nuevo informe"}</div>
+          <div style={{color:"rgba(255,255,255,.4)",fontSize:12}}>{cData.encargo?.compania||""} · <span style={{fontFamily:FONT_MONO}}>{cData.encargo?.numReferencia||""}</span></div>
         </div>
         <div className="editor-actions" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
-          {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:11,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
-          {saveState==="saved" && <div style={{color:C.green,fontSize:11,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
-          {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:11,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
+          {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:13,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
+          {saveState==="saved" && <div style={{color:C.green,fontSize:13,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
+          {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:13,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
           <div style={{textAlign:"right"}}>
-            <div style={{color:"rgba(255,255,255,.35)",fontSize:9,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
-            <div style={{color:"rgba(255,255,255,.75)",fontSize:11,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
+            <div style={{color:"rgba(255,255,255,.35)",fontSize:11,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
+            <div style={{color:"rgba(255,255,255,.75)",fontSize:13,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
           </div>
-          <div style={{background:"rgba(15,123,77,.3)",borderRadius:5,padding:"4px 10px",color:"rgba(255,255,255,.75)",fontSize:11,display:"flex",alignItems:"center",gap:4}}>
+          <div style={{background:"rgba(15,123,77,.3)",borderRadius:5,padding:"4px 10px",color:"rgba(255,255,255,.75)",fontSize:13,display:"flex",alignItems:"center",gap:4}}>
             <Check size={10}/>{doneSecs}/4
           </div>
           <button onClick={()=>setExportOpen(true)}
-            style={{background:"rgba(155,34,38,.8)",border:"none",borderRadius:7,padding:"6px 14px",cursor:"pointer",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
+            style={{background:"rgba(155,34,38,.8)",border:"none",borderRadius:7,padding:"6px 14px",cursor:"pointer",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
             <FileText size={13}/>Exportar
           </button>
         </div>
@@ -3875,11 +4071,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
                   background:isActive?C.accent:isDone?"rgba(15,123,77,.3)":"rgba(255,255,255,.08)"}}>
                   {isDone&&!isActive
                     ?<Check size={12} style={{color:"#6EE7B7"}}/>
-                    :<span style={{fontFamily:FONT_MONO,fontWeight:600,fontSize:11,color:isActive?"#fff":"rgba(255,255,255,.45)"}}>{String(idx).padStart(2,"0")}</span>}
+                    :<span style={{fontFamily:FONT_MONO,fontWeight:600,fontSize:13,color:isActive?"#fff":"rgba(255,255,255,.45)"}}>{String(idx).padStart(2,"0")}</span>}
                 </div>
                 <div style={{minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:isActive?600:400,color:isActive?"#fff":"rgba(255,255,255,.55)",lineHeight:1.3}}>{item.label}</div>
-                  <div style={{fontSize:9.5,color:"rgba(255,255,255,.32)",marginTop:1,textTransform:"uppercase",letterSpacing:".04em"}}>{item.sub}</div>
+                  <div style={{fontSize:14,fontWeight:isActive?600:400,color:isActive?"#fff":"rgba(255,255,255,.55)",lineHeight:1.3}}>{item.label}</div>
+                  <div style={{fontSize:11.5,color:"rgba(255,255,255,.32)",marginTop:1,textTransform:"uppercase",letterSpacing:".04em"}}>{item.sub}</div>
                 </div>
               </div>
             );
@@ -3891,7 +4087,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         {/* CONTENT — single column, max width for readability.
             Único elemento con scroll: la barra lateral y la cabecera quedan fijas. */}
         <div ref={contentRef} style={{flex:1,minWidth:0,overflowY:"auto",background:C.bg,display:"flex",justifyContent:"center"}}>
-          <div style={{width:"100%",maxWidth:760,padding:"28px 28px 48px"}}>
+          <div style={{width:"100%",maxWidth:1180,padding:"28px 28px 48px"}}>
             {renderSec()}
           </div>
         </div>
