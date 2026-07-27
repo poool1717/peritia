@@ -782,7 +782,7 @@ const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholde
 // ─── NAV BOTTOM ──────────────────────────────────────────────────────────────
 const NavBottom = ({onPrev,onNext,onSave,saving,saved,prevLabel,nextLabel}) => (
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-    marginTop:32,paddingTop:16,borderTop:`1px solid ${C.border}`}}>
+    marginTop:32,marginBottom:24,paddingTop:16,borderTop:`1px solid ${C.border}`}}>
     <div>
       {onPrev&&<Btn ghost onClick={onPrev}><ChevronLeft size={14}/>{prevLabel||"Anterior"}</Btn>}
     </div>
