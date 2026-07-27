@@ -4086,7 +4086,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 
         {/* CONTENT — single column, max width for readability.
             Único elemento con scroll: la barra lateral y la cabecera quedan fijas. */}
-        <div ref={contentRef} style={{flex:1,minWidth:0,overflowY:"auto",background:C.bg,display:"flex",justifyContent:"center"}}>
+        <div ref={contentRef} style={{flex:1,minWidth:0,overflowY:"auto",background:C.bg,display:"flex",justifyContent:"center",alignItems:"flex-start"}}>
           <div style={{width:"100%",maxWidth:1180,padding:"28px 28px 48px"}}>
             {renderSec()}
           </div>
