@@ -2834,15 +2834,16 @@ const sec4IndemnAuto = (s3, indemn) => {
   if(todaSinCob) return "NO se propone indemnización.";
   const modo = s3?.modoValoracion||"baremo";
   const reparador = s3?.perceptorTipo==="reparador";
+  const perceptor = {reparador:"Reparador",perjudicado:"Perjudicado"}[s3?.perceptorTipo]||"Asegurado";
   const eur = fmt(indemn)+" €";
   if(modo==="presupuesto")
-    return `A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur}`;
+    return `A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur}`;
   if(modo==="factura"&&reparador)
     return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nReparador: ${eur}`;
   if(modo==="factura")
-    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur} (IVA incl.)`;
+    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur} (IVA incl.)`;
   // Modo "a modo informativo" (baremo): también se eleva propuesta
-  return `Se propone indemnización a modo informativo de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: ${eur}`;
+  return `Se propone indemnización a modo informativo de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur}`;
 };
 
 const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef}) => {
