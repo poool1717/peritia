@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~4.230 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~4.140 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -45,7 +45,9 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge` · `BlockRail` (+ hook `useBlockRail`) · `WorkGrid` · `RailStats` · `Formula`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge` · `Formula`
+
+(El rail de navegación por bloques de la sesión 16 — `BlockRail`/`useBlockRail`/`WorkGrid`/`RailStats` — se retiró en la sesión 17.)
 
 > **`AutoTextarea`** (con el hook `useAutoGrow`) es la caja de texto estándar: se ajusta sola al volumen de texto —al escribir, al rellenarla la IA y al cambiar el ancho de la ventana— en vez de tener scroll interno. `Txt` y `VoiceBox` la usan por dentro. La interfaz no usa emojis: los iconos son de `lucide-react`.
 >
@@ -162,7 +164,7 @@ Tabla Resumen de Daños — Total Continente / Total Contenido / Total estimaci�
 ```
 El botón "Generar tabla" reparte automáticamente cada partida generada por la IA a su tabla según el campo `garantia` que ya devolvía la IA (sin lógica nueva).
 
-**Perceptor (presupuesto / factura):** checkbox exclusivo Particular / Reparador. Con Reparador no hay depreciación (columna oculta) y la frase usa "Reparador:".
+**Perceptor (presupuesto / factura):** checkbox exclusivo Asegurado / Perjudicado / Reparador (sesión 17, antes solo Particular/Reparador). Con Reparador no hay depreciación (columna oculta) y la frase usa el nombre del perceptor elegido ("Asegurado:" / "Perjudicado:" / "Reparador:").
 
 **Regla proporcional por bloque (continente / contenido):**
 ```
@@ -187,12 +189,14 @@ Texto de valoración (sec4IntroAuto, según modo Sec3):
 
 Descripción de la cobertura:
   Extraída de la póliza (enc.descripciones) cruzando garantía afectada / causa.
+  Sesión 17: el texto es literal (continente y contenido por separado, incluida
+  la cláusula de exclusión/"no cubre" si esa garantía no tiene cobertura).
 
 Propuesta de indemnización (sec4IndemnAuto):
   Sin cobertura (todas las filas "No")     → "NO se propone indemnización."
-  Presupuesto                              → "A la espera de aportación de la factura… Asegurado: € (valor real sin IVA)"
+  Presupuesto                              → "A la espera de aportación de la factura… {perceptor}: € (valor real sin IVA)"
   Factura + Reparador                      → "Se propone indemnización… Reparador: €"
-  Factura + Particular                     → "Se propone indemnización… Asegurado: € (IVA incl.)"
+  Factura + Asegurado/Perjudicado          → "Se propone indemnización… {perceptor}: € (IVA incl.)"
 ```
 
 **Verificado contra informes reales:**
@@ -209,10 +213,10 @@ Propuesta de indemnización (sec4IndemnAuto):
 
 | Formato | Tecnología | Notas |
 |---|---|---|
-| **PDF** | `window.open + window.print()` nativo | CSP-safe. Abre nueva pestaña → imprimir/guardar como PDF |
-| **Word (.doc)** | HTML-to-DOC via Blob | Editable en Word/LibreOffice, descarga directa |
+| **PDF** | iframe oculto + `window.print()` nativo (sesión 17, antes `window.open` con URL blob) | CSP-safe. Ya no abre ninguna pestaña/ventana — el diálogo de impresión sale sobre la propia app |
+| **Word (.doc)** | HTML-to-DOC via Blob | Editable en Word/LibreOffice, descarga directa. Numeración de página real con campos nativos de Word (`PAGE`/`NUMPAGES`) desde la sesión 17 |
 
-Ambos incluyen: portada con grid de campos (cabecera "expediente" = Nº de Referencia, ya no `numExpInterno`), Sec0–4 completas, las tres tablas de valoración (Continente / Contenido / Resumen de Daños), tabla de indemnización, cierre con espacio para firma, índice de anexos (incluye las capturas automáticas de Catastro y XEMA si se generaron), fotos 2/página.
+Ambos incluyen: portada con grid de campos (cabecera "expediente" = Nº de Referencia, ya no `numExpInterno`), Sec0–4 completas, las tablas de valoración de la Sección 3 (Daños en Continente / Daños en Contenido / Resumen de Daños, títulos alineados a la izquierda desde la sesión 17), Sección 4 renombrada "Propuesta de Indemnización" con sub-apartados 4.1 Cobertura y 4.2 Resumen por garantías, cierre con espacio para firma, Anexos con las facturas/presupuestos como hoja adicional del informe y el reportaje fotográfico en una columna de fotos numeradas ("Foto 1", "Foto 2"…) con pie de foto opcional. Colores de tablas/bordes en gris (antes granate) desde la sesión 17; la numeración de páginas del PDF depende de la opción nativa "Encabezados y pies de página" del navegador (no forzable sin añadir una librería de generación de PDF).
 
 ---
 
