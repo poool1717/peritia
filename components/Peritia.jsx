@@ -3315,11 +3315,14 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
   div.Section1{page:Section1}
   body{font-family:Arial,sans-serif;font-size:10pt;color:#000;margin:0}
   h1{font-size:18pt;font-style:italic;text-align:center;border-top:1px solid #888;border-bottom:1px solid #888;padding:6pt 0}
-  h2{font-size:11pt;border-bottom:2px solid #888;padding-bottom:3pt;margin-top:38pt}
-  h3{font-size:10pt;margin-top:12pt}
+  h2{font-size:11pt;border-bottom:2px solid #888;padding-bottom:3pt;margin-top:38pt;page-break-after:avoid}
+  h3{font-size:10pt;margin-top:12pt;page-break-after:avoid}
+  .no-split{page-break-inside:avoid}
   table{border-collapse:collapse;width:100%;font-size:8pt;margin:6pt 0}
+  thead{display:table-header-group}
   th{background:#555;color:#fff;padding:3pt 4pt;text-align:left;font-size:7.5pt}
   td{border:1px solid #ddd;padding:3pt 4pt;vertical-align:top}
+  tr{page-break-inside:avoid}
   tr:nth-child(even) td{background:#fafafa}
   .subtotal td{background:#f2f2f2;font-weight:bold;color:#333;border-color:#999}
   .field-label{font-size:8pt;color:#666;display:block}
@@ -3333,6 +3336,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
   .firma-box{border:1px solid #ccc;width:150pt;height:50pt;display:inline-block}
   .page-break{page-break-before:always}
   .foto-table{table-layout:fixed}
+  .foto-table tr{page-break-inside:avoid}
   .foto-table td.foto-cell{width:100%;border:none;background:none;padding:4pt;vertical-align:top}
 </style></head>
 <body>
@@ -3368,19 +3372,23 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
 <br/>
+<div class="no-split">
 <b>CONTINENTE / OBRAS DE REFORMA</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
 <table class='cap-table'><tr><th colspan='2'>CONTINENTE</th></tr>
 <tr><td>VALOR ASEGURADO</td><td>${fmtPDF(capCont)} €</td></tr>
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(vRealC)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraCont)} %</b></td></tr></table>
+</div>
 <br/>
+<div class="no-split">
 <b>CONTENIDO:</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial.</p>
 <table class='cap-table'><tr><th colspan='2'>CONTENIDO</th></tr>
 <tr><td>VALOR ASEGURADO</td><td>${fmtPDF(capCont2)} €</td></tr>
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
+</div>
 ${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
@@ -3393,20 +3401,25 @@ ${s3.textoAI?'<p>'+s3.textoAI+'</p>':''}
 ${partidas.length>0?`
 ${partidasContW.length>0?`<h3 style='text-align:left'>Daños en Continente</h3><table><tr>${wTh}</tr>${rowPartCont}${subCont}</table>`:''}
 ${partidasCont2W.length>0?`<h3 style='text-align:left'>Daños en Contenido</h3><table><tr>${wTh}</tr>${rowPartCont2}${subCont2}</table>`:''}
+<div class="no-split">
 <h3 style='text-align:left'>Resumen de Daños</h3>
 <table><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr>
 <tr><td>Total Continente</td><td>${fmtPDF(totNuevoContW)} €</td><td>${fmtPDF(totRealContW)} €</td></tr>
 <tr><td>Total Contenido</td><td>${fmtPDF(totNuevoCont2W)} €</td><td>${fmtPDF(totRealCont2W)} €</td></tr>
-<tr class='subtotal'><td><b>Total estimación de daños</b></td><td><b>${fmtPDF(totNuevoContW+totNuevoCont2W)} €</b></td><td><b>${fmtPDF(totalDano)} €</b></td></tr></table>`:''}
+<tr class='subtotal'><td><b>Total estimación de daños</b></td><td><b>${fmtPDF(totNuevoContW+totNuevoCont2W)} €</b></td><td><b>${fmtPDF(totalDano)} €</b></td></tr></table>
+</div>`:''}
 <h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${w4Desc?`<h3 style='text-align:left'>4.1 Cobertura</h3><p style='white-space:pre-wrap'>${w4Desc.replace(/\n/g,'<br/>')}</p>`:''}
-${partidas.length>0?`<h3 style='text-align:left'>4.2 Resumen por garantías. Propuesta de indemnización</h3>
+${partidas.length>0?`<div class="no-split">
+<h3 style='text-align:left'>4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
 ${wGarRows}
 <tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(ajustado)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
-<tr><td>Franquicia</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>`:''}
+<tr><td>Franquicia</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
+</div>`:''}
 ${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
+<div class="no-split">
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style='margin-top:16pt'>En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
 <table style='margin-top:20pt;width:100%'><tr>
@@ -3417,6 +3430,7 @@ ${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</
 <p style='font-style:italic'>Firma perito:</p>
 <div class='firma-box'>&nbsp;</div></td>
 </tr></table>
+</div>
 ${(facturasW.length||wFotos.length)?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>Anexos.</h2>`:''}
@@ -3539,8 +3553,9 @@ const exportPDF = (cData, dniPerito='') => {
   .hdr-left{font-weight:bold;color:#555;font-size:8pt}
   .hdr-right{font-size:8pt;color:#666}
   h1{font-size:18pt;font-style:italic;text-align:center;border-top:0.5pt solid #888;border-bottom:0.5pt solid #888;padding:6pt 0;margin:12pt 0 16pt}
-  h2{font-size:10.5pt;font-weight:bold;border-bottom:1.5pt solid #888;padding-bottom:2pt;margin-top:38pt;margin-bottom:8pt}
-  h3{font-size:9.5pt;font-weight:bold;margin:10pt 0 4pt}
+  h2{font-size:10.5pt;font-weight:bold;border-bottom:1.5pt solid #888;padding-bottom:2pt;margin-top:38pt;margin-bottom:8pt;page-break-after:avoid;break-after:avoid}
+  h3{font-size:9.5pt;font-weight:bold;margin:10pt 0 4pt;page-break-after:avoid;break-after:avoid}
+  .no-split{page-break-inside:avoid;break-inside:avoid}
   .grid3{display:table;width:100%;margin-bottom:8pt}
   .grid3-row{display:table-row}
   .grid3-cell{display:table-cell;width:33.3%;padding:0 4pt 6pt 0}
@@ -3550,9 +3565,11 @@ const exportPDF = (cData, dniPerito='') => {
   ul.viñetas{margin:4pt 0 4pt 12pt;padding:0}
   ul.viñetas li{margin-bottom:3pt;font-size:9.5pt}
   table.data{border-collapse:collapse;width:100%;margin:6pt 0;font-size:7.5pt}
+  table.data thead{display:table-header-group}
   table.data th{background:#555;color:#fff;padding:3pt 3pt;text-align:left;font-weight:bold}
   table.data td{border:0.3pt solid #ddd;padding:2.5pt 3pt;vertical-align:top}
   table.data tr:nth-child(even) td{background:#fafafa}
+  table.data tr{page-break-inside:avoid;break-inside:avoid}
   table.cap{border-collapse:collapse;width:180pt;margin-left:20pt;font-size:9pt}
   table.cap th{background:#555;color:#fff;padding:3pt;text-align:center}
   table.cap td{border:0.5pt solid #ccc;padding:3pt 5pt}
@@ -3562,8 +3579,9 @@ const exportPDF = (cData, dniPerito='') => {
   .firma-table{width:100%;margin-top:20pt}
   .firma-table td{vertical-align:top;font-style:italic;font-size:9pt}
   .anex-foto{display:flex;flex-direction:column;gap:14pt}
-  .anex-foto-item img{width:100%;height:auto;max-height:420pt;object-fit:contain;border:0.3pt solid #ddd;display:block}
-  .anex-foto-item iframe{width:100%;height:420pt;border:none;display:block}
+  .anex-foto-item{page-break-inside:avoid;break-inside:avoid}
+  .anex-foto-item img{width:100%;height:auto;max-height:300pt;object-fit:contain;border:0.3pt solid #ddd;display:block}
+  .anex-foto-item iframe{width:100%;height:300pt;border:none;display:block}
   .anex-foto-item .cap{font-size:8pt;color:#666;margin-top:3pt}
   .anex-foto-item .num{font-size:9pt;font-weight:bold;color:#333;margin-top:5pt}
   @media print{
@@ -3592,13 +3610,17 @@ const exportPDF = (cData, dniPerito='') => {
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
 <h3>Estudios de los capitales Asegurados:</h3>
+<div class="no-split">
 <p style="font-weight:bold">CONTINENTE / OBRAS DE REFORMA</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
 <table class="cap"><tr><th colspan="2">CONTINENTE</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(vRC)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(inf)} %</strong></td></tr></table>
+</div>
 <br/>
+<div class="no-split">
 <p style="font-weight:bold">CONTENIDO:</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
+</div>
 ${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
@@ -3611,27 +3633,33 @@ ${s3.textoAI?`<p>${s3.textoAI.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`
 ${partidasContD.length>0?`<h3 style="text-align:left">Daños en Continente</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartContD}${subContD}</tbody></table>`:''}
 ${partidasCont2D.length>0?`<h3 style="text-align:left">Daños en Contenido</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartCont2D}${subCont2D}</tbody></table>`:''}
+<div class="no-split">
 <h3 style="text-align:left">Resumen de Daños</h3>
 <table class="data"><thead><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr></thead><tbody>
 <tr><td>Total Continente</td><td style="text-align:right">${fmtPDF(totNuevoContD)} €</td><td style="text-align:right">${fmtPDF(totRealContD)} €</td></tr>
 <tr><td>Total Contenido</td><td style="text-align:right">${fmtPDF(totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totRealCont2D)} €</td></tr>
 <tr class="subtotal"><td>Total estimación de daños</td><td style="text-align:right">${fmtPDF(totNuevoContD+totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td></tr>
-</tbody></table>`:''}
+</tbody></table>
+</div>`:''}
 <h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${d4Desc?`<h3 style="text-align:left">4.1 Cobertura</h3><p style="white-space:pre-wrap">${d4Desc.replace(/\n/g,'<br/>')}</p>`:''}
-${partidas.length>0?`<h3 style="text-align:left">4.2 Resumen por garantías. Propuesta de indemnización</h3>
+${partidas.length>0?`<div class="no-split">
+<h3 style="text-align:left">4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
 ${dGarRows}
 <tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(ajustado)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
-<tr><td colspan="6">Franquicia</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>`:''}
+<tr><td colspan="6">Franquicia</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
+</div>`:''}
 ${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
 <br/><br/>
+<div class="no-split">
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
 <p style="margin-top:12pt">En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${today}</p>
 <table class="firma-table"><tr>
 <td style="width:50%"><p>VºBº técnico GVP</p><div class="firma-box"></div></td>
 <td style="width:50%;text-align:right"><p>Perito: ${enc.perito||'—'}</p><p>Telef: ${enc.telPerito||'—'}</p><p>DNI: ${dniPerito||'—'}</p><p>Firma perito:</p><div class="firma-box"></div></td>
 </tr></table>
+</div>
 ${(facturasD.length||allFotos.length)?`
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
