@@ -3977,6 +3977,8 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const [sec,setSec]         = useState("encargo");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
+  const [pendingOpen,setPendingOpen] = useState(false);
+  const [pendingBanner,setPendingBanner] = useState(false);
   const tokens = cData.tokenStats||{i:0,o:0};
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
   const addTokens = (i,o) => onUpdate({...cData,tokenStats:{i:(tokens.i||0)+i,o:(tokens.o||0)+o}});
@@ -4022,8 +4024,6 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     }
   };
 
-  const doneSecs = ["s1","s2","s3","s4"].filter(k=>cData[k]&&Object.keys(cData[k]).length>2).length;
-
   // Semáforo por pantalla para la franja de accesos rápidos de la topbar:
   // verde = todos los bloques completos, rojo = ninguno relleno (o algún bloque
   // en estado "error", cuando exista esa validación), naranja = mezcla.
@@ -4046,6 +4046,37 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     return "orange";
   };
   const SEM_COLORS = {green:[C.greenBg,C.green],orange:[C.orangeBg,C.orange],red:[C.redBg,C.red]};
+
+  // Lista de bloques pendientes para la revisión antes de exportar — mismos
+  // nombres de bloque que ven las 5 pantallas con formulario (Encargo + Sec1-4);
+  // Anexos e Informe se quedan fuera porque no usan el acordeón. Reutiliza otra
+  // vez las mismas funciones xBlockStates, así que nunca puede desalinearse de
+  // lo que muestra cada <Block> o el semáforo de arriba.
+  const BLOCK_LABELS = {
+    encargo: ["Compañía y Siniestro","Asegurado y Localización","Capitales Asegurados"],
+    s1: ["Datos del Riesgo Asegurado","Superficie y Arquitectura","Capitales Asegurados"],
+    s3: ["Descripción de los Daños","Cómo se valora"],
+    s4: ["Texto de Valoración","Descripción de la Cobertura"],
+  };
+  const s2Labels = esSiniestroAtmosferico(cData.encargo||{})
+    ? ["Descripción del Siniestro","Verificación Meteorológica"]
+    : ["Descripción del Siniestro"];
+  const SECTION_TITLES = {encargo:"Datos del Encargo",s1:"Verificación del Riesgo",s2:"Causas y Circunstancias",s3:"Valoración de Daños",s4:"Cobertura-Indemnización"};
+  const pendingList = [];
+  [
+    ["encargo",encargoBlockStates(cData.encargo||{}),BLOCK_LABELS.encargo],
+    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),BLOCK_LABELS.s1],
+    ["s2",s2BlockStates(cData.s2||{},cData.encargo||{}),s2Labels],
+    ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
+    ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],
+  ].forEach(([id,states,labels])=>{
+    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i]}); });
+  });
+  const goToPending = secId => { setSec(secId); setPendingOpen(false); };
+  const handleExportClick = () => {
+    if(pendingList.length>0){ setPendingBanner(true); setPendingOpen(true); }
+    else setExportOpen(true);
+  };
 
   return (
     <div className="editor-shell" style={{display:"flex",flexDirection:"column"}}>
@@ -4071,10 +4102,16 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
             <div style={{color:"rgba(255,255,255,.35)",fontSize:11,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:13,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
           </div>
-          <div style={{background:"rgba(15,123,77,.3)",borderRadius:5,padding:"4px 10px",color:"rgba(255,255,255,.75)",fontSize:13,display:"flex",alignItems:"center",gap:4}}>
-            <Check size={10}/>{doneSecs}/4
-          </div>
-          <button onClick={()=>setExportOpen(true)}
+          <button onClick={()=>{setPendingBanner(false);setPendingOpen(true);}}
+            style={{border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
+              display:"flex",alignItems:"center",gap:6,
+              background:pendingList.length===0?"rgba(15,123,77,.3)":"rgba(180,83,9,.3)",
+              color:pendingList.length===0?"#6EE7B7":"#FDBA74"}}>
+            {pendingList.length===0?<Check size={12}/>:<AlertTriangle size={12}/>}
+            {pendingList.length===0?"Todo listo":"Pendientes"}
+            {pendingList.length>0&&<span style={{background:"rgba(0,0,0,.22)",borderRadius:20,padding:"1px 7px",fontVariantNumeric:"tabular-nums",fontSize:11.5}}>{pendingList.length}</span>}
+          </button>
+          <button onClick={handleExportClick}
             style={{background:"rgba(155,34,38,.8)",border:"none",borderRadius:7,padding:"6px 14px",cursor:"pointer",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
             <FileText size={13}/>Exportar
           </button>
@@ -4157,6 +4194,57 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
             {renderSec()}
           </div>
         </div>
+      </div>
+
+      {/* REVISIÓN ANTES DE EXPORTAR — panel lateral con los bloques pendientes de
+          las 5 pantallas con formulario. Es un aviso, no un bloqueo: el perito
+          puede exportar igualmente si decide que quiere mandar un borrador. */}
+      {pendingOpen&&<div onClick={()=>setPendingOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,18,23,.42)",zIndex:120}}/>}
+      <div style={{position:"fixed",top:0,right:0,height:"100%",width:380,maxWidth:"88vw",background:C.bg,
+        boxShadow:"-8px 0 32px rgba(0,0,0,.22)",transform:pendingOpen?"translateX(0)":"translateX(100%)",
+        transition:"transform .22s ease",zIndex:121,display:"flex",flexDirection:"column"}}>
+        <div style={{background:C.sidebar,color:"#fff",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <h3 style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:17,margin:0}}>Revisión antes de exportar</h3>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:2,fontVariantNumeric:"tabular-nums"}}>{cData.encargo?.numReferencia||"Nuevo informe"} · {normCompania(cData.encargo?.compania)||""}</div>
+          </div>
+          <button onClick={()=>setPendingOpen(false)} aria-label="Cerrar" style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,width:26,height:26,color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <X size={14}/>
+          </button>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"16px 18px"}}>
+          {pendingList.length===0
+            ? <div style={{textAlign:"center",padding:"50px 20px"}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:C.greenBg,color:C.green,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+                  <Check size={24}/>
+                </div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:18,color:C.ink,marginBottom:6}}>Todo completo</div>
+                <div style={{fontSize:13.5,color:C.muted}}>Los 5 apartados con formulario están rellenados. Listo para exportar.</div>
+              </div>
+            : <>
+                {pendingBanner&&<div style={{background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:8,padding:"10px 12px",fontSize:13,color:C.orange,marginBottom:14,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <AlertTriangle size={14} style={{flexShrink:0,marginTop:1}}/>
+                  <span>Antes de exportar, revisa estos {pendingList.length} apartados.</span>
+                </div>}
+                <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{pendingList.length} apartados pendientes</div>
+                {pendingList.map((it,i)=>(
+                  <div key={it.secId+i} onClick={()=>goToPending(it.secId)} style={{display:"flex",alignItems:"flex-start",gap:10,
+                    background:C.white,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
+                    </div>
+                    <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
+                  </div>
+                ))}
+              </>}
+        </div>
+        {pendingBanner&&pendingList.length>0&&<div style={{borderTop:`1px solid ${C.border}`,padding:"14px 18px",flexShrink:0}}>
+          <button onClick={()=>{setPendingOpen(false);setExportOpen(true);}}
+            style={{width:"100%",background:"none",border:"none",color:C.muted,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",textDecoration:"underline"}}>
+            Exportar igualmente, sin revisar
+          </button>
+        </div>}
       </div>
 
       {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }} onExported={onExported}/>}
