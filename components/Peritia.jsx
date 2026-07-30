@@ -435,8 +435,7 @@ const matchBaremo = txt => {
 };
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
-const FONT = "https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@500;600&family=DM+Sans:wght@400;500;600;700&display=swap";
-const FONT_MONO = "'IBM Plex Mono',monospace";
+const FONT = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap";
 const css = `
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'DM Sans',sans-serif;background:${C.bg};color:${C.ink};font-size:16px}
@@ -519,7 +518,7 @@ const Inp = ({label,value,onChange,placeholder,type="text",disabled,required,hin
     {label&&<Lbl c={label} req={required}/>}
     <input type={type} value={value||""} onChange={e=>onChange(e.target.value)}
       placeholder={placeholder} disabled={disabled}
-      style={mono?{...inpStyle(disabled),fontFamily:FONT_MONO,fontWeight:600}:inpStyle(disabled)}/>
+      style={mono?{...inpStyle(disabled),fontWeight:600,fontVariantNumeric:"tabular-nums"}:inpStyle(disabled)}/>
     {hint&&<div style={{fontSize:13,color:C.muted,marginTop:3}}>{hint}</div>}
   </div>
 );
@@ -581,7 +580,7 @@ const Card = ({children,s}) => (
 const SecTitle = ({n,label,sub}) => (
   <div style={{marginBottom:22,paddingBottom:12,borderBottom:`2px solid ${C.accent}`}}>
     {n&&<div style={{fontSize:12,fontWeight:700,color:C.accent,letterSpacing:".1em",textTransform:"uppercase",marginBottom:4}}>SECCIÓN {n}</div>}
-    <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,color:C.ink}}>{label}</h2>
+    <h2 style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:600,color:C.ink}}>{label}</h2>
     {sub&&<p style={{fontSize:15,color:C.muted,marginTop:4,lineHeight:1.5}}>{sub}</p>}
   </div>
 );
@@ -623,7 +622,7 @@ const ContextBar = ({items,onEdit,editing,editLabel}) => (
       <div key={it.k+i} style={{display:"flex",flexDirection:"column",gap:1,padding:"7px 13px",
         borderRight:i<items.filter(Boolean).length-1?`1px solid ${C.border}`:"none"}}>
         <span style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{it.k}</span>
-        <span style={{fontFamily:it.mono!==false?FONT_MONO:"inherit",fontWeight:600,fontSize:14.5,
+        <span style={{fontVariantNumeric:it.mono!==false?"tabular-nums":"normal",fontWeight:600,fontSize:14.5,
           color:it.warn?C.orange:C.ink}}>{it.v}</span>
       </div>
     ))}
@@ -743,7 +742,7 @@ const Logo = () => (
       <Sparkles size={14} style={{color:"#fff"}}/>
     </div>
     <div style={{lineHeight:1}}>
-      <div style={{fontFamily:"'Source Serif 4',serif",fontSize:18}}>
+      <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,letterSpacing:"-0.02em",fontSize:18}}>
         <span style={{color:"#fff"}}>PERIT</span><span style={{color:"#C1494E"}}>.IA</span>
       </div>
       <div style={{fontSize:11,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase"}}>Informes Periciales</div>
@@ -798,7 +797,7 @@ const LoginScreen = ({onAuth}) => {
       <link rel="stylesheet" href={FONT}/>
       <div style={{width:380,maxWidth:'calc(100vw - 32px)',background:C.white,borderRadius:4,borderTop:`3px solid ${C.accent}`,padding:40,boxShadow:'0 12px 32px rgba(27,36,48,.13)'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:30,fontWeight:400,color:C.ink,letterSpacing:'-.02em'}}>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:30,fontWeight:700,color:C.ink,letterSpacing:'-0.02em'}}>
             PERIT<span style={{color:C.accent}}>.IA</span>
           </div>
           <div style={{fontSize:14,color:C.muted,marginTop:4}}>
@@ -964,7 +963,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             onMouseLeave={ev=>ev.currentTarget.style.background="rgba(255,255,255,.16)"}>
             <ChevronRight size={13}/>
           </button>}
-          <span style={{fontFamily:"'Source Serif 4',serif",fontSize:17,color:"rgba(255,255,255,.9)"}}>
+          <span style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,letterSpacing:"-0.02em",fontSize:17,color:"rgba(255,255,255,.9)"}}>
             PERIT<span style={{color:"rgba(255,255,255,.55)"}}>.IA</span>
           </span>
           <div style={{flex:1}}/>
@@ -984,7 +983,8 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
         <div style={{maxWidth:dashView==="tabla"?1320:860,margin:"0 auto",padding:"28px 24px",width:"100%",boxSizing:"border-box"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28}}>
             <div>
-              <h1 style={{fontFamily:"'Source Serif 4',serif",fontSize:28,fontWeight:400,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.muted,marginBottom:2}}>Panel de control</div>
+              <h1 style={{fontFamily:"'DM Sans',sans-serif",fontSize:28,fontWeight:600,color:C.ink,marginBottom:4}}>Mis Encargos</h1>
               <p style={{color:C.muted,fontSize:15}}>{cases.length} expediente{cases.length!==1?"s":""}</p>
             </div>
             <Btn primary onClick={onNew}><Plus size={14}/>Nuevo Encargo</Btn>
@@ -993,7 +993,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
           {!loading&&cases.length===0&&
             <Card s={{textAlign:"center",padding:"60px 40px"}}>
               <Building2 size={44} style={{color:C.border,marginBottom:14}}/>
-              <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:22,fontWeight:400,marginBottom:8}}>Sin encargos todavía</h3>
+              <h3 style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:600,marginBottom:8}}>Sin encargos todavía</h3>
               <p style={{color:C.muted,fontSize:15,marginBottom:20}}>Sube el PDF del encargo para comenzar</p>
               <Btn primary onClick={onNew}><Plus size={14}/>Crear primer encargo</Btn>
             </Card>
@@ -1066,7 +1066,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                         onMouseLeave={ev=>ev.currentTarget.style.background=ri%2===0?"transparent":"rgba(44,95,107,.03)"}>
                         <td style={{padding:"9px 10px",fontWeight:600,color:C.ink,boxShadow:`inset 4px 0 0 ${ecolor}`}}>{e.asegurado||"Sin asegurado"}</td>
                         <td style={{padding:"9px 10px",color:C.ink}}>{normCompania(e.compania)||"—"}</td>
-                        <td style={{padding:"9px 10px",fontFamily:FONT_MONO,fontWeight:600,color:C.ink}}>{e.numReferencia||"—"}</td>
+                        <td style={{padding:"9px 10px",fontWeight:600,fontVariantNumeric:"tabular-nums",color:C.ink}}>{e.numReferencia||"—"}</td>
                         <td style={{padding:"9px 10px",color:C.ink}}>{e.ramo||"—"}</td>
                         <td style={{padding:"9px 10px",color:C.ink}}>{TIPO_LABEL[e.tipoEncargo]||e.tipoEncargo||"—"}</td>
                         <td style={{padding:"9px 10px",color:C.ink}}>{e.provincia||"—"}</td>
@@ -1129,7 +1129,7 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
                       {e.asegurado||"Sin asegurado"}
                     </div>
                     <div style={{fontSize:14,color:C.muted,marginTop:2}}>
-                      {normCompania(e.compania)||"—"} · <span style={{fontFamily:FONT_MONO,fontWeight:600}}>{e.numReferencia||"—"}</span> · {e.lugarIntervencion||""}
+                      {normCompania(e.compania)||"—"} · <span style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{e.numReferencia||"—"}</span> · {e.lugarIntervencion||""}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
@@ -1154,7 +1154,8 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             <div style={{background:C.white,width:"100%",borderRadius:"16px 16px 0 0",maxHeight:"85vh",
                 overflowY:"auto",padding:"18px 18px 22px",boxSizing:"border-box"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-                <span style={{fontFamily:"'Source Serif 4',serif",fontSize:20,color:C.ink}}>Filtros</span>
+                {/* TODO: definir texto eyebrow (drawer de filtros móvil, sin contexto de página claro para el eyebrow) */}
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:20,color:C.ink}}>Filtros</span>
                 <button onClick={()=>setMobileFiltersOpen(false)} aria-label="Cerrar filtros"
                   style={{background:"none",border:"none",cursor:"pointer",color:C.muted,padding:4}}><X size={20}/></button>
               </div>
@@ -1377,7 +1378,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <div style={{width:48,height:48,background:`linear-gradient(135deg,${C.accent},#C1494E)`,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
             <Sparkles size={22} style={{color:"#fff"}}/>
           </div>
-          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontWeight:400,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.muted,marginBottom:2}}>Encargos</div>
+          <h2 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,fontWeight:600,color:C.ink,marginBottom:6}}>Nuevo Encargo</h2>
           <p style={{color:C.muted,fontSize:15}}>Adjunta el encargo y la póliza. Los datos se extraerán automáticamente.</p>
         </div>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
@@ -1409,7 +1411,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:C.bg}}>
       <div style={{textAlign:"center",maxWidth:360}}>
         <Loader2 size={40} style={{color:C.accent,animation:"spin 1s linear infinite",marginBottom:16}}/>
-        <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:21,fontWeight:400,marginBottom:6}}>Extrayendo datos…</h3>
+        <h3 style={{fontFamily:"'DM Sans',sans-serif",fontSize:21,fontWeight:600,marginBottom:6}}>Extrayendo datos…</h3>
         <p style={{color:C.accent,fontSize:15,fontWeight:600}}>{msg}</p>
       </div>
     </div>
@@ -1420,7 +1422,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       <div style={{maxWidth:680,margin:"0 auto",padding:"0 24px"}}>
         <div style={{marginBottom:22}}>
           <div style={{fontSize:12,color:C.accent,fontWeight:700,letterSpacing:".08em",marginBottom:3,textTransform:"uppercase"}}>Datos extraídos</div>
-          <h2 style={{fontFamily:"'Source Serif 4',serif",fontSize:24,fontWeight:400,color:C.ink}}>Datos del Encargo</h2>
+          <h2 style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,fontWeight:600,color:C.ink}}>Datos del Encargo</h2>
           <p style={{color:C.muted,fontSize:14,marginTop:3}}>Revisa y corrige antes de continuar</p>
         </div>
         <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
@@ -1526,7 +1528,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div style={{fontFamily:"'Source Serif 4',serif",fontSize:17,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
+        <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:600,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5}}>
           {n&&<span style={{fontSize:12,color:C.accent,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",display:"block",marginBottom:2}}>SECCIÓN {n}</span>}
           {title}
         </div>
@@ -1546,7 +1548,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* CABECERA */}
       <Card s={{marginBottom:18,borderLeft:`4px solid ${C.accent}`,padding:24}}>
         <div style={{textAlign:"center",marginBottom:20,paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:26,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:26,fontStyle:"italic",color:C.ink}}>INFORME PERICIAL</div>
         </div>
         <div className="grid3" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:16}}>
           {[["Compañía",normCompania(enc.compania)],["Nº Referencia",enc.numReferencia],["Nº Póliza",enc.numPoliza],
@@ -1555,7 +1557,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ].map(([k,v])=>(
             <div key={k} style={{borderBottom:`1px solid ${C.border}`,paddingBottom:7}}>
               <div style={{fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>{k}</div>
-              <div style={{fontSize:15,fontWeight:600,color:v?C.ink:C.border,fontFamily:k==="Nº Referencia"?FONT_MONO:"inherit"}}>{v||"—"}</div>
+              <div style={{fontSize:15,fontWeight:600,color:v?C.ink:C.border,fontVariantNumeric:k==="Nº Referencia"?"tabular-nums":"normal"}}>{v||"—"}</div>
             </div>
           ))}
         </div>
@@ -1632,7 +1634,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
           ?<>
             {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
             {s2?.meteo&&<div style={{marginTop:(s2?.textoAI||s2?.textoRaw)?14:0}}>
-              <div style={{fontFamily:"'Source Serif 4',serif",fontSize:15,color:C.ink,marginBottom:6}}>Verificación meteorológica</div>
+              <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:15,color:C.ink,marginBottom:6}}>Verificación meteorológica</div>
               {s2.meteo.texto&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
               <MeteoTabla m={s2.meteo} enc={enc}/>
             </div>}
@@ -1660,27 +1662,27 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
                     {rows.map((p,i)=>{
                       const {vRepos:vr,ivaAmt,vReal:vreal}=calcPartida(p);
                       return (<tr key={p.id||i} style={{borderBottom:`1px solid ${C.border}`,background:i%2===0?"transparent":"rgba(44,95,107,.04)"}}>
-                        <td style={{padding:"5px 6px",fontSize:13,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}>{p.oficio||""}</td>
+                        <td style={{padding:"5px 6px",fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",textTransform:"uppercase"}}>{p.oficio||""}</td>
                         <td style={{padding:"5px 6px",fontSize:13}}>{p.desc}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtSmart(p.uds||1)}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(p.p)}</td>
-                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vr)}</td>
-                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.ivaOn?fmtSmart(p.iva||21)+"%":"—"}</td>}
-                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(ivaAmt)}</td>}
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtSmart(p.uds||1)}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(p.p)}</td>
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(vr)}</td>
+                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{p.ivaOn?fmtSmart(p.iva||21)+"%":"—"}</td>}
+                        {showIVAp&&<td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(ivaAmt)}</td>}
                         {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right"}}>{p.depr?"SI":"NO"}</td>}
-                        {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{p.depr?fmtSmart(p.pctDepr||0)+"%":"0"}</td>}
-                        <td style={{padding:"5px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(vreal)}</td>
+                        {showDeprp&&<td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{p.depr?fmtSmart(p.pctDepr||0)+"%":"0"}</td>}
+                        <td style={{padding:"5px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(vreal)}</td>
                         <td style={{padding:"5px 6px",textAlign:"right"}}>{p.perceptor||"Asegurado"}</td>
                         <td style={{padding:"5px 6px",textAlign:"center"}}>{p.cobertura!==false?"Sí":"No"}</td>
                       </tr>);
                     })}
                     <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                       <td colSpan={4} style={{padding:"7px 6px",color:C.accent}}>Subtotal</td>
-                      <td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumRepos(rows))} €</td>
+                      <td style={{padding:"7px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(sumRepos(rows))} €</td>
                       {showIVAp&&<td/>}
-                      {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(sumIVA(rows))} €</td>}
+                      {showIVAp&&<td style={{padding:"7px 6px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(sumIVA(rows))} €</td>}
                       {showDeprp&&<td colSpan={2}/>}
-                      <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(sumReal(rows))}</td>
+                      <td style={{padding:"7px 6px",textAlign:"right",color:C.accent,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(sumReal(rows))}</td>
                       <td colSpan={2}/>
                     </tr>
                   </tbody>
@@ -1697,18 +1699,18 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
               <tbody>
                 <tr style={{borderBottom:`1px solid ${C.border}`}}>
                   <td style={{padding:"6px 8px",fontWeight:600}}>Total Continente</td>
-                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(totNuevoContP)}</td>
-                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmtE(totRealContP)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totNuevoContP)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totRealContP)}</td>
                 </tr>
                 <tr style={{borderBottom:`1px solid ${C.border}`}}>
                   <td style={{padding:"6px 8px",fontWeight:600}}>Total Contenido</td>
-                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(totNuevoCont2P)}</td>
-                  <td style={{padding:"6px 8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmtE(totRealCont2P)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totNuevoCont2P)}</td>
+                  <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totRealCont2P)}</td>
                 </tr>
                 <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                   <td style={{padding:"7px 8px",color:C.accent}}>Total estimación de daños</td>
-                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmtE(totNuevoContP+totNuevoCont2P)}</td>
-                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontSize:15,fontFamily:FONT_MONO}}>{fmtE(totalDano)}</td>
+                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totNuevoContP+totNuevoCont2P)}</td>
+                  <td style={{padding:"7px 8px",textAlign:"right",color:C.accent,fontSize:15,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(totalDano)}</td>
                 </tr>
               </tbody>
             </table>
@@ -1767,7 +1769,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         if(!anyAnex) return null;
         return (
           <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
-            <div style={{fontFamily:"'Source Serif 4',serif",fontSize:17,fontWeight:400,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:17,fontWeight:600,color:C.ink,borderBottom:`2px solid ${C.accent}`,paddingBottom:5,marginBottom:14}}>Anexos</div>
             {[{label:"Reportaje fotográfico",items:allFotos},{label:"Info catastral",items:allCatastro},{label:"Info Meteosim",items:allMeteosim},{label:"Factura",items:allFacturas}]
               .filter(g=>g.items.length>0).map(g=>(
               <div key={g.label} style={{marginBottom:10}}>
@@ -2087,7 +2089,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       </div>}
 
       {!primerRiesgoDetectado&&<Formula>
-        <b style={{fontFamily:FONT_MONO}}>V.Preexistente</b> = Módulo €/m² × Superficie × Factor &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>Infraseguro %</b> = (V.Preexistente − V.Asegurado) / V.Preexistente × 100
+        <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>V.Preexistente</b> = Módulo €/m² × Superficie × Factor &nbsp;·&nbsp; <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>Infraseguro %</b> = (V.Preexistente − V.Asegurado) / V.Preexistente × 100
         {arqKey&&data.superficieConstruida&&<div style={{color:C.muted,marginTop:4}}>
           Continente: {fmt(modulo)} €/m² × {fmt(parseFloat(data.superficieConstruida))} m² × {factor.toFixed(3)} = <b>{fmtE(vPreexCalc)}</b>
           {infraCont>0&&<> &nbsp;→&nbsp; ({fmtE(vPreexCalc)} − {fmtE(capCont)}) / {fmtE(vPreexCalc)} × 100 = <b>{fmt(infraCont)} %</b></>}
@@ -2097,15 +2099,15 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
       <ResultTable cols={["Bloque","Valor asegurado","Valor preexistente","Infraseguro"]}>
         <tr style={{borderBottom:`1px solid ${C.border}`,background:infraCont>0?C.redBg:"transparent"}}>
           <td style={{padding:"8px 10px",fontWeight:600}}>Continente</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(capCont)}</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(vPreex)}</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:700,color:infraCont>0?C.red:C.green}}>{fmt(infraCont)} %</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(capCont)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(vPreex)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,fontVariantNumeric:"tabular-nums",color:infraCont>0?C.red:C.green}}>{fmt(infraCont)} %</td>
         </tr>
         <tr style={{background:infraC2>0?C.redBg:"transparent"}}>
           <td style={{padding:"8px 10px",fontWeight:600}}>Contenido</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(capCont2)}</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO}}>{fmtE(vPCont)}</td>
-          <td style={{padding:"8px 10px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:700,color:infraC2>0?C.red:C.green}}>{fmt(infraC2)} %</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(capCont2)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmtE(vPCont)}</td>
+          <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,fontVariantNumeric:"tabular-nums",color:infraC2>0?C.red:C.green}}>{fmt(infraC2)} %</td>
         </tr>
       </ResultTable>
 
@@ -2267,7 +2269,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
   <input type={type} value={val||""} min={min} max={max} onChange={e=>oc(type==="number"?+e.target.value:e.target.value)}
     style={{width:w,padding:"2px 4px",border:`1px solid ${C.border}`,borderRadius:3,fontSize:12,
-      fontFamily:type==="number"?FONT_MONO:"inherit",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
+      fontVariantNumeric:type==="number"?"tabular-nums":"normal",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
 );
 
 const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave,scrollRef}) => {
@@ -2665,7 +2667,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         {esBaremo?"Valoración — A modo informativo":esPresup?"Valoración — Presupuesto":"Valoración — Factura"}
       </div>
       <Formula>
-        <b style={{fontFamily:FONT_MONO}}>V.Real</b> = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>V.Repos</b> = Uds × V.Unitario
+        <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>V.Real</b> = V.Repos × (1 − Depr%) + IVA importes &nbsp;·&nbsp; <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>V.Repos</b> = Uds × V.Unitario
         &nbsp;·&nbsp; Arrastra <GripVertical size={11} style={{verticalAlign:"middle"}}/> para reordenar filas
         {(()=>{
           const ejemplo = rowsActivas.find(p=>p.ivaOn||p.depr);
@@ -2711,15 +2713,15 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                       </td>
                       <td style={{padding:"4px 5px",minWidth:90}}>
                         <input value={p.oficio||""} onChange={e=>updP(i,"oficio",e.target.value.toUpperCase())}
-                          style={{width:"100%",padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:13,fontFamily:FONT_MONO,fontWeight:600,textTransform:"uppercase"}}/>
+                          style={{width:"100%",padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",textTransform:"uppercase"}}/>
                       </td>
                       <td style={{padding:"4px 5px",minWidth:170}}>
                         <input value={p.desc||""} onChange={e=>updP(i,"desc",e.target.value)}
                           style={{width:"100%",padding:"3px 5px",border:`1px solid ${C.border}`,borderRadius:4,fontSize:13,fontFamily:"inherit"}}/>
                       </td>
-                      <td style={{padding:"4px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
-                      <td style={{padding:"4px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontFamily:FONT_MONO,fontWeight:600}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
-                      <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontFamily:FONT_MONO}}>{fmt(vRepos)}</td>
+                      <td style={{padding:"4px 4px"}}>{p.indirecto?<span style={{display:"block",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>1</span>:<InpCell val={p.uds} onChange={v=>updP(i,"uds",v)} type="number" w={44} min={0}/>}</td>
+                      <td style={{padding:"4px 4px",textAlign:"right"}}>{p.indirecto?<span title="8% del subtotal" style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(pr.p)}</span>:<InpCell val={p.p} onChange={v=>updP(i,"p",v)} type="number" w={70} min={0}/>}</td>
+                      <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(vRepos)}</td>
                       {/* IVA: casilla + % (si está activa) + importe, todo en una columna en vez de 3 */}
                       {showIVA&&<td style={{padding:"4px 4px"}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
@@ -2729,7 +2731,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                             <option value={10}>10%</option><option value={21}>21%</option>
                           </select>}
                         </div>
-                        {p.ivaOn&&<div style={{textAlign:"center",fontSize:11.5,color:C.muted,fontFamily:FONT_MONO,marginTop:2}}>{fmt(ivaAmt)} €</div>}
+                        {p.ivaOn&&<div style={{textAlign:"center",fontSize:11.5,color:C.muted,fontWeight:600,fontVariantNumeric:"tabular-nums",marginTop:2}}>{fmt(ivaAmt)} €</div>}
                       </td>}
                       {/* Depreciación: casilla + % en una sola columna en vez de 2 */}
                       {showDepr&&<td style={{padding:"4px 4px"}}>
@@ -2738,7 +2740,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                           {p.depr&&<InpCell val={p.pctDepr} onChange={v=>updP(i,"pctDepr",v)} type="number" w={32} min={0} max={100}/>}
                         </div>
                       </td>}
-                      <td style={{padding:"4px 5px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(vReal)}</td>
+                      <td style={{padding:"4px 5px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(vReal)}</td>
                       <td style={{padding:"4px 4px"}}>
                         <select value={p.perceptor||"Asegurado"} onChange={e=>updP(i,"perceptor",e.target.value)}
                           style={{fontSize:12,border:`1px solid ${C.border}`,borderRadius:3,padding:"2px",fontFamily:"inherit"}}>
@@ -2761,10 +2763,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
                   <td/><td/>
                   <td style={{padding:"7px 5px",color:C.accent,fontSize:13}}>Subtotal</td>
                   <td/><td/>
-                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(tabla.sub.repos)} €</td>
-                  {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO,fontSize:13}}>{fmt(tabla.sub.iva)} €</td>}
+                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(tabla.sub.repos)} €</td>
+                  {showIVA&&<td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontWeight:600,fontVariantNumeric:"tabular-nums",fontSize:13}}>{fmt(tabla.sub.iva)} €</td>}
                   {showDepr&&<td/>}
-                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:14,fontFamily:FONT_MONO}}>{fmt(tabla.sub.real)} €</td>
+                  <td style={{padding:"7px 5px",textAlign:"right",color:C.accent,fontSize:14,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(tabla.sub.real)} €</td>
                   <td colSpan={3}/>
                 </tr>}
               </tbody>
@@ -2786,18 +2788,18 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             <tbody>
               <tr style={{borderBottom:`1px solid ${C.border}`}}>
                 <td style={{padding:"8px",fontWeight:600}}>Total Continente</td>
-                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(totNuevoCont)} €</td>
-                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(totRealCont)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totNuevoCont)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totRealCont)} €</td>
               </tr>
               <tr style={{borderBottom:`1px solid ${C.border}`}}>
                 <td style={{padding:"8px",fontWeight:600}}>Total Contenido</td>
-                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO}}>{fmt(totNuevoCont2)} €</td>
-                <td style={{padding:"8px",textAlign:"right",fontFamily:FONT_MONO,fontWeight:600}}>{fmt(totRealCont2)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totNuevoCont2)} €</td>
+                <td style={{padding:"8px",textAlign:"right",fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totRealCont2)} €</td>
               </tr>
               <tr style={{background:C.accentLight,fontWeight:700,borderTop:`2px solid ${C.accent}`}}>
                 <td style={{padding:"9px 8px",color:C.accent}}>Total estimación de daños</td>
-                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontFamily:FONT_MONO}}>{fmt(totRepos)} €</td>
-                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontSize:15,fontFamily:FONT_MONO}}>{fmt(totReal)} €</td>
+                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totRepos)} €</td>
+                <td style={{padding:"9px 8px",textAlign:"right",color:C.accent,fontSize:15,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(totReal)} €</td>
               </tr>
             </tbody>
           </table>
@@ -2961,7 +2963,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
       <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
       <Formula>
-        <b style={{fontFamily:FONT_MONO}}>Indemnización</b> = max(0, Valor ajustado − Franquicia) &nbsp;·&nbsp; <b style={{fontFamily:FONT_MONO}}>Valor ajustado</b> = Daño con cobertura × Regla proporcional (si aplica)
+        <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>Indemnización</b> = max(0, Valor ajustado − Franquicia) &nbsp;·&nbsp; <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>Valor ajustado</b> = Daño con cobertura × Regla proporcional (si aplica)
       </Formula>
 
       {/* TABLA GARANTÍAS */}
@@ -3016,7 +3018,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
               <div style={{display:"flex",flexDirection:"column",gap:2,padding:"6px 12px",borderRadius:7,
                 background:step.bg||C.bg,border:step.border?`1px solid ${step.border}`:"none"}}>
                 <span style={{fontSize:10.5,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".05em"}}>{step.k}</span>
-                <span style={{fontFamily:FONT_MONO,fontWeight:700,fontSize:15,color:step.color||C.ink}}>{step.v}</span>
+                <span style={{fontWeight:700,fontVariantNumeric:"tabular-nums",fontSize:15,color:step.color||C.ink}}>{step.v}</span>
               </div>
               {idx<arr.length-1&&<span style={{color:C.border,fontSize:17}}>→</span>}
             </div>
@@ -3025,7 +3027,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
 
         <div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:8,padding:16,marginTop:14,textAlign:"center"}}>
           <div style={{fontSize:12,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Total Propuesta de Indemnización</div>
-          <div style={{fontFamily:"'Source Serif 4',serif",fontSize:32,color:C.green}}>{fmtE(indemn)}</div>
+          <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontVariantNumeric:"tabular-nums",fontSize:32,color:C.green}}>{fmtE(indemn)}</div>
         </div>
       </Card>
 
@@ -3731,7 +3733,10 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:C.white,borderRadius:12,padding:30,width:420,maxWidth:'calc(100vw - 32px)',boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
-          <h3 style={{fontFamily:"'Source Serif 4',serif",fontSize:20,fontWeight:400,color:C.ink}}>Exportar Informe</h3>
+          <div>
+            <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:C.muted,marginBottom:2,fontVariantNumeric:"tabular-nums"}}>{cData.encargo?.numReferencia||"Nuevo informe"}</div>
+            <h3 style={{fontFamily:"'DM Sans',sans-serif",fontSize:20,fontWeight:600,color:C.ink}}>Exportar Informe</h3>
+          </div>
           <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',cursor:'pointer',color:C.muted,padding:4}}><X size={18}/></button>
         </div>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
@@ -3956,7 +3961,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         </button>
         <div style={{width:1,height:22,background:"rgba(255,255,255,.1)"}}/>
         <div style={{flex:1,minWidth:0,textAlign:"right"}}>
-          <div style={{color:"#fff",fontWeight:600,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:FONT_MONO}}>{cData.encargo?.numReferencia||"Nuevo informe"}</div>
+          <div style={{color:"#fff",fontWeight:600,fontSize:15,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>{cData.encargo?.numReferencia||"Nuevo informe"}</div>
           <div style={{color:"rgba(255,255,255,.4)",fontSize:12}}>{normCompania(cData.encargo?.compania)||""}</div>
         </div>
         <div className="editor-actions" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
@@ -4008,7 +4013,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
                   background:isActive?C.accent:isDone?"rgba(15,123,77,.3)":"rgba(255,255,255,.08)"}}>
                   {isDone&&!isActive
                     ?<Check size={12} style={{color:"#6EE7B7"}}/>
-                    :<span style={{fontFamily:FONT_MONO,fontWeight:600,fontSize:13,color:isActive?"#fff":"rgba(255,255,255,.45)"}}>{String(idx).padStart(2,"0")}</span>}
+                    :<span style={{fontWeight:600,fontVariantNumeric:"tabular-nums",fontSize:13,color:isActive?"#fff":"rgba(255,255,255,.45)"}}>{String(idx).padStart(2,"0")}</span>}
                 </div>
                 <div style={{minWidth:0}}>
                   <div style={{fontSize:14,fontWeight:isActive?600:400,color:isActive?"#fff":"rgba(255,255,255,.55)",lineHeight:1.3}}>{item.label}</div>
