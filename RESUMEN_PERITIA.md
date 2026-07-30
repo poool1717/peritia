@@ -213,10 +213,10 @@ Propuesta de indemnización (sec4IndemnAuto):
 
 | Formato | Tecnología | Notas |
 |---|---|---|
-| **PDF** | iframe oculto + `window.print()` nativo (sesión 17, antes `window.open` con URL blob) | CSP-safe. Ya no abre ninguna pestaña/ventana — el diálogo de impresión sale sobre la propia app |
+| **PDF** | iframe oculto + `window.print()` nativo (sesión 17, antes `window.open` con URL blob) | CSP-safe. Ya no abre ninguna pestaña/ventana — el diálogo de impresión sale sobre la propia app. Numeración de página real vía CSS (`@page{@bottom-center{content:counter(page)}}`), sin librería nueva |
 | **Word (.doc)** | HTML-to-DOC via Blob | Editable en Word/LibreOffice, descarga directa. Numeración de página real con campos nativos de Word (`PAGE`/`NUMPAGES`) desde la sesión 17 |
 
-Ambos incluyen: portada con grid de campos (cabecera "expediente" = Nº de Referencia, ya no `numExpInterno`), Sec0–4 completas, las tablas de valoración de la Sección 3 (Daños en Continente / Daños en Contenido / Resumen de Daños, títulos alineados a la izquierda desde la sesión 17), Sección 4 renombrada "Propuesta de Indemnización" con sub-apartados 4.1 Cobertura y 4.2 Resumen por garantías, cierre con espacio para firma, Anexos con las facturas/presupuestos como hoja adicional del informe y el reportaje fotográfico en una columna de fotos numeradas ("Foto 1", "Foto 2"…) con pie de foto opcional. Colores de tablas/bordes en gris (antes granate) desde la sesión 17; la numeración de páginas del PDF depende de la opción nativa "Encabezados y pies de página" del navegador (no forzable sin añadir una librería de generación de PDF).
+Ambos incluyen: portada con grid de campos (cabecera "expediente" = Nº de Referencia, ya no `numExpInterno`), Sec0–4 completas, las tablas de valoración de la Sección 3 (Daños en Continente / Daños en Contenido / Resumen de Daños, títulos alineados a la izquierda desde la sesión 17), Sección 4 "Estudio de Cobertura-Indemnización" con sub-apartados 4.1 Cobertura y 4.2 Resumen por garantías. Propuesta de indemnización, cierre con espacio para firma, Anexos siempre en página propia (facturas/presupuestos como hoja adicional del informe, reportaje fotográfico en una columna de fotos numeradas "Foto 1"/"Foto 2"… con pie de foto opcional) — las Secciones 1 a 4 en cambio fluyen sin salto de página forzado entre ellas, solo con más separación visual. Colores de tablas/bordes en gris (antes granate) desde la sesión 17.
 
 ---
 

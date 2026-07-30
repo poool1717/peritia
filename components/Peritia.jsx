@@ -1722,7 +1722,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         const s4Indemn = s4?.textoIndemn||sec4IndemnAuto(s3,indemn);
         const s4Done   = !!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||totalDano>0;
         return (
-        <Section n="4" title="Propuesta de Indemnización" id="s4" done={s4Done}>
+        <Section n="4" title="Estudio de Cobertura-Indemnización" id="s4" done={s4Done}>
           {s4Done
           ?<>
             {s4Desc&&<>
@@ -3297,14 +3297,14 @@ const buildWordHTML = (cData) => {
     const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
     return `<tr><td width="100%" valign="top" class='foto-cell'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`}<div style='font-size:9pt;font-weight:bold;color:#333;margin-top:4pt'>Foto ${i+1}</div>${f.caption?`<div style='font-size:8pt;color:#666;margin-top:1pt'>${f.caption}</div>`:''}</td></tr>`;
   };
-  const wFotosHTML=wFotos.length?`<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
+  const wFotosHTML=wFotos.length?`${facturasW.length?`<div class='page-break'></div>
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
 <table class='foto-table' width="100%" cellpadding="4" cellspacing="0">${wFotos.map(wFotoRow).join('')}</table>`:'';
   const wFacturasHTML=facturasW.map((f,i)=>{
     const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-    return `<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
+    return `${i>0?`<div class='page-break'></div>
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>${f.tipo} ${i+1}${f.name?': '+f.name:''}</h3>
 ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`:`<p style='font-size:9pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`}`;
   }).join('');
@@ -3315,7 +3315,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
   div.Section1{page:Section1}
   body{font-family:Arial,sans-serif;font-size:10pt;color:#000;margin:0}
   h1{font-size:18pt;font-style:italic;text-align:center;border-top:1px solid #888;border-bottom:1px solid #888;padding:6pt 0}
-  h2{font-size:11pt;border-bottom:2px solid #888;padding-bottom:3pt;margin-top:14pt}
+  h2{font-size:11pt;border-bottom:2px solid #888;padding-bottom:3pt;margin-top:38pt}
   h3{font-size:10pt;margin-top:12pt}
   table{border-collapse:collapse;width:100%;font-size:8pt;margin:6pt 0}
   th{background:#555;color:#fff;padding:3pt 4pt;text-align:left;font-size:7.5pt}
@@ -3382,14 +3382,10 @@ ${catastroHTML}
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 ${s1.aiText?'<p>'+s1.aiText+'</p>':''}
-<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
 ${meteoHTML(s2.meteo, enc, '')}
-<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>3. VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${w3Intro?`<p>${w3Intro.replace(/\n/g,'<br/>')}</p>`:''}
@@ -3402,9 +3398,7 @@ ${partidasCont2W.length>0?`<h3 style='text-align:left'>Daños en Contenido</h3><
 <tr><td>Total Continente</td><td>${fmtPDF(totNuevoContW)} €</td><td>${fmtPDF(totRealContW)} €</td></tr>
 <tr><td>Total Contenido</td><td>${fmtPDF(totNuevoCont2W)} €</td><td>${fmtPDF(totRealCont2W)} €</td></tr>
 <tr class='subtotal'><td><b>Total estimación de daños</b></td><td><b>${fmtPDF(totNuevoContW+totNuevoCont2W)} €</b></td><td><b>${fmtPDF(totalDano)} €</b></td></tr></table>`:''}
-<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
-<h2>4. PROPUESTA DE INDEMNIZACIÓN.</h2>
+<h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${w4Desc?`<h3 style='text-align:left'>4.1 Cobertura</h3><p style='white-space:pre-wrap'>${w4Desc.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style='text-align:left'>4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
@@ -3532,15 +3526,20 @@ const exportPDF = (cData, dniPerito='') => {
   const html=`<!DOCTYPE html><html>
 <head><meta charset="utf-8"/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
-  @page{size:A4;margin:12mm 15mm 16mm 15mm}
+  @page{
+    size:A4;margin:12mm 15mm 18mm 15mm;
+    @bottom-center{
+      content:"Avda. Josep Tarradellas, 38 · 08029 Barcelona · Tel: 93.118.51.38 — Página " counter(page) " de " counter(pages);
+      font-family:Arial,sans-serif;font-size:7.5pt;color:#666;
+    }
+  }
   *{box-sizing:border-box}
   body{font-family:Arial,sans-serif;font-size:9.5pt;color:#000;margin:0;line-height:1.4}
   .hdr{border-bottom:0.4pt solid #888;padding-bottom:3pt;margin-bottom:8pt;display:flex;justify-content:space-between;align-items:baseline}
   .hdr-left{font-weight:bold;color:#555;font-size:8pt}
   .hdr-right{font-size:8pt;color:#666}
-  .ftr{position:fixed;bottom:6mm;left:15mm;right:15mm;border-top:0.3pt solid #ccc;padding-top:2pt;font-size:7pt;color:#666;text-align:center}
   h1{font-size:18pt;font-style:italic;text-align:center;border-top:0.5pt solid #888;border-bottom:0.5pt solid #888;padding:6pt 0;margin:12pt 0 16pt}
-  h2{font-size:10.5pt;font-weight:bold;border-bottom:1.5pt solid #888;padding-bottom:2pt;margin-top:14pt;margin-bottom:8pt}
+  h2{font-size:10.5pt;font-weight:bold;border-bottom:1.5pt solid #888;padding-bottom:2pt;margin-top:38pt;margin-bottom:8pt}
   h3{font-size:9.5pt;font-weight:bold;margin:10pt 0 4pt}
   .grid3{display:table;width:100%;margin-bottom:8pt}
   .grid3-row{display:table-row}
@@ -3575,7 +3574,6 @@ const exportPDF = (cData, dniPerito='') => {
 </style></head>
 <body>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
-<div class="ftr">Avda. Josep Tarradellas, 38 · 08029 Barcelona · Teléfono: 93.118.51.38 · @: asesoria@gvperitos.es</div>
 <h1>INFORME PERICIAL</h1>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Compañía</span><span class="fv">${normCompania(enc.compania)||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Referencia</span><span class="fv">${enc.numReferencia||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Póliza</span><span class="fv">${enc.numPoliza||'—'}</span></div></div></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Ramo</span><span class="fv">${enc.ramo||'—'}</span></div><div class="grid3-cell"><span class="fl">Garantía</span><span class="fv">${enc.garantia||'—'}</span></div><div class="grid3-cell"><span class="fl">Importe líquido siniestro</span><span class="fv">${fmtPDF(totalDano)} €</span></div></div></div>
@@ -3602,14 +3600,10 @@ ${catastroHTML}
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 ${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
-<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
 ${meteoHTML(s2.meteo, enc, 'data')}
-<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2>3.&nbsp;&nbsp;&nbsp;VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
 ${d3Intro?`<p>${d3Intro.replace(/\n/g,'<br/>')}</p>`:''}
@@ -3623,9 +3617,7 @@ ${partidasCont2D.length>0?`<h3 style="text-align:left">Daños en Contenido</h3><
 <tr><td>Total Contenido</td><td style="text-align:right">${fmtPDF(totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totRealCont2D)} €</td></tr>
 <tr class="subtotal"><td>Total estimación de daños</td><td style="text-align:right">${fmtPDF(totNuevoContD+totNuevoCont2D)} €</td><td style="text-align:right">${fmtPDF(totalDano)} €</td></tr>
 </tbody></table>`:''}
-<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
-<h2>4.&nbsp;&nbsp;&nbsp;PROPUESTA DE INDEMNIZACIÓN.</h2>
+<h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
 ${d4Desc?`<h3 style="text-align:left">4.1 Cobertura</h3><p style="white-space:pre-wrap">${d4Desc.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`<h3 style="text-align:left">4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
@@ -3644,12 +3636,12 @@ ${(facturasD.length||allFotos.length)?`
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2 style="text-align:left">Anexos.</h2>
-${facturasD.map((f,i)=>`<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
+${facturasD.map((f,i)=>`${i>0?`<div class="page-break"></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>${f.tipo} ${i+1}${f.name?': '+f.name:''}</h3>
 ${f.url?(esPdfItem(f)?`<iframe src="${f.url}" style="width:100%;height:230mm;border:none"></iframe>`:`<img src="${f.url}" style="width:100%;height:auto" onerror="this.style.display='none'"/>`):`<p>[Documento adjunto: ${f.name||''}]</p>`}`).join('')}
-${allFotos.length?`<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
+${allFotos.length?`${facturasD.length?`<div class="page-break"></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
 <div class="anex-foto">${allFotos.map((f,i)=>`<div class="anex-foto-item">${esPdfItem(f)?`<iframe src="${f.url}" style="width:100%;height:420pt;border:none;display:block"></iframe>`:`<img src="${f.url}" onerror="this.style.display='none'"/>`}<div class="num">Foto ${i+1}</div>${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`).join('')}</div>`:''}
 `:''}
