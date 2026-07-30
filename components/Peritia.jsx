@@ -3399,8 +3399,8 @@ ${meteoHTML(s2.meteo, enc, '')}
 ${w3Intro?`<p>${w3Intro.replace(/\n/g,'<br/>')}</p>`:''}
 ${s3.textoAI?'<p>'+s3.textoAI+'</p>':''}
 ${partidas.length>0?`
-${partidasContW.length>0?`<h3 style='text-align:left'>Daños en Continente</h3><table><tr>${wTh}</tr>${rowPartCont}${subCont}</table>`:''}
-${partidasCont2W.length>0?`<h3 style='text-align:left'>Daños en Contenido</h3><table><tr>${wTh}</tr>${rowPartCont2}${subCont2}</table>`:''}
+${partidasContW.length>0?`<div class="no-split"><h3 style='text-align:left'>Daños en Continente</h3><table><tr>${wTh}</tr>${rowPartCont}${subCont}</table></div>`:''}
+${partidasCont2W.length>0?`<div class="no-split"><h3 style='text-align:left'>Daños en Contenido</h3><table><tr>${wTh}</tr>${rowPartCont2}${subCont2}</table></div>`:''}
 <div class="no-split">
 <h3 style='text-align:left'>Resumen de Daños</h3>
 <table><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr>
@@ -3631,8 +3631,8 @@ ${meteoHTML(s2.meteo, enc, 'data')}
 ${d3Intro?`<p>${d3Intro.replace(/\n/g,'<br/>')}</p>`:''}
 ${s3.textoAI?`<p>${s3.textoAI.replace(/\n/g,'<br/>')}</p>`:''}
 ${partidas.length>0?`
-${partidasContD.length>0?`<h3 style="text-align:left">Daños en Continente</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartContD}${subContD}</tbody></table>`:''}
-${partidasCont2D.length>0?`<h3 style="text-align:left">Daños en Contenido</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartCont2D}${subCont2D}</tbody></table>`:''}
+${partidasContD.length>0?`<div class="no-split"><h3 style="text-align:left">Daños en Continente</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartContD}${subContD}</tbody></table></div>`:''}
+${partidasCont2D.length>0?`<div class="no-split"><h3 style="text-align:left">Daños en Contenido</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartCont2D}${subCont2D}</tbody></table></div>`:''}
 <div class="no-split">
 <h3 style="text-align:left">Resumen de Daños</h3>
 <table class="data"><thead><tr><th>Garantía</th><th>Valor a nuevo</th><th>Valor real</th></tr></thead><tbody>
