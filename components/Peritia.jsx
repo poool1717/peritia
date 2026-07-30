@@ -1947,7 +1947,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
         {k:"Primer riesgo",v:primerRiesgoDetectado?"Sí":"No",mono:false},
       ]}/>
 
-      <ZoneLabel zone="trabajo">Lo que aportas tras la visita</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div>
       {/* DATOS DEL RIESGO */}
@@ -2196,7 +2196,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
         (enc.umbralViento||enc.umbralLluvia)&&{k:"Umbral lluvia",v:enc.umbralLluvia?enc.umbralLluvia+" l/m²/h":"—"},
       ]}/>
 
-      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div>
       <Card s={{marginBottom:14}}>
@@ -2507,7 +2507,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           hint="De la póliza — editable"/>
       </Card>}
 
-      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div>
       {/* DESCRIPCIÓN DE DAÑOS */}
@@ -2932,7 +2932,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
         {k:"Franquicia",v:fmtE(franq)},
       ]}/>
 
-      <ZoneLabel zone="trabajo">Revisa lo que ya está escrito</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div>
       {/* TEXTO INTRO MODO VALORACIÓN */}
@@ -2960,7 +2960,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
       </Card>
       </div>
 
-      <ZoneLabel zone="resultado">Resultado final</ZoneLabel>
+      <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
       <Formula>
         <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>Indemnización</b> = max(0, Valor ajustado − Franquicia) &nbsp;·&nbsp; <b style={{fontWeight:600,fontVariantNumeric:"tabular-nums"}}>Valor ajustado</b> = Daño con cobertura × Regla proporcional (si aplica)
@@ -3144,7 +3144,7 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
       <SecTitle label="Anexos" sub="Reportaje fotográfico, datos catastrales, Meteosim, facturas y presupuestos"/>
 
       {/* Sin tira de contexto aparte: los contadores de cada pestaña ya cumplen esa función. */}
-      <ZoneLabel zone="trabajo">Tu trabajo</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div style={{display:"flex",gap:7,marginBottom:16,flexWrap:"wrap"}}>
         {tabs.map(t=>{
@@ -3803,7 +3803,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
         faltanObl>0&&{k:"Obligatorios (*) pendientes",v:String(faltanObl),warn:true},
       ]}/>
 
-      <ZoneLabel zone="trabajo">Revisa lo extraído</ZoneLabel>
+      <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
       <div>
       <Card s={{marginBottom:12}}>
