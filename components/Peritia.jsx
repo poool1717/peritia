@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   FileText, MapPin, AlertTriangle, List, FileCheck, DollarSign,
-  Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft,
+  Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft, ChevronDown,
   Plus, X, Search, Home, Sparkles, Shield, Building2, Image,
   FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2, GripVertical,
   ExternalLink, Mail, Info,
@@ -668,6 +668,101 @@ const AutoBadge = ({children}) => (
   <span style={{marginLeft:"auto",fontSize:11,fontWeight:700,letterSpacing:".04em",padding:"2px 7px",
     borderRadius:5,background:C.planoLight,color:C.plano,textTransform:"none"}}>{children}</span>
 );
+
+// ─── ACORDEÓN DE BLOQUES ("Datos del perito") ──────────────────────────────
+// Sustituye a Card+SectionLabel en los bloques donde el perito introduce datos.
+// Empieza abierto si done=false (algo pendiente) y plegado si done=true (ya
+// completo), para que se vea primero lo que falta. Al plegarse se estrecha
+// (máx. 600px) y lee como una línea de lista; al abrirse vuelve a ancho
+// completo para que quepan los campos de varias columnas.
+const Block = ({title,badge,done,summary,children}) => {
+  const [open,setOpen] = useState(!done);
+  return (
+    <div style={{marginBottom:14}}>
+      <div style={{background:C.white,border:`1px solid ${open?"#D8CFC0":C.border}`,borderRadius:10,
+        overflow:"hidden",maxWidth:open?"100%":600,transition:"border-color .15s,max-width .18s ease"}}>
+        <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",
+          padding:open?"13px 16px":"11px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left",
+          fontFamily:"inherit",transition:"padding .18s ease"}}>
+          <span style={{fontSize:open?13.5:12.5,fontWeight:700,color:C.accent,textTransform:"uppercase",
+            letterSpacing:".05em",transition:"font-size .18s ease"}}>
+            {title}
+            {badge&&<span style={{marginLeft:8,fontSize:10.5,fontWeight:700,letterSpacing:".04em",padding:"2px 7px",
+              borderRadius:5,background:C.planoLight,color:C.plano,textTransform:"none"}}>{badge}</span>}
+          </span>
+          <span style={{marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:4,
+            fontSize:open?11:10,fontWeight:700,padding:open?"3px 8px":"2px 7px",borderRadius:20,
+            flexShrink:0,whiteSpace:"nowrap",background:done?C.greenBg:C.orangeBg,color:done?C.green:C.orange}}>
+            {done?<Check size={10}/>:<span style={{width:6,height:6,borderRadius:"50%",background:C.orange}}/>}
+            {done?"Completo":"Pendiente"}
+          </span>
+          <ChevronDown size={16} style={{color:C.muted,flexShrink:0,transition:"transform .18s ease",
+            transform:open?"rotate(180deg)":"none"}}/>
+        </button>
+        {open
+          ? <div style={{padding:"0 16px 16px"}}>{children}</div>
+          : <div style={{padding:"12px 16px 15px",borderTop:`1px solid ${C.border}`,fontSize:13.5,color:C.muted,lineHeight:1.6}}>{summary}</div>}
+      </div>
+    </div>
+  );
+};
+
+// Estado (completo/pendiente) de cada bloque "Datos del perito" por sección,
+// como array de booleanos — una función pura por sección, reutilizada tanto
+// por el prop `done` de cada <Block> como por el semáforo de navegación de la
+// topbar (que solo tiene cData, no el estado interno de cada componente de
+// sección). Mantenerlas en un solo sitio evita que las dos lecturas diverjan.
+const encargoBlockStates = enc => [
+  !!(enc.compania&&enc.numReferencia),
+  !!(enc.asegurado&&enc.lugarIntervencion),
+  parseCap(enc.capitalContinente)>0,
+];
+const s1BlockStates = (data,enc) => {
+  const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
+  return [
+    !!data.estado,
+    !!(data.superficieConstruida&&data.tipoArqKey),
+    capCont>0,
+  ];
+};
+const s2BlockStates = (data,enc) => {
+  const states = [!!(data.textoRaw||data.textoAI)];
+  if(esSiniestroAtmosferico(enc)) states.push(!!data.meteo);
+  return states;
+};
+const s3BlockStates = data => {
+  const modoVal = data.modoValoracion||"baremo";
+  const docMode = modoVal==="presupuesto"||modoVal==="factura";
+  return [
+    !!(data.textoRaw||data.textoAI),
+    modoVal==="baremo" ? (data.partidas?.length>0) : (docMode&&!!data.perceptorTipo),
+  ];
+};
+const s4BlockStates = data => [
+  !!data.textoIntro,
+  !!data.descripcionCobertura,
+];
+const anexosBlockStates = (anexos,s3) => {
+  const a = anexos||{};
+  return [
+    !!a.fotos?.length,
+    !!a.catastro?.length,
+    !!a.meteosim?.length,
+    !!(a.facturas?.length||s3?.facturas?.length),
+  ];
+};
+// Verde: todo completo · Rojo: nada relleno (o algún bloque en estado "error",
+// cuando exista esa validación) · Naranja: mezcla. "error" no lo produce hoy
+// ningún bloque real — no hay validación de campos inválidos en la app — pero
+// semaforoFromStates ya lo entiende si se añade en el futuro.
+const semaforoFromStates = states => {
+  if(states.some(st=>st==="error")) return "red";
+  if(!states.length) return "orange";
+  const doneCount = states.filter(st=>st===true).length;
+  if(doneCount===states.length) return "green";
+  if(doneCount===0) return "red";
+  return "orange";
+};
 
 // ─── AI VOICE INPUT ───────────────────────────────────────────────────────────
 const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholder,rows=5}) => {
@@ -1936,6 +2031,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
   const arqLabel = n3opciones.find(x=>x.k===arqKey)?.l||"";
   const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
   const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
+  const s1b = s1BlockStates(data,enc);
 
   return (
     <div className="fade">
@@ -1949,10 +2045,8 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
 
       <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
-      <div>
-      {/* DATOS DEL RIESGO */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Datos del Riesgo Asegurado</SectionLabel>
+      <Block title="Datos del Riesgo Asegurado" done={s1b[0]}
+        summary={`${data.tipoRiesgo||"tipo sin definir"} · ${data.usoVivienda||"uso sin definir"} · ${data.estado||"estado pendiente de la visita"}`}>
         <Sel label="Tipo de vivienda" value={data.tipoRiesgo} onChange={s("tipoRiesgo")} options={TIPOS_USO}
           hint={data.tipoRiesgo?"Extraído de póliza — editable":""}/>
         <Inp label="Uso de vivienda" value={data.usoVivienda||""} onChange={s("usoVivienda")}
@@ -1980,14 +2074,12 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           options={["Nuevo","Buen estado","Reformado","Usado","Deteriorado"]}/>
         {!data.estado&&<div style={{fontSize:13,color:C.orange,marginTop:-10,marginBottom:10,display:"flex",alignItems:"center",gap:5}}>
           <AlertTriangle size={12}/>Pendiente de rellenar tras la visita presencial</div>}
-      </Card>
-      </div>
+      </Block>
 
-      <div>
       {/* SUPERFICIE Y ARQUITECTURA — Catastro + Tipo de Arquitectura fusionados:
           las dos sirven para lo mismo, obtener superficie y módulo de cálculo. */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Superficie y Arquitectura</SectionLabel>
+      <Block title="Superficie y Arquitectura" done={s1b[1]}
+        summary={`${data.superficieConstruida?data.superficieConstruida+" m²":"superficie sin indicar"} · ${arqLabel||"tipo de construcción sin seleccionar"}`}>
         <Btn primary full onClick={consultarCatastro} disabled={catLoad}>
           {catLoad?<><Spin/>Consultando Catastro…</>:<><FileImage size={13}/>Consultar Catastro</>}
         </Btn>
@@ -2056,13 +2148,11 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             </div>
           </div>
         )}
-      </Card>
-      </div>
+      </Block>
 
-      <div>
       {/* CAPITALES ASEGURADOS — los dos capitales editables, agrupados */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Capitales Asegurados</SectionLabel>
+      <Block title="Capitales Asegurados" done={s1b[2]}
+        summary={`Continente ${fmtE(capCont)} · Contenido ${fmtE(capCont2)}`}>
         {capCont===0&&<div style={{background:"#FEF3C7",border:"1px solid #FCD34D",borderRadius:7,padding:"10px 13px",marginBottom:12,fontSize:14,color:"#92400E",lineHeight:1.6}}>
           <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Capital asegurado no detectado.</b> Introduce el valor manualmente desde la póliza.
         </div>}
@@ -2079,8 +2169,7 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
             onChange={v=>onChange({...data,vPreexContenido:v})}
             hint=""/>
         </div>
-      </Card>
-      </div>
+      </Block>
 
       <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
@@ -2186,6 +2275,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
   const hayResultado = !!(data.meteo||data.textoAI);
+  const s2b = s2BlockStates(data,enc);
   return (
     <div className="fade">
       <SecTitle n="2" label="Causas y Circunstancias" sub="Describe el siniestro — por voz o texto."/>
@@ -2198,21 +2288,18 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 
       <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
-      <div>
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Descripción del Siniestro</SectionLabel>
+      <Block title="Descripción del Siniestro" done={s2b[0]}
+        summary={data.textoRaw||data.textoAI ? (data.textoRaw||data.textoAI).slice(0,140)+((data.textoRaw||data.textoAI).length>140?"…":"") : "Sin describir todavía"}>
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
           onImprove={improve} improving={improving}
           onApply={()=>onChange({...data,aiApplied:true})} applied={data.aiApplied}
           placeholder="Describe el siniestro: cómo ocurrió, qué daños encontraste, qué te dijeron los afectados…" rows={5}/>
-      </Card>
-      </div>
+      </Block>
 
       {/* CONSULTA METEOROLÓGICA — solo si el siniestro es atmosférico */}
       {esAtmosferico&&(
-        <div>
-        <Card s={{marginBottom:14}}>
-          <SectionLabel>Verificación Meteorológica (Meteocat)</SectionLabel>
+        <Block title="Verificación Meteorológica (Meteocat)" done={s2b[1]}
+          summary={data.meteo?`Estación ${data.meteo.estacio} · ${data.meteo.distanciaKm} km`:"Sin consultar todavía"}>
           <div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:7,padding:"9px 12px",fontSize:14,color:C.blue,marginBottom:12}}>
             Consulta automática a la estación automática oficial más cercana al lugar del siniestro. Compara el viento y la lluvia registrados el día del siniestro con los umbrales de la póliza.
           </div>
@@ -2223,8 +2310,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             {data.meteo&&<span style={{fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={12}/>Estación {data.meteo.estacio} · {data.meteo.distanciaKm} km</span>}
           </div>
           {meteoErr&&<div style={{marginTop:10,background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.orange}}>{meteoErr}</div>}
-        </Card>
-        </div>
+        </Block>
       )}
 
       {hayResultado&&<ZoneLabel zone="resultado">Resultado</ZoneLabel>}
@@ -2465,6 +2551,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
   };
   const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
   const [facDrag,setFacDrag] = useState(false);
+  const s3b = s3BlockStates(data);
 
   return (
     <div className="fade">
@@ -2509,10 +2596,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 
       <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
-      <div>
       {/* DESCRIPCIÓN DE DAÑOS */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Descripción de los Daños</SectionLabel>
+      <Block title="Descripción de los Daños" done={s3b[0]}
+        summary={data.textoRaw||data.textoAI ? (data.textoRaw||data.textoAI).slice(0,140)+((data.textoRaw||data.textoAI).length>140?"…":"") : "Sin describir todavía"}>
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
           onImprove={improveText} improving={improving}
           placeholder="Describe los daños encontrados en la visita pericial…" rows={4}/>
@@ -2526,13 +2612,11 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
               minRows={4} style={{fontSize:15}}/>
           </div>
         )}
-      </Card>
-      </div>
+      </Block>
 
-      <div>
       {/* CÓMO SE VALORA — modo + la acción que ese modo necesita, en la misma tarjeta */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Cómo se valora</SectionLabel>
+      <Block title="Cómo se valora" done={s3b[1]}
+        summary={`${esBaremo?"A modo informativo":esPresup?"Por presupuesto":"Por factura"}${data.perceptorTipo?" · Perceptor: "+(data.perceptorTipo==="asegurado"?"Asegurado":data.perceptorTipo==="perjudicado"?"Perjudicado":"Reparador"):""}${esBaremo?" · "+partidas.length+" partidas":""}`}>
         <div style={{display:"flex",gap:8,marginBottom:docMode||esBaremo?14:0}}>
           {[{v:"baremo",l:"A modo informativo"},{v:"presupuesto",l:"Por Presupuesto"},{v:"factura",l:"Por Factura"}].map(m=>(
             <button key={m.v} onClick={()=>onChange({...data,modoValoracion:m.v})}
@@ -2622,8 +2706,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
             </div>
           )}
         </div>}
-      </Card>
-      </div>
+      </Block>
 
       <div>
       {/* PERJUDICADOS — plegado a una línea cuando la respuesta es "No" (lo habitual) */}
@@ -2921,6 +3004,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
       <RefreshCw size={11}/>Restaurar
     </button>
   );
+  const s4b = s4BlockStates(data);
 
   return (
     <div className="fade">
@@ -2934,22 +3018,19 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
 
       <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
-      <div>
       {/* TEXTO INTRO MODO VALORACIÓN */}
-      <Card s={{marginBottom:14}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <SectionLabel>Texto de Valoración<AutoBadge>Automático</AutoBadge></SectionLabel>
+      <Block title="Texto de Valoración" badge="Automático" done={s4b[0]}
+        summary={data.textoIntro?data.textoIntro.slice(0,140)+(data.textoIntro.length>140?"…":""):"Sin generar todavía"}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
           <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal)})}/>
         </div>
         <div style={{fontSize:13,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
         <Txt value={data.textoIntro||sec4IntroAuto(modoVal)} onChange={s("textoIntro")} rows={2}/>
-      </Card>
-      </div>
+      </Block>
 
-      <div>
       {/* DESCRIPCIÓN COBERTURA */}
-      <Card s={{marginBottom:14}}>
-        <SectionLabel>Descripción de la Cobertura<AutoBadge>De la póliza</AutoBadge></SectionLabel>
+      <Block title="Descripción de la Cobertura" badge="De la póliza" done={s4b[1]}
+        summary={data.descripcionCobertura?data.descripcionCobertura.slice(0,140)+(data.descripcionCobertura.length>140?"…":""):"Sin datos de póliza — pendiente de completar"}>
         <div style={{fontSize:13,color:C.muted,marginBottom:8}}>
           Extraída automáticamente de la póliza para la garantía afectada. Editable.
         </div>
@@ -2957,8 +3038,7 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
           placeholder={enc.garantia?"Buscando cobertura para "+enc.garantia+"…":"Adjunta la póliza en el paso inicial para extraer automáticamente la descripción de la cobertura"}/>
         {!data.descripcionCobertura&&<div style={{fontSize:13,color:C.orange,marginTop:6,display:"flex",alignItems:"center",gap:5}}>
           <AlertTriangle size={12}/>Sin datos de póliza — introduce manualmente la descripción de la cobertura</div>}
-      </Card>
-      </div>
+      </Block>
 
       <ZoneLabel zone="resultado">Resultado</ZoneLabel>
 
@@ -3792,6 +3872,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
 
   const extraidos = CAMPOS_ENCARGO.filter(f=>enc[f]!=null&&enc[f]!=="").length;
   const faltanObl = CAMPOS_OBLIGATORIOS.filter(f=>!enc[f]).length;
+  const eb = encargoBlockStates(enc);
 
   return (
     <div className="fade">
@@ -3805,9 +3886,8 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
 
       <ZoneLabel zone="trabajo">Datos del perito</ZoneLabel>
 
-      <div>
-      <Card s={{marginBottom:12}}>
-        <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
+      <Block title={<><Building2 size={12} style={{verticalAlign:"-2px",marginRight:5}}/>Compañía y Siniestro</>}
+        done={eb[0]} summary={`${normCompania(enc.compania)||"Compañía sin definir"} · ${enc.numReferencia||"sin referencia"}`}>
         <div style={{marginBottom:14}}>
           <Lbl c="Compañía" req/>
           <select value={COMPANIAS.find(c=>enc.compania&&normCompania(enc.compania).toUpperCase().includes(c.toUpperCase()))||normCompania(enc.compania)||""}
@@ -3834,12 +3914,10 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
           <Inp label="Fecha Encargo" value={enc.fechaEncargo} onChange={s("fechaEncargo")} placeholder="dd/mm/aaaa"/>
           <Inp label="Fecha Siniestro" value={enc.fechaSiniestro} onChange={s("fechaSiniestro")} placeholder="dd/mm/aaaa"/>
         </div>
-      </Card>
-      </div>
+      </Block>
 
-      <div>
-      <Card s={{marginBottom:12}}>
-        <SectionLabel><MapPin size={12}/>Asegurado y Localización</SectionLabel>
+      <Block title={<><MapPin size={12} style={{verticalAlign:"-2px",marginRight:5}}/>Asegurado y Localización</>}
+        done={eb[1]} summary={`${enc.asegurado||"Asegurado sin definir"} · ${enc.lugarIntervencion||"ubicación sin definir"}`}>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Inp label="Asegurado / Tomador" value={enc.asegurado} onChange={s("asegurado")} required/>
           <Inp label="NIF / CIF" value={enc.nifAsegurado} onChange={s("nifAsegurado")}/>
@@ -3850,12 +3928,11 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
           <Inp label="Municipio" value={enc.municipio} onChange={s("municipio")}/>
           <Inp label="Provincia" value={enc.provincia} onChange={s("provincia")}/>
         </div>
-      </Card>
-      </div>
+      </Block>
 
-      <div>
-      <Card s={{marginBottom:12}}>
-        <SectionLabel><DollarSign size={12}/>Capitales Asegurados {enc.polizaAdjunta&&<span style={{color:C.green,fontWeight:400,fontSize:13}}>de la póliza</span>}</SectionLabel>
+      <Block title={<><DollarSign size={12} style={{verticalAlign:"-2px",marginRight:5}}/>Capitales Asegurados</>}
+        badge={enc.polizaAdjunta?"De la póliza":undefined}
+        done={eb[2]} summary={`Continente ${fmtE(parseCap(enc.capitalContinente))} · Contenido ${fmtE(parseCap(enc.capitalContenido))}`}>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <div>
             <EuroInput label="Capital Continente" value={enc.capitalContinente} onChange={s("capitalContinente")}
@@ -3889,8 +3966,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
             </select>
           </div>
         </div>
-      </Card>
-      </div>
+      </Block>
 
       <NavBottom onSave={handleSave} onNext={onNext} saved={saved} nextLabel="Siguiente — Verificación del Riesgo"/>
     </div>
@@ -3901,6 +3977,8 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const [sec,setSec]         = useState("encargo");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
+  const [pendingOpen,setPendingOpen] = useState(false);
+  const [pendingBanner,setPendingBanner] = useState(false);
   const tokens = cData.tokenStats||{i:0,o:0};
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
   const addTokens = (i,o) => onUpdate({...cData,tokenStats:{i:(tokens.i||0)+i,o:(tokens.o||0)+o}});
@@ -3946,7 +4024,59 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     }
   };
 
-  const doneSecs = ["s1","s2","s3","s4"].filter(k=>cData[k]&&Object.keys(cData[k]).length>2).length;
+  // Semáforo por pantalla para la franja de accesos rápidos de la topbar:
+  // verde = todos los bloques completos, rojo = ninguno relleno (o algún bloque
+  // en estado "error", cuando exista esa validación), naranja = mezcla.
+  // Reutiliza las mismas funciones de estado que alimentan el prop `done` de
+  // cada <Block>, para que topbar y bloques nunca puedan contar cosas distintas.
+  const secSemaforo = id => {
+    if(id==="encargo") return semaforoFromStates(encargoBlockStates(cData.encargo||{}));
+    if(id==="s1") return semaforoFromStates(s1BlockStates(cData.s1||{},cData.encargo||{}));
+    if(id==="s2") return semaforoFromStates(s2BlockStates(cData.s2||{},cData.encargo||{}));
+    if(id==="s3") return semaforoFromStates(s3BlockStates(cData.s3||{}));
+    if(id==="s4") return semaforoFromStates(s4BlockStates(cData.s4||{}));
+    if(id==="anexos") return semaforoFromStates(anexosBlockStates(cData.anexos,cData.s3));
+    if(id==="informe"){
+      // Informe no tiene campos propios (es la vista previa): resume el estado de las otras 6.
+      const otros = ["encargo","s1","s2","s3","s4","anexos"].map(secSemaforo);
+      if(otros.every(x=>x==="green")) return "green";
+      if(otros.every(x=>x==="red")) return "red";
+      return "orange";
+    }
+    return "orange";
+  };
+  const SEM_COLORS = {green:[C.greenBg,C.green],orange:[C.orangeBg,C.orange],red:[C.redBg,C.red]};
+
+  // Lista de bloques pendientes para la revisión antes de exportar — mismos
+  // nombres de bloque que ven las 5 pantallas con formulario (Encargo + Sec1-4);
+  // Anexos e Informe se quedan fuera porque no usan el acordeón. Reutiliza otra
+  // vez las mismas funciones xBlockStates, así que nunca puede desalinearse de
+  // lo que muestra cada <Block> o el semáforo de arriba.
+  const BLOCK_LABELS = {
+    encargo: ["Compañía y Siniestro","Asegurado y Localización","Capitales Asegurados"],
+    s1: ["Datos del Riesgo Asegurado","Superficie y Arquitectura","Capitales Asegurados"],
+    s3: ["Descripción de los Daños","Cómo se valora"],
+    s4: ["Texto de Valoración","Descripción de la Cobertura"],
+  };
+  const s2Labels = esSiniestroAtmosferico(cData.encargo||{})
+    ? ["Descripción del Siniestro","Verificación Meteorológica"]
+    : ["Descripción del Siniestro"];
+  const SECTION_TITLES = {encargo:"Datos del Encargo",s1:"Verificación del Riesgo",s2:"Causas y Circunstancias",s3:"Valoración de Daños",s4:"Cobertura-Indemnización"};
+  const pendingList = [];
+  [
+    ["encargo",encargoBlockStates(cData.encargo||{}),BLOCK_LABELS.encargo],
+    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),BLOCK_LABELS.s1],
+    ["s2",s2BlockStates(cData.s2||{},cData.encargo||{}),s2Labels],
+    ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
+    ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],
+  ].forEach(([id,states,labels])=>{
+    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i]}); });
+  });
+  const goToPending = secId => { setSec(secId); setPendingOpen(false); };
+  const handleExportClick = () => {
+    if(pendingList.length>0){ setPendingBanner(true); setPendingOpen(true); }
+    else setExportOpen(true);
+  };
 
   return (
     <div className="editor-shell" style={{display:"flex",flexDirection:"column"}}>
@@ -3972,14 +4102,45 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
             <div style={{color:"rgba(255,255,255,.35)",fontSize:11,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:13,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
           </div>
-          <div style={{background:"rgba(15,123,77,.3)",borderRadius:5,padding:"4px 10px",color:"rgba(255,255,255,.75)",fontSize:13,display:"flex",alignItems:"center",gap:4}}>
-            <Check size={10}/>{doneSecs}/4
-          </div>
-          <button onClick={()=>setExportOpen(true)}
+          <button onClick={()=>{setPendingBanner(false);setPendingOpen(true);}}
+            style={{border:"none",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:"inherit",
+              display:"flex",alignItems:"center",gap:6,
+              background:pendingList.length===0?"rgba(15,123,77,.3)":"rgba(180,83,9,.3)",
+              color:pendingList.length===0?"#6EE7B7":"#FDBA74"}}>
+            {pendingList.length===0?<Check size={12}/>:<AlertTriangle size={12}/>}
+            {pendingList.length===0?"Todo listo":"Pendientes"}
+            {pendingList.length>0&&<span style={{background:"rgba(0,0,0,.22)",borderRadius:20,padding:"1px 7px",fontVariantNumeric:"tabular-nums",fontSize:11.5}}>{pendingList.length}</span>}
+          </button>
+          <button onClick={handleExportClick}
             style={{background:"rgba(155,34,38,.8)",border:"none",borderRadius:7,padding:"6px 14px",cursor:"pointer",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
             <FileText size={13}/>Exportar
           </button>
         </div>
+      </div>
+
+      {/* ACCESOS RÁPIDOS — franja fija bajo la topbar, con semáforo por pantalla.
+          Convive con el menú lateral (no lo sustituye): la pantalla activa se ve
+          en granate por encima del color de estado, para que no haya duda de
+          dónde estás. */}
+      <div style={{background:"#1C222B",borderTop:"1px solid rgba(255,255,255,.06)",display:"flex",gap:6,
+        padding:"7px 16px",overflowX:"auto",flexShrink:0}}>
+        {SECCIONES.map(item=>{
+          const isActive = sec===item.id;
+          const [bg,fg] = SEM_COLORS[secSemaforo(item.id)];
+          const Icon = item.icon;
+          return (
+            <button key={item.id} onClick={()=>setSec(item.id)} style={{display:"flex",alignItems:"center",gap:6,
+              padding:"5px 12px 5px 8px",borderRadius:20,border:"none",cursor:"pointer",fontSize:12.5,fontWeight:600,
+              whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0,
+              background:isActive?C.accent:bg,color:isActive?"#fff":fg}}>
+              <span style={{width:20,height:20,borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",
+                background:isActive?"rgba(255,255,255,.22)":"rgba(0,0,0,.07)",flexShrink:0}}>
+                <Icon size={11}/>
+              </span>
+              {item.label}
+            </button>
+          );
+        })}
       </div>
 
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
@@ -4033,6 +4194,57 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
             {renderSec()}
           </div>
         </div>
+      </div>
+
+      {/* REVISIÓN ANTES DE EXPORTAR — panel lateral con los bloques pendientes de
+          las 5 pantallas con formulario. Es un aviso, no un bloqueo: el perito
+          puede exportar igualmente si decide que quiere mandar un borrador. */}
+      {pendingOpen&&<div onClick={()=>setPendingOpen(false)} style={{position:"fixed",inset:0,background:"rgba(15,18,23,.42)",zIndex:120}}/>}
+      <div style={{position:"fixed",top:0,right:0,height:"100%",width:380,maxWidth:"88vw",background:C.bg,
+        boxShadow:"-8px 0 32px rgba(0,0,0,.22)",transform:pendingOpen?"translateX(0)":"translateX(100%)",
+        transition:"transform .22s ease",zIndex:121,display:"flex",flexDirection:"column"}}>
+        <div style={{background:C.sidebar,color:"#fff",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div>
+            <h3 style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:17,margin:0}}>Revisión antes de exportar</h3>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:2,fontVariantNumeric:"tabular-nums"}}>{cData.encargo?.numReferencia||"Nuevo informe"} · {normCompania(cData.encargo?.compania)||""}</div>
+          </div>
+          <button onClick={()=>setPendingOpen(false)} aria-label="Cerrar" style={{background:"rgba(255,255,255,.1)",border:"none",borderRadius:6,width:26,height:26,color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <X size={14}/>
+          </button>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"16px 18px"}}>
+          {pendingList.length===0
+            ? <div style={{textAlign:"center",padding:"50px 20px"}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:C.greenBg,color:C.green,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+                  <Check size={24}/>
+                </div>
+                <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:18,color:C.ink,marginBottom:6}}>Todo completo</div>
+                <div style={{fontSize:13.5,color:C.muted}}>Los 5 apartados con formulario están rellenados. Listo para exportar.</div>
+              </div>
+            : <>
+                {pendingBanner&&<div style={{background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:8,padding:"10px 12px",fontSize:13,color:C.orange,marginBottom:14,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <AlertTriangle size={14} style={{flexShrink:0,marginTop:1}}/>
+                  <span>Antes de exportar, revisa estos {pendingList.length} apartados.</span>
+                </div>}
+                <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{pendingList.length} apartados pendientes</div>
+                {pendingList.map((it,i)=>(
+                  <div key={it.secId+i} onClick={()=>goToPending(it.secId)} style={{display:"flex",alignItems:"flex-start",gap:10,
+                    background:C.white,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
+                    </div>
+                    <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
+                  </div>
+                ))}
+              </>}
+        </div>
+        {pendingBanner&&pendingList.length>0&&<div style={{borderTop:`1px solid ${C.border}`,padding:"14px 18px",flexShrink:0}}>
+          <button onClick={()=>{setPendingOpen(false);setExportOpen(true);}}
+            style={{width:"100%",background:"none",border:"none",color:C.muted,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",textDecoration:"underline"}}>
+            Exportar igualmente, sin revisar
+          </button>
+        </div>}
       </div>
 
       {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }} onExported={onExported}/>}
