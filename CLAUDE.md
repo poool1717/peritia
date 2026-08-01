@@ -21,7 +21,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 | Auth | Supabase Auth (email+password, sin confirmación de email) |
 | IA | Anthropic API · modelo `claude-sonnet-4-6` |
 | Proxy API | `pages/api/claude.js` (Next.js serverless) |
-| Repositorio | `github.com/poool1717/peritia` (rama `main`) |
+| Repositorio | `github.com/poool1717/peritia` (rama `main` = producción, rama `test` = entorno paralelo) |
 
 ---
 
@@ -30,7 +30,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.030 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.410 líneas)
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
@@ -39,10 +39,11 @@ peritia/
 │       ├── meteocat.js      ← proxy datos abiertos XEMA/Meteocat (Sec2) + captura de mapa
 │       └── catastro.js      ← proxy Sede Electrónica del Catastro (Sec1) + captura WMS
 ├── supabase/
-│   └── migrations/          ← migraciones SQL (bucket Storage, RLS, etc.)
+│   └── migrations/          ← migraciones SQL (esquema base, bucket Storage, RLS, etc.)
 ├── package.json
 ├── next.config.js
 ├── vercel.json
+├── .env.example             ← variables de entorno de referencia (no se lee, solo documentación)
 ├── CLAUDE.md                ← este archivo
 ├── CONTEXT.md               ← estado actual del proyecto
 └── RESUMEN_PERITIA.md       ← resumen técnico completo
@@ -57,20 +58,23 @@ peritia/
 - **App producción:** `https://peritia-git-main-pol-myprojects.vercel.app`
 - **GitHub:** `https://github.com/poool1717/peritia`
 - **Vercel dashboard:** `https://vercel.com/pol-myprojects/peritia`
-- **Supabase proyecto:** `https://supabase.com/dashboard/project/yrulaaxdusvmzohugmnc`
+- **Supabase proyecto (producción):** `https://supabase.com/dashboard/project/yrulaaxdusvmzohugmnc`
+- **Supabase proyecto (test, sesión 22):** `https://supabase.com/dashboard/project/yvconlqtetxvyzxkhxib`
 
 ---
 
 ## Credenciales de infraestructura
 
 Las credenciales sensibles (API keys, tokens) están guardadas como variables de entorno en Vercel.
-NO están en el código fuente. Consultar Vercel dashboard si es necesario.
+NO están en el código fuente — desde la sesión 22, ni siquiera la URL/key de Supabase están escritas en `Peritia.jsx`, se leen de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`). Consultar Vercel dashboard si es necesario.
 
 | Servicio | Variable de entorno |
 |---|---|
-| Anthropic API key | `ANTHROPIC_API_KEY` (Vercel env) |
-| Supabase URL | `https://yrulaaxdusvmzohugmnc.supabase.co` |
-| Supabase project ID | `yrulaaxdusvmzohugmnc` |
+| Anthropic API key | `ANTHROPIC_API_KEY` (Vercel env, compartida entre producción y test) |
+| Supabase URL (producción) | `https://yrulaaxdusvmzohugmnc.supabase.co` |
+| Supabase project ID (producción) | `yrulaaxdusvmzohugmnc` |
+| Supabase URL (test) | `https://yvconlqtetxvyzxkhxib.supabase.co` |
+| Supabase project ID (test) | `yvconlqtetxvyzxkhxib` |
 | Vercel project ID | `prj_FlGP4bJXDO8w52vUE2ahNzLcseoz` |
 | Gmail cuenta | `poool.1717@gmail.com` |
 
@@ -106,6 +110,21 @@ public.perfiles (
 ```
 RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `handle_new_user` crea perfil al registrarse.
 
+Esquema versionado en `supabase/migrations/20260604120000_esquema_base.sql` (más `20260719120000_anexos_storage_bucket.sql` para el bucket). Es idempotente: aplicarlo de nuevo sobre el proyecto de producción no cambia nada.
+
+---
+
+## Entorno de test (sesión 22)
+
+Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), con el mismo esquema que producción pero **vacío**, para poder trabajar en una versión paralela de la app sin tocar los datos reales.
+
+- **Rama de trabajo:** `test` (permanente, no se borra al fusionar como las ramas `claude/*` normales)
+- **Qué la diferencia de producción:** `Peritia.jsx` lee `SB_URL`/`SB_KEY` de `process.env.NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Sin esas variables definidas, cae a producción — así que **si un despliegue no tiene las variables del proyecto de test puestas en Vercel, escribe en la base de datos real** aunque venga de la rama `test`. Comprobarlo si algo no cuadra.
+- **Aviso visual:** cuando la app apunta a una base distinta de la de producción, se muestra un badge fijo "ENTORNO DE PRUEBAS" en las 4 pantallas (componente `TestBadge`). Si no aparece, la app está contra producción.
+- **Anthropic API key:** compartida con producción (decisión explícita de Pol) — las pruebas consumen créditos reales.
+- **Para pasar algo de `test` a `main`:** PR normal de `test` → `main`. Antes de fusionar, comprobar con `git log origin/main..origin/test` (y al revés) que no hay divergencia inesperada — mismo cuidado que con cualquier rama de larga duración (regla 5c).
+- **Si se necesita ampliar el esquema de test** (nueva columna, nueva tabla): aplicar la migración correspondiente en `supabase/migrations/` a los **dos** proyectos, producción y test, no solo a uno.
+
 ---
 
 ## Reglas de desarrollo
@@ -118,8 +137,8 @@ RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `ha
 3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí.
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
 5. **Preguntar antes de cambios grandes.** Para refactorizaciones que afecten >5 componentes, proponer y esperar confirmación.
-5b. **Antes de empezar un trabajo grande (rediseño, refactor), verificar el estado real de `main` y `staging` en GitHub** (`git log`, PRs abiertos) — no asumir que el estado de partida sigue siendo el mismo que al principio de la sesión. Pol suele lanzar varias sesiones de Claude Code en paralelo sobre el mismo repo; dos sesiones distintas ya construyeron de forma independiente el mismo fix de sidebar/responsive porque una partía de una `staging` desactualizada sin saber que la otra ya lo había resuelto en `main` (ver CONTEXT.md, sesión 12). Si el PR no se puede fusionar limpiamente (`mergeable_state` distinto de `clean`) o `staging`/`main` han avanzado desde que se creó la rama, avisar a Pol antes de forzar nada.
-5c. **`staging` puede estar por detrás de `main`.** No asumir que `staging` contiene todo lo que ya está en producción — comprobarlo (`git log origin/main..origin/staging` y al revés) antes de basar una rama nueva en `staging`.
+5b. **Antes de empezar un trabajo grande (rediseño, refactor), verificar el estado real de las ramas en GitHub** (`git log`, PRs abiertos, `git branch -a`) — no asumir que el estado de partida sigue siendo el mismo que al principio de la sesión, ni que las ramas que se mencionan en este archivo o en CONTEXT.md siguen existiendo. Pol suele lanzar varias sesiones de Claude Code en paralelo sobre el mismo repo; dos sesiones distintas ya construyeron de forma independiente el mismo fix de sidebar/responsive porque una partía de una `staging` desactualizada sin saber que la otra ya lo había resuelto en `main` (ver CONTEXT.md, sesión 12). Si el PR no se puede fusionar limpiamente (`mergeable_state` distinto de `clean`) o la rama base ha avanzado desde que se creó la rama de trabajo, avisar a Pol antes de forzar nada.
+5c. **Ramas del repositorio (actualizado sesión 22):** `main` es producción. La rama `staging` que existía hasta la sesión 11 ya no existe (se fusionó a `main` y se borró) — no asumir que sigue ahí. Desde la sesión 22 existe `test`, rama permanente para el entorno de pruebas (BD propia, ver más abajo). Antes de basar una rama nueva en `test` o en cualquier otra rama de larga duración, comprobar con `git log` que no está por detrás de `main`.
 6. **Después de cada cambio:** crear una Pull Request con descripción clara de qué se modificó y por qué.
 7. **Actualizar documentación antes de cada Pull Request.** Es un paso obligatorio, no opcional. Hacerlo siempre antes de crear la PR, aunque el cambio parezca pequeño.
 

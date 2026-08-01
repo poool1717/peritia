@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~4.140 líneas · React 18
+**Archivo principal:** `peritia.jsx` · ~4.413 líneas · React 18
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -31,9 +31,12 @@ App (Root) — auth state (user, token, sidebarOpen)
 | Servicio | Proyecto | Región | Estado |
 |---|---|---|---|
 | **Vercel** | `peritia` · `prj_FlGP4bJXDO8w52vUE2ahNzLcseoz` | US East | ✅ Activo |
-| **Supabase** | `PeritIA` · `yrulaaxdusvmzohugmnc` | EU West 1 (Irlanda) | ✅ Activo |
-| **Anthropic API** | `sk-ant-api03-uSjEaVJD...` | — | ✅ Configurada en Vercel env |
-| **GitHub** | `poool1717/peritia` | — | ✅ Auto-deploy en push a main |
+| **Supabase** | `PeritIA` · `yrulaaxdusvmzohugmnc` | EU West 1 (Irlanda) | ✅ Activo (producción) |
+| **Supabase (test)** | `PeritIA-test` · `yvconlqtetxvyzxkhxib` | EU West 1 (Irlanda) | ✅ Activo (sesión 22, plan gratuito, vacío) |
+| **Anthropic API** | `sk-ant-api03-uSjEaVJD...` | — | ✅ Configurada en Vercel env, compartida entre producción y test |
+| **GitHub** | `poool1717/peritia` | — | ✅ Auto-deploy en push a main · rama `test` para el entorno paralelo |
+
+`SB_URL`/`SB_KEY` (cliente de Supabase en `Peritia.jsx`) ya no van escritos en el código: se leen de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`, con los valores de producción como respaldo si esas variables no están definidas. Así se decide desde Vercel (por ámbito Production/Preview) a qué base de datos apunta cada despliegue, en vez de en el código.
 
 **Proxy seguro:** `pages/api/claude.js` — inyecta `ANTHROPIC_API_KEY`, añade `anthropic-beta: pdfs-2024-09-25` automáticamente si la petición contiene un PDF, garantiza `max_tokens` y modelo `claude-sonnet-4-6`.
 
@@ -45,7 +48,9 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ## Componentes base
 
-`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge` · `Formula`
+`Spin` · `Inp` · `EuroInput` · `Sel` · `Txt` · `AutoTextarea` · `Btn` · `Card` · `SecTitle` · `SectionLabel` · `InfoRow` · `VoiceBox` · `NavBottom` · `Logo` · `DropZone` · `ExportModal` · `LoginScreen` · `SecEncargo` · `MeteoTabla` · `ZoneLabel` · `ContextBar` · `ResultTable` · `AutoBadge` · `Formula` · `TestBadge`
+
+> **`TestBadge`** (sesión 22) — aviso fijo "ENTORNO DE PRUEBAS" en las 4 pantallas de la app. Se muestra solo cuando `SB_URL` no coincide con la de producción (`ES_TEST`), así que no depende de acordarse de activar ni desactivar nada a mano.
 
 (El rail de navegación por bloques de la sesión 16 — `BlockRail`/`useBlockRail`/`WorkGrid`/`RailStats` — se retiró en la sesión 17.)
 

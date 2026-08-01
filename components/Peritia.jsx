@@ -4,7 +4,7 @@ import {
   Camera, Upload, Mic, MicOff, Loader2, Check, ChevronRight, ChevronLeft, ChevronDown,
   Plus, X, Search, Home, Sparkles, Shield, Building2, Image,
   FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2, GripVertical,
-  ExternalLink, Mail, Info,
+  ExternalLink, Mail, Info, FlaskConical,
 } from "lucide-react";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
@@ -196,8 +196,22 @@ const parseCap = v => {
 
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────────────────────
-const SB_URL  = "https://yrulaaxdusvmzohugmnc.supabase.co";
-const SB_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydWxhYXhkdXN2bXpvaHVnbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NzQyMTUsImV4cCI6MjA5NjE1MDIxNX0.TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw";
+// La base de datos a la que apunta la app llega por variable de entorno, para
+// que el entorno de test (rama `test` y previews de Vercel) escriba en su
+// propia base y no en la de producción. Si no hay variables definidas se cae a
+// producción, que es el comportamiento que había antes de separarlas.
+// Ojo: en Next.js estas variables se resuelven al compilar, no al ejecutar —
+// hay que escribir `process.env.NEXT_PUBLIC_X` literal, no por índice.
+const SB_URL_PROD = "https://yrulaaxdusvmzohugmnc.supabase.co";
+const SB_KEY_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydWxhYXhkdXN2bXpvaHVnbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NzQyMTUsImV4cCI6MjA5NjE1MDIxNX0.TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw";
+
+const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL      || SB_URL_PROD;
+const SB_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SB_KEY_PROD;
+
+// Verdadero cuando la app NO está apuntando a la base de datos de producción.
+// Se deduce de la propia URL en vez de con otra variable aparte, así no puede
+// quedar desincronizado: si apunta a otra base, el aviso sale sí o sí.
+const ES_TEST = SB_URL !== SB_URL_PROD;
 
 const sbAuth = async (path, body) => {
   const r = await fetch(`${SB_URL}/auth/v1/${path}`, {
@@ -4255,6 +4269,22 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 };
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
+// Aviso permanente de que la app NO está sobre la base de datos real. Es lo que
+// evita el fallo caro: confundir un informe de pruebas con uno de un cliente.
+// No se renderiza nada en producción.
+const TestBadge = () => ES_TEST ? (
+  <div style={{
+    position:"fixed", left:12, bottom:12, zIndex:10000,
+    display:"flex", alignItems:"center", gap:8,
+    padding:"8px 14px", borderRadius:999,
+    background:C.orangeBg, border:`1.5px solid ${C.orange}`,
+    color:C.orange, fontSize:13, fontWeight:700, letterSpacing:.3,
+    boxShadow:"0 4px 14px rgba(0,0,0,.14)", pointerEvents:"none"
+  }}>
+    <FlaskConical size={15}/> ENTORNO DE PRUEBAS
+  </div>
+) : null;
+
 export default function App(){
   const [user,setUser]   = useState(null);
   const [token,setToken] = useState(null);
@@ -4371,11 +4401,12 @@ export default function App(){
     if(active?.id===id){ setActive(null); setView('dashboard'); }
   };
 
-  if(!user) return <><LoginScreen onAuth={handleAuth}/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
-  if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
-  if(view==="editor"&&active) return <ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/>;
+  if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
+  if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
+  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
+    <TestBadge/>
     <link rel="stylesheet" href={FONT}/>
     <style>{css}</style>
   </>;
