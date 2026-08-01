@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
+**Última actualización:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
+
+**Anterior:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
 
 ---
 
@@ -9,6 +11,18 @@
 
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
+
+**Sesión 22 — entorno de test.** Pol pidió poder trabajar en una versión paralela de la app sin tocar producción, para más adelante decidir si pasarla a `main`. Se ha montado el "Nivel 2" de la propuesta: rama `test` permanente + base de datos de pruebas separada, coste 0 €.
+
+El bloqueo real que había que resolver primero: **la dirección de la base de datos estaba escrita a mano dentro de `components/Peritia.jsx`** (`SB_URL`/`SB_KEY`, líneas 199-200). Es decir, hasta ahora *cualquier* despliegue de prueba — incluidas todas las preview de Vercel de las 20 ramas `claude/*` de sesiones anteriores — escribía en la base de datos real de producción. Ahora esas dos constantes se leen de `process.env.NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`, con los valores de producción como respaldo si no hay variables definidas (así `main` no depende de que nadie configure nada para seguir funcionando).
+
+- **Proyecto Supabase nuevo `PeritIA-test`** (`yvconlqtetxvyzxkhxib`, región `eu-west-1`, misma organización, plan gratuito → 0 €/mes). Arranca **vacío**, sin copiar ningún informe de producción, como pidió Pol.
+- **Esquema replicado exacto:** tablas `informes` y `perfiles`, los 3 índices de `informes`, RLS por `user_id`/`id` en ambas tablas, las funciones `handle_updated_at` y `handle_new_user`, los 3 triggers (incluido `on_auth_user_created` sobre `auth.users`), el bucket `anexos` público y sus 3 políticas de Storage.
+- **El esquema queda versionado por primera vez** en `supabase/migrations/20260604120000_esquema_base.sql`. Hasta ahora el repositorio solo tenía la migración del bucket de Storage: todo lo demás se había creado a mano desde el panel de Supabase y no existía en ninguna parte del código. La migración es idempotente, así que aplicarla sobre producción no cambiaría nada.
+- **Aviso visual `ENTORNO DE PRUEBAS`** (componente `TestBadge`, esquina inferior izquierda, en las 4 pantallas). Se deduce de la propia URL de la base de datos (`ES_TEST = SB_URL !== SB_URL_PROD`) en vez de con otra variable aparte, así no puede quedar desincronizado. En producción no se renderiza nada.
+- **Verificado en los dos sentidos** compilando y buscando dentro del bundle generado: con las variables puestas, el paquete contiene la URL de test y el texto del aviso; sin variables, contiene la de producción y la de test no aparece por ninguna parte.
+- **Clave de Anthropic compartida** entre los dos entornos, como pidió Pol — las extracciones de prueba consumen créditos igual que las reales.
+- Nuevo archivo `.env.example` documentando las tres variables (no se lee nunca, es solo referencia).
 
 **Sesión 21:** Pol ha confirmado que todo lo que quedaba pendiente de validar en producción en sesiones anteriores (responsive en dispositivo real, Sec3/Sec4 renovadas con casos reales, frase de indemnización en los tres modos/perceptores, auto-relleno de Sec4, reorganización en 3 zonas de la sesión 15, las 16 optimizaciones de la sesión 17, nombres de zona de la sesión 18, y el acordeón/semáforo/panel de Pendientes de la sesión 20) **está validado**. No hay Pull Requests abiertas en el repositorio.
 
@@ -262,6 +276,7 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 | Dashboard sin toggle sidebar | Componente antiguo sin props sidebarOpen | Reconstruir Dashboard completo |
 | pLibres invisible en Sec4/PDF | getPartidas solo leía `partidas`, no `pLibres` | getPartidas() detecta modo y lee el array correcto |
 | IVA 0% → 21% (bug) | p.iva\|\|21 cambiaba 0 a 21 (falsy) | Cambiar a p.iva??21 (nullish coalescing) |
+| Toda prueba/preview escribía en la BD real | `SB_URL`/`SB_KEY` escritos a mano en `Peritia.jsx`, sin variable de entorno | Leerlos de `NEXT_PUBLIC_SUPABASE_URL`/`_ANON_KEY` (con fallback a producción); proyecto Supabase de test separado para la rama `test` |
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
 | Disk IO excesivo (guardado por keystroke) | updateCase hacía PATCH a Supabase en cada cambio de campo | Debounce de 5s con useRef: el PATCH solo se ejecuta 5s después del último cambio |
 | Garantía afectada no se cruzaba con póliza | Se usaba solo el campo literal del encargo | Nueva lógica: si hay póliza, cruzar causa contra garantiasActivas de la póliza para seleccionar la cobertura correcta |
@@ -388,6 +403,9 @@ Datos hardcodeados:
 - [x] **Sesión 18 — nombres de zona unificados:** "Datos del perito" (zona trabajo) y "Resultado" (zona resultado) en las 6 secciones, sustituyendo las 6 variantes de texto distintas que había antes. Aplicado al código real y validado visualmente por Pol (sesión 21).
 - [x] **Sesión 20 — las 4 propuestas pendientes de la sesión 18 aplicadas:** acordeón con resumen en los bloques de cada sección (más estrecho al plegarse), navegación rápida con semáforo en la topbar, resumen plegado integrado en la tarjeta, y botón "Pendientes" con panel de revisión antes de exportar. Validado visualmente por Pol y fusionado a `main` (PR #19), en producción.
 - [x] **Sesión 21 (revisión de tareas pendientes, sin cambios de código):** confirmado con Pol que todo el trabajo acumulado de las sesiones 14 a 20 está validado en producción con casos reales. Verificado en GitHub que no hay Pull Requests abiertas y que el PR #11 (superado) sigue cerrado. Único punto que queda fuera, a petición explícita de Pol: el refactor grande de `Peritia.jsx` en módulos (punto 10 de la auditoría, ver más arriba), diferido para más adelante.
+- [x] **Sesión 22 — entorno de test creado:** rama `test` + proyecto Supabase `PeritIA-test` separado y vacío + `SB_URL`/`SB_KEY` movidos a variables de entorno + aviso visual `ENTORNO DE PRUEBAS`. Ver detalle en el párrafo de la sesión 22 más arriba.
+- [ ] **Configurar en Vercel** las variables `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` del proyecto `PeritIA-test` en el ámbito **Preview** (paso manual de Pol en el dashboard de Vercel — el agente no tiene permiso para tocar variables de entorno sin confirmación explícita). Sin este paso, las preview de la rama `test` seguirán cayendo a producción por el fallback.
+- [ ] (Opcional, decisión de Pol) Crear un segundo proyecto Vercel `peritia-test` con URL fija si en algún momento hace falta enseñar la versión de prueba con un enlace estable (Nivel 3 de la propuesta) — no se ha hecho, no se pidió.
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
