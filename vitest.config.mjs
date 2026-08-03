@@ -20,7 +20,7 @@ export default defineConfig({
     include: ["tests/**/*.test.{js,jsx}"],
     coverage: {
       provider: "v8",
-      include: ["lib/dominio/calculo.js"],
+      include: ["lib/dominio/calculo.js", "lib/knowledge/**/*.js"],
       reporter: ["text", "text-summary"],
     },
   },
