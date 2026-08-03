@@ -38,6 +38,8 @@
 | P-20 | ¿Quién es el usuario final: perito autónomo o gabinete? | Arquitectura multi-usuario | Alta |
 | P-21 | ¿Debe versionarse la póliza a lo largo de su vigencia? | `POLICY_VERSION`, dominio | Media |
 | P-22 | ¿`Client` debe existir separado de `Insurer`, o siempre coinciden? | `CLIENT`, `RELATIONSHIPS.md` | Media |
+| P-23 | ¿Quién es responsable de mantener la base de conocimiento? | `knowledge/quality/QUALITY_RULES.md` | Alta |
+| P-24 | ¿Cómo se reconcilian las carpetas de `knowledge/` del Sprint 0 con las del Sprint 2? | `knowledge/architecture/KNOWLEDGE_ARCHITECTURE.md` | Media |
 
 ---
 
@@ -428,3 +430,52 @@ aseguradora y como origen del encargo.
 **Bloquea:** si `CLIENT.md` y `BROKER.md` deben tratarse como entidades reales
 a implementar en algún momento, o si son modelo puramente teórico sin
 correspondencia con el negocio real de PERIT.IA.
+
+---
+
+## P-23 · ¿Quién es responsable de mantener la base de conocimiento? — Sprint 2
+
+Surgida al documentar `knowledge/architecture/KNOWLEDGE_ARCHITECTURE.md`,
+sección 9. El modelo de unidad de conocimiento (`KU`) exige un ciclo de
+validación con roles (quién propone, quién revisa, quién aprueba), pero el
+sistema actual es de un único usuario: no hay distinción de roles ni de
+responsabilidad formal sobre ningún contenido.
+
+**Preguntas concretas:**
+- Mientras PERIT.IA siga siendo de un único perito, ¿toda `KU` se aprueba
+  bajo el criterio exclusivo de Pol, sin más revisión?
+- Si en el futuro hay varios peritos (`docs/OPEN_QUESTIONS.md`, P-20), ¿quién
+  tiene autoridad para aprobar conocimiento que van a usar todos? ¿Es un rol
+  distinto del de perito operativo?
+- ¿Debe distinguirse entre responsable de conocimiento técnico (baremo,
+  materiales) y responsable de conocimiento legal/normativo, dado que este
+  último exige competencia legal específica (ver `knowledge/legal/README.md`)?
+
+**Bloquea:** el criterio operativo de aprobación de
+`knowledge/quality/QUALITY_RULES.md`, sección 4, y cualquier automatización
+futura del ciclo de revisión.
+
+---
+
+## P-24 · ¿Cómo se reconcilian las carpetas de `knowledge/` del Sprint 0 con las del Sprint 2?
+
+Surgida al crear la estructura de este sprint. El Sprint 0 creó
+`knowledge/hogar/`, `empresa/`, `automovil/`, `garantias/`, `causas/`,
+`objetos/`, `materiales/`, `clausulas/`, `glosario/`, `sinonimos/` y
+`procedimientos/`, todas vacías. El Sprint 2 crea una estructura paralela más
+granular (`branches/`, `coverages/`, `causes/`, `materials/`, `synonyms/`,
+`procedures/`, `glossary/`, entre otras), con el modelo de unidad de
+conocimiento que la anterior no tenía definido. Ninguna carpeta se ha movido
+ni fusionado, conforme a la regla de este sprint de no tocar nada existente.
+
+**Preguntas concretas:**
+- ¿Se retiran las carpetas de Sprint 0 cuando se cargue contenido real,
+  migrando todo a la nomenclatura del Sprint 2?
+- ¿Se conservan ambas, con las de Sprint 0 como alias en español,
+  sincronizados con las nuevas?
+- ¿Las carpetas de ramo del Sprint 0 (`hogar/`, `empresa/`, `automovil/`) se
+  reconvierten en subcarpetas de `branches/`?
+
+**Bloquea:** por dónde empezar la primera carga real de conocimiento, cuando
+se decida abordarla. Ver la propuesta de ADR correspondiente en el resumen
+ejecutivo de cierre del Sprint 2.
