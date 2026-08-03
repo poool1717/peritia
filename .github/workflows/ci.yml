@@ -1,0 +1,34 @@
+name: CI
+
+# Flujo mínimo de la Fase 0 (Sprint 4 — Foundation Refactor).
+# Verifica en cada push y cada Pull Request que el proyecto sigue
+# compilando y que la batería de pruebas sigue en verde — la base técnica
+# del principio "cada commit debe ser desplegable"
+# (docs/migration/MIGRATION_MASTER_PLAN.md, §4).
+#
+# No despliega nada: Vercel ya se encarga del despliegue automático por su
+# cuenta (ver CLAUDE.md). Este flujo es solo de verificación.
+
+on:
+  push:
+    branches: ["main", "test"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Tests (motor de cálculo y utilidades)
+        run: npm test
+
+      - name: next build
+        run: npm run build

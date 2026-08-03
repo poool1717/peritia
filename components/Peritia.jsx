@@ -25,7 +25,7 @@ const C = {
 //   oficio · desc (partida) · u (unidad) · p (precio base €) · rend (rendimiento ud/h)
 //   dano (tipo de daño) · cond (condición de activación) · det (descripción)
 // La partida "Costos indirectos" lleva indirecto:true → su importe = 8% del subtotal.
-const BAREMO = [
+export const BAREMO = [
   // ── ALBAÑILERÍA ──
   {oficio:"ALBAÑILERÍA",desc:"Demolición de pavimento existente",u:"m²",p:18,rend:8,dano:"Sustitución de baldosa",cond:"Siempre",det:"Retirada de pavimento hasta soporte"},
   {oficio:"ALBAÑILERÍA",desc:"Demolición de revestimiento vertical",u:"m²",p:16,rend:7,dano:"Humedad",cond:"Si hay azulejo",det:"Picado de azulejo en paredes"},
@@ -83,10 +83,10 @@ const BAREMO = [
   {oficio:"AUXILIARES",desc:"Costos indirectos",u:"u",p:0,rend:null,dano:"Cualquier siniestro",cond:"Siempre",det:"Gestión, coordinación (8% del total)",indirecto:true},
 ];
 // % de costes indirectos sobre el subtotal de las demás partidas
-const PCT_INDIRECTO = 8;
+export const PCT_INDIRECTO = 8;
 
 // Tablas módulos arquitectura 2025 — [Básica, Media, Alta] €/m²
-const TABLAS_ARQ = {
+export const TABLAS_ARQ = {
   "17":{unif_aislada:[772.07,1148.06,1721.72],unif_hilera_menos10:[666.93,939.04,1387.21],unif_hilera_10_25:[639.69,894.93,1317.77],unif_hilera_mas25:[612.47,844.59,1243.31],unif_garaje:[383.18,449.09,581.68],unif_almacen:[357.22,397.58,550.83],unif_instalaciones:[369.25,382.18,514.37],pluri_bloque_menos16:[629.56,787.58,1089.77],pluri_bloque_16_40:[633.36,715.7,1002.62],pluri_bloque_mas40:[556.72,669.18,941.42],pluri_manzana_menos16:[608.03,730.85,961.9],pluri_manzana_16_40:[572.56,682.49,894.34],pluri_manzana_mas40:[537.73,630.21,818.42],pluri_garaje:[343.91,372.8,448.12],pluri_almacen:[338.21,365.28,459.98],pluri_instalaciones:[340.75,342.46,379.6],pluri_oficinas:[443.36,532.91,683.66],pluri_locales:[233.08,268.27,308.83],ofic_oficinas:[822.11,1003.79,1488.83],ofic_diafanas:[459.83,520.98,658.47],com_locales_resid:[362.28,410.46,562.62],com_comercio:[720.77,831.05,1176.3],ind_naves:[301.49,323.79,404.9],ind_edificios:[583.33,614.83,748.42],ind_cobertizos:[200.15,203.15,232.97],ind_almacenes_agric:[146.3,154.64,164.45],gar_planta_baja:[312.88,336.03,413.94],gar_semisotano:[389.51,418.34,515.33],gar_2_3_sotano:[443.36,476.16,586.56],gar_exterior:[232.44,249.65,307.52],sin_uso_local:[244.48,281.39,323.94],host_hostales:[734.7,796.42,1001.4],host_hoteles:[982.98,1133.38,1721.21],host_residencias:[789.8,894.85,1233.67],host_restaurantes:[877.84,1037.6,1589.78],host_cafeterias:[721.4,852.7,1306.46],host_camping:[570.03,617.91,776.95],dep_polideportivo:[810.07,822.22,1039.31],dep_piscina_cubierta:[825.9,870.5,1125.71],dep_pistas:[106.4,108,136.52],dep_piscinas_exterior:[422.45,437.24,567.35],dep_vestuarios:[668.2,704.28,910.75],dep_graderio_desc:[243.85,252.38,327.49],dep_graderio_cub:[376.85,390.04,506.11],esp_discotecas:[827.18,953.73,1308.59],esp_salas_fiestas:[1034.28,1232.86,1677.6],esp_centros_culturales:[1238.22,1695.13,2168.12],esp_stands:[1371.86,2067.4,2661.42],doc_universidades:[967.15,1076.44,1413.98],doc_colegios:[696.07,754.54,969.62],san_hospitales:[1277.49,1397.58,1651.8],san_ambulatorios:[985.52,1058.44,1244.71],san_dispensarios:[818.3,862.49,1001.6],rel_iglesias:[1067.85,1125.51,1466.15],rel_capillas:[800.57,896.64,1168.84],rel_seminarios:[730.27,795.99,1007.77],fun_nichos_sobre:[335.05,363.2,436.57],fun_nichos_bajo:[419.29,454.5,546.32],fun_panteon:[994.37,1371.25,1988.75],fun_tanatorio:[822.74,948.62,1285.12],tra_estacion:[1239.49,1343.6,1716.69],pen_carcel:[1131.18,1383.44,1598.36],urb_urbanizacion:[89.94,98.39,126.18]},
   "25":{unif_aislada:[751.99,1118.21,1676.93],unif_hilera_menos10:[649.58,914.61,1351.13],unif_hilera_10_25:[623.06,871.66,1283.49],unif_hilera_mas25:[596.54,822.62,1210.96],unif_garaje:[373.22,437.42,566.55],unif_almacen:[347.92,387.24,536.5],unif_instalaciones:[359.65,372.23,500.99],pluri_bloque_menos16:[613.19,767.1,1061.43],pluri_bloque_16_40:[616.89,697.08,976.54],pluri_bloque_mas40:[542.24,651.77,916.94],pluri_manzana_menos16:[592.21,711.84,936.88],pluri_manzana_16_40:[557.67,664.74,871.08],pluri_manzana_mas40:[523.74,613.82,797.13],pluri_garaje:[334.97,363.11,436.46],pluri_almacen:[329.42,355.78,448.01],pluri_instalaciones:[331.88,333.55,369.72],pluri_oficinas:[431.83,519.05,665.87],pluri_locales:[227.02,261.29,300.8],ofic_oficinas:[800.72,977.68,1450.11],ofic_diafanas:[447.86,507.43,641.34],com_locales_resid:[352.86,399.79,547.99],com_comercio:[702.02,809.43,1145.7],ind_naves:[293.64,315.37,394.37],ind_edificios:[568.16,598.84,728.95],ind_cobertizos:[194.94,197.87,226.91],ind_almacenes_agric:[142.5,150.62,160.17],gar_planta_baja:[304.74,327.29,403.17],gar_semisotano:[379.39,407.46,501.92],gar_2_3_sotano:[431.83,463.78,571.31],gar_exterior:[226.4,243.16,299.53],sin_uso_local:[238.12,274.08,315.51],host_hostales:[715.6,775.7,975.36],host_hoteles:[957.41,1103.9,1676.44],host_residencias:[769.26,871.57,1201.58],host_restaurantes:[855.01,1010.62,1548.42],host_cafeterias:[702.64,830.52,1272.48],host_camping:[555.2,601.85,756.74],dep_polideportivo:[789,800.83,1012.28],dep_piscina_cubierta:[804.42,847.86,1096.43],dep_pistas:[103.64,105.2,132.97],dep_piscinas_exterior:[411.47,425.87,552.59],dep_vestuarios:[650.81,685.96,887.06],dep_graderio_desc:[237.5,245.81,318.97],dep_graderio_cub:[367.04,379.89,492.95],esp_discotecas:[805.66,928.93,1274.56],esp_salas_fiestas:[1007.38,1200.8,1633.97],esp_centros_culturales:[1206.01,1651.04,2111.73],esp_stands:[1336.19,2013.63,2592.2],doc_universidades:[941.99,1048.44,1377.2],doc_colegios:[677.96,734.91,944.39],san_hospitales:[1244.26,1361.23,1608.84],san_ambulatorios:[959.88,1030.91,1212.33],san_dispensarios:[797.02,840.06,975.56],rel_iglesias:[1040.07,1096.24,1428.02],rel_capillas:[779.75,873.32,1138.43],rel_seminarios:[711.27,775.28,981.56],fun_nichos_sobre:[326.34,353.75,425.21],fun_nichos_bajo:[408.38,442.68,532.12],fun_panteon:[968.51,1335.59,1937.03],fun_tanatorio:[801.34,923.94,1251.69],tra_estacion:[1207.25,1308.65,1672.04],pen_carcel:[1101.76,1347.45,1556.79],urb_urbanizacion:[87.6,95.84,122.9]},
   "43":{unif_aislada:[794.23,1181.02,1771.13],unif_hilera_menos10:[686.07,965.99,1427.02],unif_hilera_10_25:[658.05,920.62,1355.59],unif_hilera_mas25:[630.04,868.82,1278.98],unif_garaje:[394.19,461.99,598.37],unif_almacen:[367.47,408.99,566.63],unif_instalaciones:[379.85,393.14,529.13],pluri_bloque_menos16:[647.63,810.19,1121.05],pluri_bloque_16_40:[651.54,736.24,1031.39],pluri_bloque_mas40:[572.7,688.39,968.45],pluri_manzana_menos16:[625.48,751.82,989.5],pluri_manzana_16_40:[588.99,702.08,920.01],pluri_manzana_mas40:[553.16,648.3,841.91],pluri_garaje:[353.78,383.5,460.98],pluri_almacen:[347.92,375.76,473.17],pluri_instalaciones:[350.53,352.28,390.49],pluri_oficinas:[456.08,548.21,703.28],pluri_locales:[239.77,275.97,317.69],ofic_oficinas:[845.69,1032.59,1531.56],ofic_diafanas:[473.02,535.93,677.36],com_locales_resid:[372.67,422.24,578.77],com_comercio:[741.46,854.9,1210.06],ind_naves:[310.14,333.08,416.51],ind_edificios:[600.07,632.47,769.89],ind_cobertizos:[205.89,208.98,239.65],ind_almacenes_agric:[150.5,159.08,169.16],gar_planta_baja:[321.86,345.67,425.82],gar_semisotano:[400.7,430.34,530.12],gar_2_3_sotano:[456.08,489.83,603.39],gar_exterior:[239.12,256.82,316.35],sin_uso_local:[251.5,289.47,333.23],host_hostales:[755.79,819.28,1030.14],host_hoteles:[1011.2,1165.91,1770.6],host_residencias:[812.47,920.53,1269.07],host_restaurantes:[903.04,1067.39,1635.4],host_cafeterias:[742.1,877.17,1343.96],host_camping:[586.39,635.65,799.25],dep_polideportivo:[833.32,845.81,1069.14],dep_piscina_cubierta:[849.6,895.49,1158.01],dep_pistas:[109.46,111.1,140.44],dep_piscinas_exterior:[434.57,449.78,583.64],dep_vestuarios:[687.38,724.49,936.89],dep_graderio_desc:[250.84,259.62,336.89],dep_graderio_cub:[387.66,401.23,520.63],esp_discotecas:[850.91,981.11,1346.15],esp_salas_fiestas:[1063.96,1268.24,1725.75],esp_centros_culturales:[1273.75,1743.78,2230.35],esp_stands:[1411.24,2126.73,2737.8],doc_universidades:[994.91,1107.33,1454.55],doc_colegios:[716.04,776.19,997.44],san_hospitales:[1314.16,1437.69,1699.21],san_ambulatorios:[1013.8,1088.82,1280.43],san_dispensarios:[841.79,887.25,1030.35],rel_iglesias:[1098.5,1157.81,1508.24],rel_capillas:[823.55,922.37,1202.38],rel_seminarios:[751.22,818.84,1036.69],fun_nichos_sobre:[344.67,373.62,449.1],fun_nichos_bajo:[431.32,467.54,562.01],fun_panteon:[1022.91,1410.6,2045.83],fun_tanatorio:[846.35,975.84,1322],tra_estacion:[1275.06,1382.16,1765.96],pen_carcel:[1163.65,1423.14,1644.23],urb_urbanizacion:[92.52,101.22,129.8]},
@@ -118,30 +118,30 @@ const ARQ_N3 = {
   "Uso penitenciario":[{k:"pen_carcel",l:"Cárcel / Prisión / Centro de menores"}],
   "Urbanización - Obra civil":[{k:"urb_urbanizacion",l:"Urbanización / Plaza / Parque / Cementerio"}],
 };
-const getModuloArq = (provCode, key, calidad) => {
+export const getModuloArq = (provCode, key, calidad) => {
   const tbl = TABLAS_ARQ[provCode] || TABLAS_ARQ["00"];
   const ci = calidad==="Alta"?2:calidad==="Básica"?0:1;
   return tbl[key]?.[ci] || 0;
 };
-const getFactorArq = key => {
+export const getFactorArq = key => {
   if(!key) return 1.486;
   if(key.startsWith("unif_")||key.startsWith("pluri_")) return 1.486;
   if(key.startsWith("urb_")) return 1.366;
   return 1.618;
 };
-const calcVPreexCont = (m2, provCode, arqKey, calidad) =>
+export const calcVPreexCont = (m2, provCode, arqKey, calidad) =>
   parseFloat(m2||0) * getModuloArq(provCode, arqKey, calidad) * getFactorArq(arqKey);
 
-const PROVINCIAS = [
+export const PROVINCIAS = [
   {v:"07",l:"Baleares"},{v:"08",l:"Barcelona"},{v:"17",l:"Girona"},
   {v:"25",l:"Lleida"},{v:"28",l:"Madrid"},{v:"29",l:"Málaga"},{v:"33",l:"Asturias"},
   {v:"35",l:"Las Palmas"},{v:"38",l:"S.C.Tenerife"},{v:"41",l:"Sevilla"},
   {v:"43",l:"Tarragona"},{v:"46",l:"Valencia"},{v:"00",l:"Otras"},
 ];
-const COMPANIAS = ["AXA Seguros","Mapfre","Allianz","Generali","Zurich","Helvetia","Mutua Madrileña","Caser","Reale","Santalucía","Pelayo","BBVA Seguros","Catalana Occidente","Línea Directa"];
+export const COMPANIAS = ["AXA Seguros","Mapfre","Allianz","Generali","Zurich","Helvetia","Mutua Madrileña","Caser","Reale","Santalucía","Pelayo","BBVA Seguros","Catalana Occidente","Línea Directa"];
 // AXA aparece en los documentos con muchos nombres (AXA, AXA Seguros, AXA Seguros Generales SA…);
 // el nombre comercial en el informe debe ser siempre "AXA Seguros".
-const normCompania = c => /\bAXA\b/i.test(String(c||"")) ? "AXA Seguros" : (c||"");
+export const normCompania = c => /\bAXA\b/i.test(String(c||"")) ? "AXA Seguros" : (c||"");
 const TIPOS_USO = ["Hotel / Apart-hotel","Hostal / Pensión","Local comercial","Oficinas","Vivienda unifamiliar","Piso / Apartamento","Comunidad de propietarios","Industria / Nave","Restaurante / Bar","Otro"];
 const TIPOS_GARANTIA = ["Continente","Contenido","Terceros implicados"];
 
@@ -156,11 +156,11 @@ const SECCIONES = [
 ];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
-const fmt  = n => new Intl.NumberFormat("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
-const fmtE = n => `${fmt(n)} €`;
+export const fmt  = n => new Intl.NumberFormat("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
+export const fmtE = n => `${fmt(n)} €`;
 // Unidades y porcentajes: sin decimales si el valor es entero (p.ej. "3" o "21%"
 // en vez de "3,00"/"21,00%"); con 2 decimales solo si de verdad los tiene.
-const fmtSmart = n => { const v=+n||0; return Number.isInteger(v) ? new Intl.NumberFormat("es-ES").format(v) : fmt(v); };
+export const fmtSmart = n => { const v=+n||0; return Number.isInteger(v) ? new Intl.NumberFormat("es-ES").format(v) : fmt(v); };
 
 const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
   const res = await fetch("/api/claude",{
@@ -180,11 +180,11 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
 
 // Normaliza texto para comparar: sin tildes, en minúsculas y sin espacios
 // sobrantes. "Daños por agua" y "DANOS  POR AGUA" pasan a ser iguales.
-const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"")
+export const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"")
   .toLowerCase().replace(/\s+/g," ").trim();
 
 // Normaliza valores monetarios extraídos por IA (6.000,00 → 6000 | 6000.00 → 6000)
-const parseCap = v => {
+export const parseCap = v => {
   if(!v && v!==0) return 0;
   const s = String(v).trim();
   // Spanish format: 6.000,00
@@ -241,7 +241,7 @@ const sbDb = async (path, method='GET', body=null, token='') => {
 // ─── CÁLCULO DE PARTIDAS (fuente única de verdad) ────────────────────────────
 // Baremo: sin IVA (iva=0). Factura/presupuesto: IVA del documento.
 // V.Real = V.Repos × (1 − Depr%) + IVA €
-const calcPartida = p => {
+export const calcPartida = p => {
   const vRepos = (p.uds||1)*(p.p||0);
   const ivaAmt = vRepos*((p.iva??0)/100);
   const vReal  = vRepos*(1-(p.depr?(p.pctDepr||0):0)/100)+ivaAmt;
@@ -249,18 +249,18 @@ const calcPartida = p => {
 };
 // Resuelve el importe de las partidas de "costes indirectos" (indirecto:true):
 // su precio = PCT_INDIRECTO % del subtotal de reposición de las demás partidas.
-const resolvePartidas = rows => {
+export const resolvePartidas = rows => {
   const baseRepos = rows.filter(p=>!p.indirecto).reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
   return rows.map(p=>p.indirecto?{...p,uds:1,p:+(baseRepos*PCT_INDIRECTO/100).toFixed(2)}:p);
 };
 // Partidas activas (con cobertura), con costes indirectos ya calculados. Fuente única: s3.partidas
-const getPartidas = s3 => resolvePartidas((s3?.partidas||[]).filter(p=>p.cobertura!==false));
-const sumRepos = rows => rows.reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
-const sumIVA   = rows => rows.reduce((a,p)=>a+calcPartida(p).ivaAmt,0);
-const sumReal  = rows => rows.reduce((a,p)=>a+calcPartida(p).vReal,0);
+export const getPartidas = s3 => resolvePartidas((s3?.partidas||[]).filter(p=>p.cobertura!==false));
+export const sumRepos = rows => rows.reduce((a,p)=>a+(p.uds||1)*(p.p||0),0);
+export const sumIVA   = rows => rows.reduce((a,p)=>a+calcPartida(p).ivaAmt,0);
+export const sumReal  = rows => rows.reduce((a,p)=>a+calcPartida(p).vReal,0);
 // Reglas proporcionales por bloque (continente / contenido)
 //   regla = capital asegurado / valor preexistente  (solo si hay infraseguro)
-const calcReglas = (enc, s1) => {
+export const calcReglas = (enc, s1) => {
   enc=enc||{}; s1=s1||{};
   const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
   const arqKey = s1.tipoArqKey || "unif_aislada";
@@ -279,21 +279,21 @@ const calcReglas = (enc, s1) => {
     infraContenido:(reglaContenido<1)?((vPreexContenido-capCont2)/vPreexContenido*100):0};
 };
 // Compat: regla del continente (callers antiguos)
-const calcRegla = (enc, s1) => calcReglas(enc, s1).continente;
+export const calcRegla = (enc, s1) => calcReglas(enc, s1).continente;
 // Regla efectiva de una partida según su garantía y si el bloque tiene la regla activada
-const reglaPartida = (p, reglas, s3) => {
+export const reglaPartida = (p, reglas, s3) => {
   const isCont = (p.garantia||"continente")==="contenido";
   const on = isCont ? !!s3?.reglaContenido : !!s3?.reglaContinente;
   return on ? (isCont?reglas.contenido:reglas.continente) : 1;
 };
 // Valor ajustado total (Σ V.Real × regla por partida) e indemnización
-const sumAjustado = (enc, s1, s3) => {
+export const sumAjustado = (enc, s1, s3) => {
   const reglas = calcReglas(enc, s1);
   return getPartidas(s3).reduce((a,p)=>a+calcPartida(p).vReal*reglaPartida(p,reglas,s3),0);
 };
-const calcIndemnizacion = (enc, s1, s3) => Math.max(0, sumAjustado(enc,s1,s3)-parseCap(s3?.franquiciaVal||enc?.franquicia));
+export const calcIndemnizacion = (enc, s1, s3) => Math.max(0, sumAjustado(enc,s1,s3)-parseCap(s3?.franquiciaVal||enc?.franquicia));
 // Frase de indemnización según modo de valoración y perceptor (asegurado/perjudicado/reparador)
-const fraseIndemn = (s3, indemn) => {
+export const fraseIndemn = (s3, indemn) => {
   const modo = s3?.modoValoracion||"baremo";
   if(modo==="baremo") return "";
   const eur = fmt(indemn)+" €";
@@ -303,7 +303,7 @@ const fraseIndemn = (s3, indemn) => {
   return `Se propone indemnización de la siguiente manera:\nINDEMNIZACION:\n${perceptor}: ${eur} (IVA incl.)`;
 };
 
-const parseJSON = txt => {
+export const parseJSON = txt => {
   const patterns = [/```json\s*([\s\S]*?)```/,/```([\s\S]*?)```/,/([\s\S]*)/];
   for(const p of patterns){
     const m=txt.match(p);
@@ -316,7 +316,7 @@ const parseJSON = txt => {
 
 // Devuelve un mensaje para el usuario si la respuesta de la IA no es usable,
 // o null si es válida. Cubre errores de API y respuestas no interpretables.
-const iaError = parsed => {
+export const iaError = parsed => {
   if(!parsed || typeof parsed!=="object") return "La IA no devolvió una respuesta válida.";
   if(parsed._apiError) return `Error de la API de IA (${parsed._status||"?"}): ${parsed._msg||"sin detalle"}.`;
   if(parsed._parseError) return "La IA devolvió una respuesta que no se pudo interpretar. Vuelve a intentarlo.";
@@ -327,12 +327,12 @@ const iaError = parsed => {
 // Detecta si el siniestro es de tipo atmosférico (viento, lluvia, pedrisco, nieve…)
 // Solo se considera atmosférico (y se muestra la verificación XEMA) cuando la
 // GARANTÍA AFECTADA es Atmosféricos o Riesgos Extensivos (criterio del perito).
-const esSiniestroAtmosferico = enc => {
+export const esSiniestroAtmosferico = enc => {
   const g = `${enc?.garantia||""} ${enc?.coberturaInferida||""}`.toLowerCase();
   return /atmosf|extensiv|rgext/.test(g);
 };
 // Causas atmosféricas presentes según el encargo (para evaluar el umbral correcto)
-const causasMeteo = enc => {
+export const causasMeteo = enc => {
   const t = `${enc?.causa||""} ${enc?.descripcionSiniestro||""} ${enc?.garantia||""}`.toLowerCase();
   return {
     viento:   /viento|vent\b|r[aá]fag|ratxa|temporal|vendaval/.test(t),
@@ -353,7 +353,7 @@ const fetchMeteoXEMA = async enc => {
 };
 // ¿Los valores medidos superan los umbrales de la póliza? Se evalúa SOLO el
 // umbral correspondiente a la causa del siniestro (viento / lluvia / pedrisco).
-const meteoSupera = (m, enc) => {
+export const meteoSupera = (m, enc) => {
   const c = causasMeteo(enc);
   const anyCausa = c.viento||c.lluvia||c.pedrisco;
   const uv = parseFloat(enc?.umbralViento)||0, ul = parseFloat(enc?.umbralLluvia)||0;
@@ -430,7 +430,7 @@ Devuelve SOLO este JSON:
 //   1) coincidencia exacta ignorando tildes/mayúsculas
 //   2) una contiene a la otra
 //   3) la que más palabras significativas comparte (mínimo la mitad)
-const matchBaremo = txt => {
+export const matchBaremo = txt => {
   const t = norm(txt);
   if(!t) return null;
   const exacta = BAREMO.find(b=>norm(b.desc)===t);

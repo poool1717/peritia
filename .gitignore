@@ -5,6 +5,9 @@
 /.next
 /out
 
+# informe de cobertura de tests (se regenera con npm run test:coverage)
+/coverage
+
 # logs y temporales
 *.log
 .DS_Store

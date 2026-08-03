@@ -45,6 +45,7 @@
 | DT-21 | La documentación contradice al código | Media |
 | DT-22 | Sin límite de tamaño en los PDFs de entrada | Baja |
 | DT-23 | Sin política de tratamiento y retención de datos | Alta |
+| DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | Media |
 
 ---
 
@@ -614,3 +615,40 @@ una autoridad de protección de datos harían el primer día:
 
 **Prioridad.** Alta. Es un riesgo de negocio y legal, no solo técnico, y crece
 con cada cliente nuevo.
+
+---
+
+## DT-24 · `parseCap` da un resultado incorrecto con símbolo de euro y espacio final
+
+**Problema.** Descubierto al escribir las pruebas de `parseCap` en el Sprint 4
+(Fase 0). Con un valor que incluye el símbolo de euro y un espacio antes de él
+(`"6.000,00 €"`), la función devuelve **6**, no 6.000.
+
+**Ubicación.** `components/Peritia.jsx`, función `parseCap` (línea ~187).
+
+**Causa.** El texto no coincide con la expresión regular del formato español
+estricto (`/^[\d.]+,\d{1,2}$/`, anclada de principio a fin, no admite el
+sufijo " €"). Cae entonces a la vía genérica: se eliminan los caracteres no
+numéricos, quedando `"6.000,00"`, y `.replace(",",".")` sustituye **solo la
+primera coma** por un punto, dando `"6.000.00"`. `parseFloat("6.000.00")`
+se detiene en el segundo punto y devuelve `6`.
+
+**Impacto.** Si algún campo de importe llega con el símbolo de euro incluido
+—por ejemplo, un capital corregido a mano por el perito escribiendo
+"6.000,00 €" en vez de "6000"— el valor se trunca a una fracción minúscula
+de su valor real, sin ningún aviso. No hay evidencia de que esto ocurra hoy
+en producción: los prompts de extracción piden explícitamente a la IA
+"solo el número, sin símbolo", así que la entrada real casi nunca lleva el
+símbolo de euro. El riesgo es la corrección manual del perito en un campo de
+texto libre, no la extracción automática.
+
+**Prioridad.** Media — no se ha observado en producción, pero la corrección
+es barata y el fallo, si ocurre, es silencioso y con impacto económico
+directo (DT-19 ya señalaba el riesgo general de `parseCap` frente a
+`parseFloat`; esta ficha documenta un caso concreto dentro de la propia
+`parseCap`, no de su sustitución por `parseFloat`).
+
+**No corregido en este sprint**, conforme al alcance de la Fase 0 del plan de
+migración (`docs/migration/MIGRATION_MASTER_PLAN.md`): solo se documenta.
+Candidato natural para la Fase 2 (extracción del motor de cálculo), donde
+`parseCap` ya va a tener pruebas y va a moverse de sitio.
