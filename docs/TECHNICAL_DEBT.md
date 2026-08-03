@@ -500,7 +500,7 @@ divergen ligeramente: `meteocat.js` envía `User-Agent` en `geocodificar` y
 
 ---
 
-## DT-18 · Errores mostrados con `alert()`
+## DT-18 · Errores mostrados con `alert()` — ✅ RESUELTO (Sprint 5, Fase 1.2)
 
 **Problema.** Cuatro errores se comunican con el diálogo modal del navegador.
 
@@ -513,6 +513,13 @@ que es el patrón correcto y establecido — la sesión 14 ya migró un `alert()
 patrón.
 
 **Prioridad.** Baja.
+
+**Resolución.** Los 3 `alert()` reales que quedaban en `UploadEncargo`
+(error de API, encargo no interpretable, póliza no interpretable) se
+sustituyeron por el mismo patrón de aviso en pantalla ya usado en Sec3
+(`genMsg`): estado `alertMsg` con `{tipo, texto}`, caja con icono
+`AlertTriangle`, color según tipo y botón de cerrar. Sin cambio de
+comportamiento salvo el propio objetivo del fix.
 
 ---
 
@@ -553,7 +560,7 @@ ciegas podría duplicar llamadas de pago.
 
 ---
 
-## DT-21 · La documentación contradice al código
+## DT-21 · La documentación contradice al código — ✅ RESUELTO (Sprint 5, Fase 1.1)
 
 **Problema.** Tres afirmaciones de la documentación del repositorio no coinciden
 con el código actual. Como la documentación tiene prioridad sobre el código, esto
@@ -576,9 +583,18 @@ contrario de lo que ocurre (DT-02).
 **Nota.** Corregir esto exige modificar archivos existentes y por tanto requiere
 aprobación previa. Ver `REFACTOR_BACKLOG.md`, R-11.
 
+**Resolución.** Las tres afirmaciones se han corregido: `CLAUDE.md` ya no
+dice que las credenciales "ni siquiera están escritas" en `Peritia.jsx`
+—dice que están como respaldo, y que retirarlas es el paso 1.5, bloqueado
+por G-2—; `CONTEXT.md` ya no arrastra un recuento de líneas obsoleto (el
+ítem que lo citaba se corrigió a 4.225, con nota de por qué el número
+anterior estaba mal) ni la cheat-sheet de constantes que mostraba
+`SB_URL`/`SB_KEY` como si fueran literales de producción en vez de
+variables de entorno con respaldo.
+
 ---
 
-## DT-22 · Sin límite de tamaño en los PDFs de entrada
+## DT-22 · Sin límite de tamaño en los PDFs de entrada — ✅ RESUELTO (Sprint 5, Fase 1.3)
 
 **Problema.** Los PDFs del encargo, la póliza y las facturas se convierten a
 base64 y se envían sin comprobar su tamaño en el navegador.
@@ -591,6 +607,13 @@ supera el límite de 20 MB del proxy y falla tras una espera larga, sin mensaje
 claro. Los anexos sí tienen guarda (10 MB, `3147`); esta vía no.
 
 **Prioridad.** Baja.
+
+**Resolución.** Constante `PDF_IA_MAX_SIZE` (14 MB — deja margen bajo el
+límite de 20 MB del proxy tras la inflación de base64), comprobada en los 3
+puntos: encargo (bloquea antes de extraer, con aviso), póliza (no bloquea:
+se salta y avisa, igual que un fallo de extracción) y cada factura del
+bucle de `extractFromFacturas` (se salta la que supera el límite y se
+informa junto al resto de resultados).
 
 ---
 

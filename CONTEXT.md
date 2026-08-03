@@ -1,9 +1,11 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
+**Última actualización:** 3 agosto 2026 (sesión 23 — Sprints 4 y 5: infraestructura de pruebas, extracción del motor de cálculo a `lib/dominio/calculo.js`, plano de arquitectura fundacional (`docs/architecture/FOUNDATION_ARCHITECTURE.md`) y Fase 1.1-1.3 del plan de migración: documentación corregida, `alert()` sustituidos por avisos en pantalla, guarda de tamaño en los PDFs de entrada. Ver sesión 23 más abajo)
 
-**Anterior:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
+**Anterior:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio)
+
+**Anterior a esa:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
 
 ---
 
@@ -11,6 +13,26 @@
 
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
+
+**Sesión 23 — Foundation Refactor (Sprints 4-5) y Fase 1.1-1.3 del plan de
+migración.** Primera vez que el proyecto tiene batería de pruebas
+automatizadas: Vitest, 79 tests, 100 % de cobertura de líneas y funciones
+sobre `lib/dominio/calculo.js` (motor de cálculo extraído de `Peritia.jsx`
+como librería independiente — `calcPartida`, `calcReglas`,
+`calcIndemnizacion`, `matchBaremo` y el resto, con el baremo y los módulos
+de arquitectura como datos que dependen de él). CI mínimo en
+`.github/workflows/ci.yml` (build + tests en cada push/PR). Documentado el
+plano de arquitectura definitiva en `docs/architecture/FOUNDATION_ARCHITECTURE.md`
+(sin cambios de código). De la Fase 1 del plan de migración se completaron
+los pasos 1.1 (corregidas las tres contradicciones de documentación de
+DT-21), 1.2 (los 3 `alert()` que quedaban en `UploadEncargo` sustituidos
+por el aviso en pantalla ya usado en Sec3) y 1.3 (guarda de 14 MB antes de
+convertir un PDF a base64, en encargo, póliza y facturas). El paso 1.4
+(autenticación de `/api/claude`) se pospone deliberadamente a un futuro
+EPIC de Seguridad. `Peritia.jsx` pasa de 4.413 a 4.225 líneas + los efectos
+de 1.2/1.3 (sin extracción adicional). Sin cambios de comportamiento salvo
+el propio objetivo de cada corrección; casos oráculo no re-verificados en
+esta sesión porque el motor de cálculo no se ha tocado, solo movido.
 
 **Sesión 22 — entorno de test.** Pol pidió poder trabajar en una versión paralela de la app sin tocar producción, para más adelante decidir si pasarla a `main`. Se ha montado el "Nivel 2" de la propuesta: rama `test` permanente + base de datos de pruebas separada, coste 0 €.
 
@@ -339,8 +361,10 @@ Funciones globales clave:
   sbDb(path, method, body, token) → Supabase DB REST
 
 Constantes:
-  SB_URL = "https://yrulaaxdusvmzohugmnc.supabase.co"
-  SB_KEY = "eyJhbGci...TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw"
+  SB_URL/SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_URL/_ANON_KEY, con
+  SB_URL_PROD/SB_KEY_PROD (valores de producción, escritos en el código)
+  como respaldo silencioso si esas variables no están definidas (desde la
+  sesión 22 — ver DT-02, sigue sin retirarse: bloqueado por el gate G-2)
 
 Datos hardcodeados:
   BAREMO[] — 47 partidas por oficio (IVA=0%); campos oficio/desc/u/p/rend/dano/cond; "Costos indirectos" = 8% del total (indirecto:true)
@@ -364,7 +388,7 @@ Datos hardcodeados:
 - [x] Probar en producción la Sec3 y Sec4 renovadas con un caso real — validado por Pol (sesión 21)
 - [x] **Auditoría sesión 6 — punto 1:** "Leaked Password Protection" activado en Supabase (Attack Protection)
 - [x] **Auditoría sesión 6 — punto 6:** `key={p.id||i}` en la tabla de vista previa de Sec3 (la editable ya lo tenía); dependencias de los `useEffect` de auto-relleno de Sec1 ahora basadas en los campos de origen (`enc.*`) para reaccionar a la extracción asíncrona de la póliza sin bucles
-- [ ] **Pendiente de la auditoría — opcional (sesión dedicada):** dividir `Peritia.jsx` (3.107 líneas) en módulos por sección (punto 5, refactor grande); validar respuestas de IA con esquema (zod) en más puntos. **Diferido explícitamente por Pol (sesión 21)** — "lo dejamos para más adelante", no abordar sin que lo pida.
+- [ ] **Pendiente de la auditoría — opcional (sesión dedicada):** dividir `Peritia.jsx` (4.225 líneas a fecha de la Fase 0 del Sprint 4 — recuento de "3.107 líneas" de esta entrada, obsoleto) en módulos por sección; validar respuestas de IA con esquema (zod) en más puntos. **Diferido explícitamente por Pol (sesión 21)** — "lo dejamos para más adelante", no abordar sin que lo pida. Formalizado como Fase 5 (R-15) y R-09 en `docs/migration/MIGRATION_MASTER_PLAN.md`, ambos con gate de gobernanza propio (G-5) que exige confirmación específica antes de activarse.
 - [x] Validar la frase de indemnización en los tres modos y con perceptor Particular/Reparador — validado por Pol (sesión 21)
 - [ ] (Opcional) Ámbito fuera de Catalunya: integrar AEMET para el resto de España
 - [ ] (Opcional) Sacar app token gratuito de Socrata si se llega a límites de peticiones

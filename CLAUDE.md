@@ -66,7 +66,7 @@ peritia/
 ## Credenciales de infraestructura
 
 Las credenciales sensibles (API keys, tokens) están guardadas como variables de entorno en Vercel.
-NO están en el código fuente — desde la sesión 22, ni siquiera la URL/key de Supabase están escritas en `Peritia.jsx`, se leen de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`). Consultar Vercel dashboard si es necesario.
+Desde la sesión 22, `Peritia.jsx` lee la URL/key de Supabase de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`) como fuente primaria. **Ojo:** los valores de producción siguen escritos en el propio archivo como respaldo silencioso para cuando esas variables no están definidas (`SB_URL_PROD`/`SB_KEY_PROD`) — no es cierto que ya no estén en el código fuente. Retirar ese respaldo es el paso 1.5 de la Fase 1 del plan de migración, bloqueado por el gate G-2 (variables de test en Vercel, ámbito *Preview*, pendiente desde la sesión 22). Consultar Vercel dashboard si es necesario.
 
 | Servicio | Variable de entorno |
 |---|---|

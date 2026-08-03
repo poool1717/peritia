@@ -317,7 +317,7 @@ un fallo del registro no debe impedir que la IA funcione).
 
 ---
 
-## R-11 · Corregir las contradicciones de la documentación
+## R-11 · Corregir las contradicciones de la documentación — ✅ HECHO (Sprint 5, Fase 1.1)
 
 **Cierra:** DT-21.
 **Prioridad: 10.** Esfuerzo mínimo, riesgo nulo.
@@ -441,7 +441,7 @@ components/export/ → plantillas
 
 ---
 
-## R-16 · Errores en pantalla en lugar de `alert()`
+## R-16 · Errores en pantalla en lugar de `alert()` — ✅ HECHO (Sprint 5, Fase 1.2)
 
 **Cierra:** DT-18.
 **Prioridad: 14.**
@@ -476,7 +476,7 @@ tocar el contrato.
 
 ---
 
-## R-18 · Guarda de tamaño en los PDFs de entrada
+## R-18 · Guarda de tamaño en los PDFs de entrada — ✅ HECHO (Sprint 5, Fase 1.3)
 
 **Cierra:** DT-22.
 **Prioridad: 16.**
@@ -489,6 +489,11 @@ claro. El patrón ya existe en `SecAnexos` (`ANEXOS_MAX_SIZE`, `3147, 3189-3193`
 así que el límite real de archivo está en torno a 15 MB.
 
 **Esfuerzo:** bajo · **Riesgo:** nulo.
+
+**Implementado con `PDF_IA_MAX_SIZE = 14 MB`** (margen ligeramente más
+conservador que el cálculo original de ~15 MB). Encargo bloquea antes de
+extraer; póliza y facturas se saltan con aviso, sin bloquear el resto del
+flujo.
 
 ---
 

@@ -1127,6 +1127,12 @@ const DropZone = ({label,sublabel,icon:Icon,file,onFile,accept=".pdf",badge,isLo
   );
 };
 
+// Límite de tamaño para un PDF enviado a la IA (encargo, póliza, facturas).
+// El proxy /api/claude acepta cuerpos de hasta 20 MB; convertir a base64
+// infla el tamaño ~33%, así que 14 MB de PDF deja margen suficiente para no
+// superar ese límite tras una espera larga sin ningún aviso (DT-22).
+const PDF_IA_MAX_SIZE = 14*1024*1024; // 14 MB
+
 // ─── UPLOAD ENCARGO ───────────────────────────────────────────────────────────
 const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   const [step,setStep]     = useState("upload");
@@ -1135,6 +1141,9 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   const [polFile,setPolFile] = useState(null);
   const [polLoading,setPolLoading] = useState(false);
   const [msg,setMsg]       = useState("");
+  // Avisos en pantalla en vez de alert() del navegador: mismo patrón que
+  // genMsg en Sec3 (caja con icono, color según tipo, botón de cerrar).
+  const [alertMsg,setAlertMsg] = useState(null); // {tipo:"error"|"warning", texto}
 
   const toB64 = f => new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(",")[1]);fr.readAsDataURL(f);});
 
@@ -1142,6 +1151,10 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
   const processAll = async () => {
     if(!encFile) return;
+    if(encFile.size>PDF_IA_MAX_SIZE){
+      setAlertMsg({tipo:"error", texto:`El PDF del encargo (${(encFile.size/1024/1024).toFixed(1)} MB) supera el límite de 14 MB. Reduce su tamaño e inténtalo de nuevo.`});
+      return;
+    }
     setStep("extracting");
     setMsg("Leyendo hoja de encargo…");
     const b64 = await toB64(encFile);
@@ -1182,19 +1195,22 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     // Check for API error response
     if(rawParsed?._apiError) {
       setStep("upload"); setMsg("");
-      alert("Error de la API ("+rawParsed._status+"): "+rawParsed._msg+"\n\nRevisa la configuración de la API key en Vercel.");
+      setAlertMsg({tipo:"error", texto:"Error de la API ("+rawParsed._status+"): "+rawParsed._msg+". Revisa la configuración de la API key en Vercel."});
       return;
     }
     const enc = rawParsed||{};
     if(!enc.numReferencia && !enc.asegurado && !enc.compania) {
       setStep("upload");
       setMsg("");
-      alert("No se pudieron extraer los datos del PDF.\nComprueba que el archivo es un encargo válido e inténtalo de nuevo.");
+      setAlertMsg({tipo:"error", texto:"No se pudieron extraer los datos del PDF. Comprueba que el archivo es un encargo válido e inténtalo de nuevo."});
       return;
     }
+    setAlertMsg(null);
 
     let pol = {};
-    if(polFile){
+    if(polFile && polFile.size>PDF_IA_MAX_SIZE){
+      setAlertMsg({tipo:"warning", texto:`La póliza (${(polFile.size/1024/1024).toFixed(1)} MB) supera el límite de 14 MB y no se ha podido leer. El encargo sí se ha leído: podrás continuar e introducir a mano los capitales y la descripción de la cobertura.`});
+    } else if(polFile){
       setMsg("Leyendo poliza de seguro...");
       const pb64 = await toB64(polFile);
       const cobEnc = (enc.garantia||"").toUpperCase();
@@ -1215,7 +1231,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       const polErr = iaError(pol);
       if(polErr){
         pol = {};
-        alert("No se pudieron extraer los datos de la póliza.\n\n"+polErr+"\n\nEl encargo sí se ha leído: podrás continuar e introducir a mano los capitales y la descripción de la cobertura.");
+        setAlertMsg({tipo:"warning", texto:"No se pudieron extraer los datos de la póliza. "+polErr+" El encargo sí se ha leído: podrás continuar e introducir a mano los capitales y la descripción de la cobertura."});
       }
     }
 
@@ -1317,6 +1333,19 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           <Check size={13}/>
           <span><b>Listo.</b> {polFile?"Encargo y póliza adjuntos — se extraerán datos de ambos.":"Encargo adjunto. Sin póliza, los capitales se rellenarán manualmente."}</span>
         </div>}
+        {alertMsg&&(
+          <div style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:14,padding:"8px 12px",borderRadius:7,fontSize:14,
+            background:alertMsg.tipo==="error"?C.redBg:C.orangeBg,
+            border:`1px solid ${alertMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
+            color:alertMsg.tipo==="error"?C.red:C.orange}}>
+            <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
+            <span style={{flex:1}}>{alertMsg.texto}</span>
+            <button onClick={()=>setAlertMsg(null)} aria-label="Cerrar aviso"
+              style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
+              <X size={13}/>
+            </button>
+          </div>
+        )}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <button onClick={()=>{setData({});setStep("review");}} style={{background:"none",border:"none",color:C.muted,fontSize:14,cursor:"pointer",textDecoration:"underline"}}>Crear sin documentos</button>
           <div style={{display:"flex",gap:10}}>
@@ -1350,6 +1379,19 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
           {encFile&&<div style={{background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,padding:"4px 11px",fontSize:13,color:C.green,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Encargo: {encFile.name}</div>}
           {polFile&&<div style={{background:C.blueBg,border:"1px solid #BFDBFE",borderRadius:6,padding:"4px 11px",fontSize:13,color:C.blue,display:"flex",alignItems:"center",gap:4}}><Check size={10}/>Póliza: {polFile.name}</div>}
         </div>
+        {alertMsg&&(
+          <div style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:14,padding:"8px 12px",borderRadius:7,fontSize:14,
+            background:alertMsg.tipo==="error"?C.redBg:C.orangeBg,
+            border:`1px solid ${alertMsg.tipo==="error"?"#FECACA":"#FDE68A"}`,
+            color:alertMsg.tipo==="error"?C.red:C.orange}}>
+            <AlertTriangle size={13} style={{flexShrink:0,marginTop:1}}/>
+            <span style={{flex:1}}>{alertMsg.texto}</span>
+            <button onClick={()=>setAlertMsg(null)} aria-label="Cerrar aviso"
+              style={{background:"none",border:"none",cursor:"pointer",color:"inherit",padding:0,flexShrink:0}}>
+              <X size={13}/>
+            </button>
+          </div>
+        )}
 
         <Card s={{marginBottom:12}}>
           <SectionLabel><Building2 size={12}/>Compañía y Siniestro</SectionLabel>
@@ -2349,8 +2391,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     const toB64 = f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result.split(',')[1]);fr.readAsDataURL(f);});
     let all=[];
     let hadError=false;
+    let tooBig=[];
     for(const fac of facturas){
       if(!fac.file) continue;
+      if(fac.file.size>PDF_IA_MAX_SIZE){ tooBig.push(fac.name); continue; }
       const b64 = await toB64(fac.file);
       const raw = await callClaude(
         "Extractor de facturas/presupuestos. SOLO JSON válido.",
@@ -2364,8 +2408,13 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
       else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
     }
-    if(all.length>0) onChange({...data,partidas:all.map(sanP)});
-    else if(hadError) setGenMsg({tipo:"error",texto:"No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo."});
+    const tooBigMsg = tooBig.length?`${tooBig.join(', ')}: ${tooBig.length===1?'supera':'superan'} el límite de 14 MB por archivo y no se ${tooBig.length===1?'ha':'han'} podido leer.`:'';
+    if(all.length>0) {
+      onChange({...data,partidas:all.map(sanP)});
+      if(tooBigMsg) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${tooBigMsg}`});
+    }
+    else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${tooBigMsg?' '+tooBigMsg:''}`});
+    else if(tooBigMsg) setGenMsg({tipo:"error",texto:tooBigMsg});
     else setGenMsg({tipo:"aviso",texto:"No se encontraron líneas en las facturas adjuntas."});
     setGenLoad(false);
   };
