@@ -40,6 +40,8 @@
 | P-22 | ¿`Client` debe existir separado de `Insurer`, o siempre coinciden? | `CLIENT`, `RELATIONSHIPS.md` | Media |
 | P-23 | ¿Quién es responsable de mantener la base de conocimiento? | `knowledge/quality/QUALITY_RULES.md` | Alta |
 | P-24 | ¿Cómo se reconcilian las carpetas de `knowledge/` del Sprint 0 con las del Sprint 2? | `knowledge/architecture/KNOWLEDGE_ARCHITECTURE.md` | Media |
+| P-25 | ¿Falta la garantía de Rotura de cristales en el catálogo? | `TAXONOMY.md` §4, catálogo de garantías | **Alta** |
+| P-26 | ¿El baremo debe cubrir parquet, cubierta e incendio? | Catálogo de métodos de reparación | **Alta** |
 
 ---
 
@@ -479,3 +481,55 @@ ni fusionado, conforme a la regla de este sprint de no tocar nada existente.
 **Bloquea:** por dónde empezar la primera carga real de conocimiento, cuando
 se decida abordarla. Ver la propuesta de ADR correspondiente en el resumen
 ejecutivo de cierre del Sprint 2.
+
+---
+
+## P-25 · ¿Falta la garantía de Rotura de cristales en el catálogo? — Sprint 3
+
+Detectada al redactar los ejemplos de referencia del Sprint 3. El catálogo
+implementado reconoce siete garantías (`INCEN`, `DAGUA`, `RGEXT`, `ROBO`,
+`DELEC`, `RCEXP`, `RCLOC`). La rotura de cristales es una garantía estándar
+del mercado asegurador español en los ramos de Hogar, Comunidades y Comercio,
+y **no está entre ellas**: una búsqueda de "cristal" y "vidrio" en
+`components/Peritia.jsx` devuelve cero coincidencias, ni como garantía, ni
+como material, ni como partida de baremo.
+
+**Preguntas concretas:**
+- ¿Recibe Pol encargos de esta garantía? Si es así, ¿cómo se tramitan hoy?
+- ¿Es una ausencia deliberada (porque estos siniestros no llegan al perito,
+  al resolverse por vía de reparación directa de la compañía) o es un hueco
+  real del catálogo?
+- Si debe incorporarse, ¿qué código canónico se le asigna?
+- ¿Hay otras garantías estándar igualmente ausentes? Actos vandálicos y
+  Responsabilidad Civil familiar son candidatas a la misma revisión.
+
+**Bloquea:** la completitud del catálogo de garantías de `TAXONOMY.md` §4, y
+la ficha `knowledge://coverages/rotura-de-cristales`, hoy en `borrador` con
+`codigo: null` porque asignarle uno sería inventar una decisión de negocio.
+
+---
+
+## P-26 · ¿El baremo debe cubrir parquet, cubierta e incendio? — Sprint 3
+
+Detectada al redactar las fichas de material y de garantía del Sprint 3. Las
+47 partidas verificadas del baremo cubren bien el daño por agua sobre obra
+convencional, y dejan sin cubrir supuestos muy frecuentes:
+
+| Hueco | Impacto |
+|---|---|
+| **Parquet / tarima** — ninguna partida | El pavimento más habitual en vivienda, y de los más sensibles al daño por agua (la garantía más frecuente del sistema) |
+| **Cubierta / teja** — ninguna partida, ni medios auxiliares en altura | Supuesto característico de la garantía atmosférica, la única con verificación externa automatizada |
+| **Incendio** — ninguna partida específica | Sin limpieza de hollín, desodorización, saneado de carbonizados ni desescombro |
+| **Pladur** — solo cierre de cata puntual | Falta la sustitución de paño completo, que es el supuesto habitual con daño por agua |
+
+**Preguntas concretas:**
+- ¿Estos supuestos se valoran hoy a mano, por factura, o simplemente no
+  llegan como encargo?
+- ¿El baremo debe ampliarse, o su alcance actual es deliberado porque
+  responde al tipo de expediente que Pol recibe realmente?
+- Si debe ampliarse, ¿de qué fuente saldrían los precios? (enlaza con P-01,
+  sobre el origen y la vigencia del baremo actual)
+
+**Bloquea:** el alcance del catálogo de métodos de reparación
+(`knowledge/repairs/`) y la utilidad real de las fichas de material ya
+redactadas, que hoy no pueden referenciar ningún método aplicable.

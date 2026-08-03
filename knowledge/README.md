@@ -94,13 +94,44 @@ estructuras es una decisión pendiente, documentada como propuesta de ADR en
 
 ---
 
+## Plantillas maestras (Sprint 3)
+
+`templates/` contiene las **14 plantillas maestras** que definen el estándar
+de toda ficha de conocimiento, más el contrato común que comparten
+([`templates/README.md`](./templates/README.md)): front matter, secciones
+obligatorias, fuentes, historial y reglas de validación.
+
+> **Regla del estándar:** los prompts consumen la biblioteca, nunca la
+> contienen. Un prompt que afirme un hecho del dominio está incumpliendo el
+> estándar: ese hecho pertenece a una ficha.
+
+Añadir conocimiento nuevo consiste, a partir de ahora, en **crear una ficha
+siguiendo su plantilla** — sin tocar código, sin tocar prompts y sin depender
+de ningún proveedor de IA.
+
+---
+
 ## Estado actual
 
-**Todas las carpetas de contenido están vacías.** Este sprint diseña el
-sistema que alojará el conocimiento; no carga contenido real, salvo los
-ejemplos ilustrativos imprescindibles para explicar cada modelo. Hoy el
-conocimiento del dominio sigue viviendo incrustado en `components/Peritia.jsx`
-(baremo de partidas, módulos de arquitectura, listas de compañías y
-garantías, y el texto de los prompts) — ver `docs/TECHNICAL_DEBT.md`, ficha
-DT-06. Migrar ese conocimiento a esta estructura es trabajo de un sprint
-futuro de carga de conocimiento, no de este sprint de diseño.
+**El diseño está completo; la carga de contenido apenas ha empezado.**
+
+Existen **8 fichas de ejemplo** creadas en el Sprint 3, todas en estado
+`borrador` y **ninguna validada por Pol todavía**:
+
+| Ficha | Carpeta | Confianza |
+|---|---|---|
+| Daños por agua | `coverages/` | media |
+| Incendio | `coverages/` | media |
+| Robo | `coverages/` | media |
+| Rotura de cristales | `coverages/` | sin_verificar — garantía ausente del sistema |
+| Pladur | `materials/` | media |
+| Parquet | `materials/` | sin_verificar — sin partidas en el baremo |
+| Teja cerámica | `materials/` | sin_verificar — sin partidas en el baremo |
+| Rotura de tubería | `causes/` | media |
+
+El resto de carpetas de contenido siguen vacías. Hoy el conocimiento del
+dominio sigue viviendo incrustado en `components/Peritia.jsx` (baremo de
+partidas, módulos de arquitectura, listas de compañías y garantías, y el
+texto de los prompts) — ver `docs/TECHNICAL_DEBT.md`, ficha DT-06. Migrar ese
+conocimiento a esta estructura es trabajo de un sprint futuro de carga, no de
+los sprints de diseño ya completados.
