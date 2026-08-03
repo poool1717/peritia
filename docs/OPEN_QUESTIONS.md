@@ -36,6 +36,8 @@
 | P-18 | ¿Debe ampliarse la cobertura meteorológica fuera de Catalunya? | Roadmap | Media |
 | P-19 | ¿Por qué está desactivado `reactStrictMode`? | DT-20 | Baja |
 | P-20 | ¿Quién es el usuario final: perito autónomo o gabinete? | Arquitectura multi-usuario | Alta |
+| P-21 | ¿Debe versionarse la póliza a lo largo de su vigencia? | `POLICY_VERSION`, dominio | Media |
+| P-22 | ¿`Client` debe existir separado de `Insurer`, o siempre coinciden? | `CLIENT`, `RELATIONSHIPS.md` | Media |
 
 ---
 
@@ -378,3 +380,51 @@ por gabinete pericial" en Fase 3-4.
 **Bloquea:** es la pregunta de arquitectura de mayor alcance de todas. La
 respuesta condiciona el modelo de datos, el modelo de permisos y el de
 facturación. Cuanto más tarde se responda, más caro será cambiarlo.
+
+---
+
+## P-21 · ¿Debe versionarse la póliza a lo largo de su vigencia? — Sprint 1
+
+Surgida al documentar `docs/domain/entities/POLICY_VERSION.md`. Una póliza real
+se renueva y sufre suplementos que cambian capitales, franquicias o garantías
+contratadas. El sistema actual extrae un único juego de valores por
+expediente, sin relación con ninguna versión concreta de la póliza
+identificada por su fecha de efecto.
+
+**Preguntas concretas:**
+- ¿Ha habido ya, en la práctica, algún expediente donde importara distinguir
+  entre dos versiones sucesivas de la misma póliza?
+- Si dos siniestros del mismo asegurado ocurren en años distintos, ¿el perito
+  hoy vuelve a extraer la póliza cada vez, sin relacionarlo con la extracción
+  anterior? ¿Eso ha causado alguna vez una incoherencia entre expedientes?
+- ¿Merece la pena modelar `PolicyVersion` como entidad propia, o es
+  complejidad prematura para el volumen de trabajo actual?
+
+**Bloquea:** el diseño de `POLICY.md` y `POLICY_VERSION.md` como entidades
+reales, y cualquier futura reutilización de una póliza entre expedientes
+distintos del mismo riesgo asegurado.
+
+---
+
+## P-22 · ¿`Client` debe existir separado de `Insurer`, o en la práctica siempre coinciden? — Sprint 1
+
+Surgida al documentar `docs/domain/entities/CLIENT.md` y `RELATIONSHIPS.md`,
+sección 9. El dominio pericial general distingue "quien encarga y paga la
+peritación" de "quien asume el riesgo asegurado", porque no siempre son la
+misma parte (una correduría, un despacho jurídico, un particular que pide una
+contraperitación). El sistema actual no distingue nada de esto: solo existe
+`enc.compania`, un campo de texto libre que se asume simultáneamente como
+aseguradora y como origen del encargo.
+
+**Preguntas concretas:**
+- En el trabajo real de Pol, ¿ha habido encargos donde quien paga el servicio
+  pericial no fuera la propia aseguradora?
+- ¿Interviene alguna vez una correduría de forma diferenciada, o los encargos
+  llegan siempre directamente de la compañía?
+- Si en la práctica `Client` e `Insurer` son siempre la misma entidad, ¿tiene
+  sentido mantener la distinción en el modelo de dominio, o es
+  sobre-ingeniería para un caso que no ocurre?
+
+**Bloquea:** si `CLIENT.md` y `BROKER.md` deben tratarse como entidades reales
+a implementar en algún momento, o si son modelo puramente teórico sin
+correspondencia con el negocio real de PERIT.IA.
