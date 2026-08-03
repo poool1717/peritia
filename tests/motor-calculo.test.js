@@ -4,7 +4,7 @@ import {
   sumRepos, sumIVA, sumReal,
   calcReglas, calcRegla, reglaPartida, sumAjustado, calcIndemnizacion,
   fraseIndemn, calcVPreexCont, PCT_INDIRECTO,
-} from "../components/Peritia.jsx";
+} from "../lib/dominio/calculo.js";
 
 // ─── calcPartida ────────────────────────────────────────────────────────────
 // Fórmula documentada en el propio código y en docs/domain/entities/REPAIR.md:

@@ -5,11 +5,12 @@ negocio importante debe tener prueba, y todo error corregido debe generar
 una prueba de regresión.
 
 **Estado:** infraestructura creada en el Sprint 4 (Foundation Refactor,
-Fase 0 — Safety Net). Cubre las funciones puras del motor de cálculo, sus
-dependencias directas (módulos de arquitectura, emparejado de baremo) y la
-lógica de verificación meteorológica. No cubre la interfaz ni los proxys de
-API — deliberadamente fuera del alcance de esta fase (ver
-`docs/migration/MIGRATION_MASTER_PLAN.md`, Fase 0).
+Fase 0 — Safety Net). Cubre el motor de cálculo completo, extraído a
+`lib/dominio/calculo.js` como librería independiente. No cubre la interfaz,
+los proxys de API, ni la lógica meteorológica o de interpretación de IA que
+se quedó en `components/Peritia.jsx` — deliberadamente fuera del alcance de
+esta fase (ver `docs/migration/MIGRATION_MASTER_PLAN.md`, Fase 0, y la
+decisión de alcance mínimo tomada durante esta fase, más abajo).
 
 ---
 
@@ -23,7 +24,7 @@ npm run test:coverage # ejecuta la batería y muestra el % de cobertura
 
 Ejecutor: [Vitest](https://vitest.dev/). Configuración en `vitest.config.mjs`
 (raíz del repositorio). No requiere navegador ni base de datos: las pruebas
-importan `components/Peritia.jsx` directamente en Node y ejercitan sus
+importan `lib/dominio/calculo.js` directamente en Node y ejercitan sus
 funciones exportadas con datos de entrada controlados.
 
 ---
@@ -32,32 +33,52 @@ funciones exportadas con datos de entrada controlados.
 
 | Archivo | Qué prueba |
 |---|---|
-| `utilidades.test.js` | `fmt`, `fmtE`, `fmtSmart` (formato de importes), `parseCap` (interpretación de importes extraídos por IA), `norm` (normalización de texto), `normCompania` |
+| `utilidades.test.js` | `fmt` (formato de importes), `parseCap` (interpretación de importes extraídos por IA), `norm` (normalización de texto) |
 | `motor-calculo.test.js` | `calcPartida`, `resolvePartidas`, `getPartidas`, `sumRepos`/`sumIVA`/`sumReal`, `calcReglas`, `calcRegla`, `reglaPartida`, `sumAjustado`, `calcIndemnizacion`, `fraseIndemn` — el núcleo económico del sistema |
 | `modulos-arquitectura.test.js` | `getModuloArq`, `getFactorArq`, `calcVPreexCont`, e integridad de `TABLAS_ARQ` |
 | `matchbaremo.test.js` | `matchBaremo` en sus tres niveles de coincidencia, e integridad de `BAREMO` (47 partidas) |
-| `interpretacion-ia.test.js` | `parseJSON`, `iaError` — cómo se interpreta (o se rechaza) la respuesta de la IA |
-| `meteo.test.js` | `esSiniestroAtmosferico`, `causasMeteo`, `meteoSupera` |
 
 ---
 
-## Por qué las funciones bajo test están marcadas `export`
+## El motor de cálculo vive en `lib/dominio/calculo.js`
 
-`components/Peritia.jsx` no exportaba, hasta este sprint, ninguna función
-salvo el componente raíz (`export default function App()`). Sin exportar las
-funciones puras no hay forma de importarlas desde un archivo de test —
-JavaScript no permite acceder a bindings de módulo no exportados desde fuera.
+`components/Peritia.jsx` **no exporta nada** (salvo `export default function
+App()`, como antes de este sprint). Las funciones puras del motor de cálculo
+—y solo ellas— se extrajeron a `lib/dominio/calculo.js`, un módulo
+independiente sin ningún vínculo con React, Supabase ni la API de Anthropic.
+`Peritia.jsx` importa esas funciones desde ahí y las usa exactamente igual
+que antes.
 
-Se ha añadido la palabra `export` delante de 27 funciones y 5 constantes de
-datos (motor de cálculo, utilidades, catálogos de referencia). **Es el único
-cambio hecho a `Peritia.jsx` en esta fase**: ninguna línea de lógica se ha
-tocado, movido ni reescrito. Verificado con `git diff` línea a línea y con
-`next build` antes y después, produciendo un resultado idéntico.
+**Qué se movió** (19 funciones + 4 constantes de datos):
+`BAREMO`, `PCT_INDIRECTO`, `TABLAS_ARQ`, `PROVINCIAS`, `getModuloArq`,
+`getFactorArq`, `calcVPreexCont`, `fmt`, `norm`, `parseCap`, `calcPartida`,
+`resolvePartidas`, `getPartidas`, `sumRepos`, `sumIVA`, `sumReal`,
+`calcReglas`, `calcRegla`, `reglaPartida`, `sumAjustado`,
+`calcIndemnizacion`, `fraseIndemn`, `matchBaremo`.
 
-Este cambio es deliberadamente mínimo y no anticipa la Fase 2 del plan de
-migración (extracción del motor de cálculo a su propio módulo en `lib/`):
-las funciones siguen viviendo exactamente donde estaban, solo que ahora son
-también accesibles desde fuera del archivo.
+**Qué NO se movió, a propósito** (se quedó en `Peritia.jsx`, sin exportar):
+`fmtE`, `fmtSmart`, `normCompania` (formateo de interfaz, no forman parte
+del cálculo económico), `parseJSON`, `iaError` (interpretación de
+respuestas de IA), `esSiniestroAtmosferico`, `causasMeteo`, `meteoSupera`
+(verificación meteorológica), `COMPANIAS` (dato de interfaz, el desplegable
+de aseguradoras). Ninguna de estas es, en sentido estricto, "el motor de
+cálculo" — moverlas habría ampliado el alcance de esta fase más allá de lo
+autorizado.
+
+**Consecuencia de este alcance mínimo:** las 32 pruebas que en un primer
+intento de esta fase cubrían `parseJSON`, `iaError`, `esSiniestroAtmosferico`,
+`causasMeteo` y `meteoSupera` se han retirado (`interpretacion-ia.test.js`
+y `meteo.test.js` ya no existen). Esas funciones dejaron de ser accesibles
+desde fuera del archivo al revertirse su `export`, conforme a la instrucción
+explícita de esta fase de no exportar nada desde `Peritia.jsx`. Quedan sin
+cobertura hasta que una fase posterior decida extraerlas también (no está
+autorizado hacerlo ahora).
+
+**Verificación de que la extracción no cambia ningún comportamiento:** cada
+línea de código de `lib/dominio/calculo.js` se comprobó, por script, que
+existe de forma literal en la versión de `Peritia.jsx` anterior a esta
+extracción — no se transcribió nada a mano. `next build` produce un
+resultado idéntico antes y después.
 
 ---
 
@@ -69,6 +90,7 @@ también accesibles desde fuera del archivo.
 - **Los tres proxys de API** (`pages/api/claude.js`, `meteocat.js`,
   `catastro.js`). Requieren simular peticiones HTTP y servicios externos;
   se considera para una fase posterior.
+- **La meteorología y la interpretación de respuestas de IA** — ver arriba.
 - **Los "casos oráculo" históricos** (463,59 € y 1.291,47 €, citados en
   `CONTEXT.md` como validados por Pol). No existe en ningún documento del
   repositorio el detalle de los datos de entrada que producen esas cifras
@@ -84,9 +106,16 @@ también accesibles desde fuera del archivo.
 
 ## Cobertura
 
-`npm run test:coverage` mide sobre el archivo completo (4.413 líneas), así
-que el porcentaje global es bajo por diseño: la inmensa mayoría del archivo
-es interfaz, fuera del alcance de esta fase. La cifra que importa es la del
-bloque de datos, utilidades, motor de cálculo y verificación meteorológica
-(aproximadamente las primeras 460 líneas): **80,4 % de líneas cubiertas**
-en ese bloque a fecha de cierre de esta fase.
+Medida ahora sobre `lib/dominio/calculo.js` en solitario (no sobre
+`Peritia.jsx` completo, que ya no contiene el motor de cálculo):
+
+```
+% Stmts   99.15
+% Branch  93.44
+% Funcs  100.00
+% Lines  100.00
+```
+
+100 % de líneas y de funciones cubiertas. Las ramas sin cubrir (93,44 %) son,
+sobre todo, combinaciones de argumentos por defecto poco frecuentes que no se
+han considerado prioritarias para esta primera batería.

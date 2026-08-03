@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getModuloArq, getFactorArq, calcVPreexCont, TABLAS_ARQ, PROVINCIAS } from "../components/Peritia.jsx";
+import { getModuloArq, getFactorArq, calcVPreexCont, TABLAS_ARQ, PROVINCIAS } from "../lib/dominio/calculo.js";
 
 describe("TABLAS_ARQ — integridad del catálogo de módulos", () => {
   it("cubre exactamente los 6 códigos de provincia verificados en el Sprint 0", () => {

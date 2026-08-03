@@ -20,7 +20,7 @@ export default defineConfig({
     include: ["tests/**/*.test.{js,jsx}"],
     coverage: {
       provider: "v8",
-      include: ["components/Peritia.jsx"],
+      include: ["lib/dominio/calculo.js"],
       reporter: ["text", "text-summary"],
     },
   },

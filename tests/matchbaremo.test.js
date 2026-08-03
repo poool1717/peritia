@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchBaremo, BAREMO, PCT_INDIRECTO } from "../components/Peritia.jsx";
+import { matchBaremo, BAREMO, PCT_INDIRECTO } from "../lib/dominio/calculo.js";
 
 // Comportamiento verificado ejecutando matchBaremo contra el BAREMO real
 // (no adivinado): ver el propio código, tests/matchbaremo.test.js documenta
