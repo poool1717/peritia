@@ -9,7 +9,8 @@
 > sección lo redacta el Arquitecto Principal, externo a esta sesión de
 > Claude Code. Claude Code participa como Lead Software Engineer —revisor
 > técnico activo, no solo integrador—, evaluando cada bloque contra cinco
-> criterios obligatorios:
+> criterios obligatorios y, por encima de todos ellos, contra la **Regla
+> de Arquitectura Fundamental** (más abajo):
 >
 > 1. **DDD** — límites de contexto, entidad vs. value object, agregados.
 > 2. **Sistemas expertos / ingeniería del conocimiento** — reglas
@@ -40,6 +41,38 @@
 > que el propio texto describa.
 >
 > **Iniciado:** 4 de agosto de 2026 · Sprint 5
+
+---
+
+## Regla de Arquitectura Fundamental
+
+**Transversal a todo este documento** — se aplica a cada sección, cada
+entidad y cada decisión que contenga, no solo a los cinco criterios de
+revisión del apartado anterior.
+
+Cada decisión arquitectónica debe responder explícitamente a esta
+pregunta:
+
+> **¿Esta decisión hace que PERIT piense mejor, o solo hace que el
+> software esté mejor organizado?**
+
+**Arquitectura de software** y **arquitectura cognitiva** no son lo mismo.
+Una buena arquitectura de software divide archivos. Una buena arquitectura
+cognitiva divide conocimiento, razonamiento y capacidad de decisión. Una
+propuesta puede ser impecable en lo primero y no aportar nada a lo
+segundo — cuando eso ocurra, se señala explícitamente, aunque la propuesta
+sea técnicamente correcta.
+
+El objetivo de este proyecto no es construir el software más limpio. Es
+construir el sistema experto más sólido. Eso implica priorizar, siempre,
+por encima de cualquier decisión puramente técnica:
+
+1. Calidad del conocimiento.
+2. Calidad del razonamiento.
+3. Explicabilidad.
+4. Trazabilidad.
+5. Evolución del conocimiento.
+6. Independencia entre conocimiento y código.
 
 ---
 
