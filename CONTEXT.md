@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 4 septiembre 2026 (sesión 23 — **Fase 1 y 2 del plan de migración**: se extrae el núcleo de cálculo de `Peritia.jsx` a `core/`, se crea la primera red de seguridad automática del proyecto (58 tests + CI en GitHub Actions) y se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
+**Última actualización:** 4 septiembre 2026 (sesión 23 — **Fases 1, 2 y 3 del plan de migración**: se extrae de `Peritia.jsx` toda la lógica que no necesita interfaz (cálculo, baremo, valoración, reglas meteo, lectura de respuestas de la IA y semáforo de secciones) a `core/`; se crea la primera red de seguridad automática del proyecto (100 tests + CI en GitHub Actions); se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
 
 **Anterior:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
 
@@ -14,7 +14,22 @@
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
 
-**Sesión 23 — el proyecto pasa a tener red de seguridad.** Hasta ahora, la única forma de saber si un cambio rompía un cálculo era abrir la app y mirar los números a ojo. Desde esta sesión, el cálculo (baremo, valoración, reglas proporcionales, indemnización) vive separado de la interfaz, en `core/`, y **58 tests automáticos lo comprueban en dos segundos en cada Pull Request**. Esto es la Fase 1 del `MIGRATION_MASTER_PLAN` (red de seguridad) más el primer trozo de la Fase 3 (extracción del núcleo puro). La interfaz no ha cambiado: ni un píxel, ni una fórmula.
+**Sesión 23 — el proyecto pasa a tener red de seguridad.** Hasta ahora, la única forma de saber si un cambio rompía un cálculo era abrir la app y mirar los números a ojo. Desde esta sesión, toda la lógica que no necesita pantalla vive separada de la interfaz, en `core/`, y **100 tests automáticos la comprueban en dos segundos en cada Pull Request**. Esto cubre las Fases 1 (red de seguridad), 2 (riesgos críticos baratos) y 3 (extracción del núcleo puro) del plan de migración. La interfaz no ha cambiado: ni un píxel, ni una fórmula.
+
+`Peritia.jsx` pasa de **4.413 a 4.114 líneas**. Lo que se ha movido a `core/`, en dos tandas:
+
+| Módulo | Qué contiene |
+|---|---|
+| `formato.mjs` | `fmt` · `fmtE` · `fmtSmart` · `norm` · `parseCap` · `fmtUpdated` |
+| `baremo.mjs` | `BAREMO` (47 partidas) · `PCT_INDIRECTO` · `matchBaremo` |
+| `valoracion.mjs` | `PROVINCIAS` · `TABLAS_ARQ` · `getModuloArq` · `getFactorArq` · `calcVPreexCont` |
+| `calculo.mjs` | partidas, costes indirectos, reglas proporcionales, indemnización, frase de indemnización |
+| `catalogos.mjs` | `COMPANIAS` · `normCompania` · `TIPOS_USO` · `TIPOS_GARANTIA` |
+| `ia.mjs` | `parseJSON` · `iaError` — cómo se lee la respuesta de la IA y cómo se detecta que no sirve |
+| `meteo.mjs` | `esSiniestroAtmosferico` · `causasMeteo` · `meteoSupera` (la llamada al proxy se queda en la interfaz, porque hace red) |
+| `progreso.mjs` | semáforo de secciones y bloques pendientes — la lógica que decide si un informe está listo para exportar |
+
+Se verificó bloque a bloque que el código movido es **idéntico carácter a carácter** al original. La única corrección deliberada fue el fallo de `parseCap`.
 
 Dos cosas que salieron a la luz nada más poner la red:
 

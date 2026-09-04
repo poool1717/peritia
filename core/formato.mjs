@@ -40,3 +40,11 @@ export const parseCap = v => {
 // producción, que es el comportamiento que había antes de separarlas.
 // Ojo: en Next.js estas variables se resuelven al compilar, no al ejecutar —
 // hay que escribir `process.env.NEXT_PUBLIC_X` literal, no por índice.
+
+// Fecha y hora de última modificación, como se ve en el dashboard.
+export const fmtUpdated = v => {
+  if(!v) return "";
+  const d = new Date(v);
+  if(isNaN(d)) return "";
+  return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+};

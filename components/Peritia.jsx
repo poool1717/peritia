@@ -17,6 +17,11 @@ import {
   fmt, fmtE, fmtSmart, norm, parseCap,
   calcPartida, getPartidas, sumRepos, sumIVA, sumReal,
   calcReglas, sumAjustado, calcIndemnizacion, fraseIndemn,
+  fmtUpdated, COMPANIAS, normCompania, TIPOS_USO,
+  parseJSON, iaError,
+  esSiniestroAtmosferico, meteoSupera,
+  encargoBlockStates, s1BlockStates, s2BlockStates, s3BlockStates,
+  s4BlockStates, anexosBlockStates, semaforoFromStates,
 } from "../core/index.mjs";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
@@ -35,12 +40,6 @@ const C = {
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 
 
-const COMPANIAS = ["AXA Seguros","Mapfre","Allianz","Generali","Zurich","Helvetia","Mutua Madrileña","Caser","Reale","Santalucía","Pelayo","BBVA Seguros","Catalana Occidente","Línea Directa"];
-// AXA aparece en los documentos con muchos nombres (AXA, AXA Seguros, AXA Seguros Generales SA…);
-// el nombre comercial en el informe debe ser siempre "AXA Seguros".
-const normCompania = c => /\bAXA\b/i.test(String(c||"")) ? "AXA Seguros" : (c||"");
-const TIPOS_USO = ["Hotel / Apart-hotel","Hostal / Pensión","Local comercial","Oficinas","Vivienda unifamiliar","Piso / Apartamento","Comunidad de propietarios","Industria / Nave","Restaurante / Bar","Otro"];
-const TIPOS_GARANTIA = ["Continente","Contenido","Terceros implicados"];
 
 const SECCIONES = [
   {id:"encargo", label:"Datos del Encargo",         sub:"Encargo y póliza",   icon:FileCheck},
@@ -119,43 +118,8 @@ const sbDb = async (path, method='GET', body=null, token='') => {
 };
 
 
-const parseJSON = txt => {
-  const patterns = [/```json\s*([\s\S]*?)```/,/```([\s\S]*?)```/,/([\s\S]*)/];
-  for(const p of patterns){
-    const m=txt.match(p);
-    if(m){try{return JSON.parse(m[1]||m[0]);}catch{}}
-  }
-  // No se pudo interpretar como JSON: lo marcamos en vez de devolver {} en
-  // silencio, para que quien llama pueda avisar al usuario.
-  return {_parseError:true};
-};
-
-// Devuelve un mensaje para el usuario si la respuesta de la IA no es usable,
-// o null si es válida. Cubre errores de API y respuestas no interpretables.
-const iaError = parsed => {
-  if(!parsed || typeof parsed!=="object") return "La IA no devolvió una respuesta válida.";
-  if(parsed._apiError) return `Error de la API de IA (${parsed._status||"?"}): ${parsed._msg||"sin detalle"}.`;
-  if(parsed._parseError) return "La IA devolvió una respuesta que no se pudo interpretar. Vuelve a intentarlo.";
-  return null;
-};
 
 // ─── METEO XEMA (datos abiertos Meteocat) ────────────────────────────────────
-// Detecta si el siniestro es de tipo atmosférico (viento, lluvia, pedrisco, nieve…)
-// Solo se considera atmosférico (y se muestra la verificación XEMA) cuando la
-// GARANTÍA AFECTADA es Atmosféricos o Riesgos Extensivos (criterio del perito).
-const esSiniestroAtmosferico = enc => {
-  const g = `${enc?.garantia||""} ${enc?.coberturaInferida||""}`.toLowerCase();
-  return /atmosf|extensiv|rgext/.test(g);
-};
-// Causas atmosféricas presentes según el encargo (para evaluar el umbral correcto)
-const causasMeteo = enc => {
-  const t = `${enc?.causa||""} ${enc?.descripcionSiniestro||""} ${enc?.garantia||""}`.toLowerCase();
-  return {
-    viento:   /viento|vent\b|r[aá]fag|ratxa|temporal|vendaval/.test(t),
-    lluvia:   /lluvia|pluja|precipitaci|agua de lluvia|inundaci|tromba/.test(t),
-    pedrisco: /pedrisco|granizo|calamarsa/.test(t),
-  };
-};
 // Llama al proxy /api/meteocat con los datos del encargo
 const fetchMeteoXEMA = async enc => {
   const res = await fetch("/api/meteocat",{
@@ -166,20 +130,6 @@ const fetchMeteoXEMA = async enc => {
     })
   });
   return res.json();
-};
-// ¿Los valores medidos superan los umbrales de la póliza? Se evalúa SOLO el
-// umbral correspondiente a la causa del siniestro (viento / lluvia / pedrisco).
-const meteoSupera = (m, enc) => {
-  const c = causasMeteo(enc);
-  const anyCausa = c.viento||c.lluvia||c.pedrisco;
-  const uv = parseFloat(enc?.umbralViento)||0, ul = parseFloat(enc?.umbralLluvia)||0;
-  const evalViento = (anyCausa? c.viento : true) && uv>0;
-  const evalLluvia = (anyCausa? (c.lluvia||c.pedrisco) : true) && ul>0;
-  const sv = evalViento && (m?.rachaMax>=uv);
-  const sl = evalLluvia && (m?.precipMaxHoraria>=ul);
-  let label = "—";
-  if(evalViento||evalLluvia) label = sv&&sl?"Sí (viento y lluvia)":sv?"Sí (viento)":sl?"Sí (lluvia)":"No";
-  return {sv, sl, label, hayUmbral:(evalViento||evalLluvia)};
 };
 // Tabla de datos meteo (React) — reutilizada en Sec2 y en el preview del informe
 const MeteoTabla = ({m, enc}) => {
@@ -514,62 +464,6 @@ const Block = ({title,badge,done,summary,children}) => {
   );
 };
 
-// Estado (completo/pendiente) de cada bloque "Datos del perito" por sección,
-// como array de booleanos — una función pura por sección, reutilizada tanto
-// por el prop `done` de cada <Block> como por el semáforo de navegación de la
-// topbar (que solo tiene cData, no el estado interno de cada componente de
-// sección). Mantenerlas en un solo sitio evita que las dos lecturas diverjan.
-const encargoBlockStates = enc => [
-  !!(enc.compania&&enc.numReferencia),
-  !!(enc.asegurado&&enc.lugarIntervencion),
-  parseCap(enc.capitalContinente)>0,
-];
-const s1BlockStates = (data,enc) => {
-  const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
-  return [
-    !!data.estado,
-    !!(data.superficieConstruida&&data.tipoArqKey),
-    capCont>0,
-  ];
-};
-const s2BlockStates = (data,enc) => {
-  const states = [!!(data.textoRaw||data.textoAI)];
-  if(esSiniestroAtmosferico(enc)) states.push(!!data.meteo);
-  return states;
-};
-const s3BlockStates = data => {
-  const modoVal = data.modoValoracion||"baremo";
-  const docMode = modoVal==="presupuesto"||modoVal==="factura";
-  return [
-    !!(data.textoRaw||data.textoAI),
-    modoVal==="baremo" ? (data.partidas?.length>0) : (docMode&&!!data.perceptorTipo),
-  ];
-};
-const s4BlockStates = data => [
-  !!data.textoIntro,
-  !!data.descripcionCobertura,
-];
-const anexosBlockStates = (anexos,s3) => {
-  const a = anexos||{};
-  return [
-    !!a.fotos?.length,
-    !!a.catastro?.length,
-    !!a.meteosim?.length,
-    !!(a.facturas?.length||s3?.facturas?.length),
-  ];
-};
-// Verde: todo completo · Rojo: nada relleno (o algún bloque en estado "error",
-// cuando exista esa validación) · Naranja: mezcla. "error" no lo produce hoy
-// ningún bloque real — no hay validación de campos inválidos en la app — pero
-// semaforoFromStates ya lo entiende si se añade en el futuro.
-const semaforoFromStates = states => {
-  if(states.some(st=>st==="error")) return "red";
-  if(!states.length) return "orange";
-  const doneCount = states.filter(st=>st===true).length;
-  if(doneCount===states.length) return "green";
-  if(doneCount===0) return "red";
-  return "orange";
-};
 
 // ─── AI VOICE INPUT ───────────────────────────────────────────────────────────
 const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholder,rows=5}) => {
@@ -749,12 +643,6 @@ const LoginScreen = ({onAuth}) => {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg]};
 const TIPO_LABEL = {PERITACION:"Peritación",INSTANT_PAYMENT:"Instant Payment"};
-const fmtUpdated = v => {
-  if(!v) return "";
-  const d = new Date(v);
-  if(isNaN(d)) return "";
-  return d.toLocaleDateString("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"})+" "+d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
-};
 const DASH_FILTERS_EMPTY = {asegurado:"",compania:"",numReferencia:"",ramo:"",tipo:"",provincia:"",estado:"",progreso:"",updatedAt:""};
 
 const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOpen,setSidebarOpen}) => {

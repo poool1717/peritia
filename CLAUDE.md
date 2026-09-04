@@ -32,15 +32,19 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (4.226 líneas, solo interfaz)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (4.114 líneas, solo interfaz)
 ├── core/                    ← NÚCLEO PURO: baremo, valoración, reglas, indemnización
 │   ├── formato.mjs          ← números, euros, normalización de texto (parseCap)
 │   ├── baremo.mjs           ← BAREMO + matchBaremo
 │   ├── valoracion.mjs       ← PROVINCIAS + TABLAS_ARQ + calcVPreexCont
 │   ├── calculo.mjs          ← calcPartida, calcReglas, calcIndemnizacion…
+│   ├── catalogos.mjs        ← COMPANIAS, normCompania, TIPOS_USO, TIPOS_GARANTIA
+│   ├── ia.mjs               ← parseJSON, iaError (lectura de respuestas de la IA)
+│   ├── meteo.mjs            ← reglas XEMA (atmosférico, umbrales de la póliza)
+│   ├── progreso.mjs         ← semáforo y bloques pendientes por sección
 │   ├── index.mjs            ← única puerta de entrada (Peritia.jsx importa de aquí)
 │   └── README.md            ← qué es core/ y sus reglas
-├── tests/                   ← 58 tests del núcleo (`npm test`, sin dependencias)
+├── tests/                   ← 100 tests del núcleo (`npm test`, sin dependencias)
 ├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada PR
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
