@@ -7,4 +7,5 @@ export * from './baremo.mjs';
 export * from './calculo.mjs';
 export * from './ia.mjs';
 export * from './meteo.mjs';
+export * from './alertas.mjs';
 export * from './progreso.mjs';

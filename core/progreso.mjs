@@ -7,6 +7,7 @@
 
 import { parseCap } from './formato.mjs';
 import { esSiniestroAtmosferico } from './meteo.mjs';
+import { avisosDelRiesgo } from './alertas.mjs';
 
 // Estado (completo/pendiente) de cada bloque "Datos del perito" por sección,
 // como array de booleanos — una función pura por sección, reutilizada tanto
@@ -20,10 +21,16 @@ export const encargoBlockStates = enc => [
 ];
 export const s1BlockStates = (data,enc) => {
   const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
+  // El bloque de capitales puede estar en tres estados, no en dos: relleno,
+  // vacío, o relleno CON UN DATO QUE NO CUADRA. El tercero se marca "error"
+  // (rojo, "Revisar") en vez de verde, porque un infraseguro absurdo con el
+  // semáforo en verde es la peor combinación posible: el informe sale mal y
+  // nada lo indica. Ver core/alertas.mjs.
+  const hayAviso = avisosDelRiesgo(enc, data).length > 0;
   return [
     !!data.estado,
     !!(data.superficieConstruida&&data.tipoArqKey),
-    capCont>0,
+    capCont>0 ? (hayAviso ? "error" : true) : false,
   ];
 };
 export const s2BlockStates = (data,enc) => {

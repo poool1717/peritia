@@ -27,6 +27,7 @@ ordenador compruebe los números **solo, en dos segundos, en cada cambio**.
 | `catalogos.mjs` | Compañías, tipos de uso y de garantía, y la normalización del nombre comercial |
 | `ia.mjs` | Cómo se lee lo que devuelve la IA y cómo se detecta que no ha servido |
 | `meteo.mjs` | Reglas de la verificación XEMA: si el siniestro es atmosférico y si se superan los umbrales de la póliza |
+| `alertas.mjs` | Cuándo un número calculado es tan raro que casi seguro es un error. Hoy: el infraseguro por encima del 90 % |
 | `progreso.mjs` | Qué falta por rellenar en cada sección — el semáforo y el panel "Pendientes" |
 | `index.mjs` | La única puerta de entrada. `Peritia.jsx` importa siempre desde aquí |
 
@@ -45,7 +46,7 @@ ordenador compruebe los números **solo, en dos segundos, en cada cambio**.
 npm test
 ```
 
-Tarda dos segundos (108 tests). Si sale todo en verde, el núcleo de cálculo se comporta
+Tarda dos segundos (123 tests). Si sale todo en verde, el núcleo de cálculo se comporta
 exactamente igual que antes. Si sale algo en rojo, dice qué fórmula ha cambiado
 y qué valor esperaba.
 

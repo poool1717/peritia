@@ -1,7 +1,7 @@
 # PERIT.IA — Resumen del Proyecto
 
 **Archivo principal:** `components/Peritia.jsx` · 4.114 líneas · React 18
-**Núcleo puro:** `core/` · 9 módulos sin React, cubiertos por 108 tests (`npm test`)
+**Núcleo puro:** `core/` · 10 módulos sin React, cubiertos por 123 tests (`npm test`)
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -39,11 +39,12 @@ core/
 ├── catalogos.mjs   — COMPANIAS · normCompania · TIPOS_USO · TIPOS_GARANTIA
 ├── ia.mjs          — parseJSON · iaError
 ├── meteo.mjs       — esSiniestroAtmosferico · causasMeteo · meteoSupera
+├── alertas.mjs     — UMBRAL_INFRASEGURO_SOSPECHOSO · avisoInfraseguro · avisosDelRiesgo
 ├── progreso.mjs    — encargoBlockStates · s1..s4BlockStates · anexosBlockStates
 │                     semaforoFromStates
 └── index.mjs       — única puerta de entrada; Peritia.jsx importa siempre desde aquí
 
-tests/              — 108 tests con `node --test`; caso-real-01 contrasta la app
+tests/              — 123 tests con `node --test`; caso-real-01 contrasta la app
                       contra un informe pericial real ya cerrado
 .github/workflows/  — CI: tests + balance de llaves + build en cada PR
 ```
@@ -318,7 +319,8 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Sec 3 — Auto-relleno concepto de garantía + franquicia | ✅ |
 | Sec 4 — Textos automáticos (valoración, cobertura, indemnización) editables | ✅ |
 | Núcleo de cálculo separado en `core/` | ✅ |
-| Tests automáticos del núcleo (108, uno de caso real) | ✅ |
+| Tests automáticos del núcleo (123, uno de caso real) | ✅ |
+| Aviso de infraseguro absurdo (>90 %) con bloque en "Revisar" | ✅ |
 | CI en GitHub Actions (tests + build por PR) | ✅ |
 | Protección contra escribir en la BD real desde un preview | ✅ |
 | Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |

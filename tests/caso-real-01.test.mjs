@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   parseCap, findProvincia, calcReglas, calcIndemnizacion,
   esSiniestroAtmosferico, meteoSupera, calcPartida,
+  avisosDelRiesgo, s1BlockStates,
 } from "../core/index.mjs";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -88,13 +89,21 @@ test("la indemnización propuesta coincide con la del perito: 463,59 €", () =>
 // "Edificio (primer riesgo)" justo al lado de la cifra, pero hoy la app se
 // queda solo con el número y tira la etiqueta.
 //
-// Este test fija el tamaño del agujero. No es un comportamiento deseado: es lo
-// que pasa hoy, y está aquí para que se note el día que se arregle.
+// Este test fija el tamaño del agujero, y el siguiente comprueba que desde la
+// sesión 25 ya NO pasa en silencio.
 test("SIN marcar primer riesgo, la misma factura da 0,52 € en vez de 463,59 €", () => {
   const sinMarcar = { ...ENC, primerRiesgo: false };
   const r = calcReglas(sinMarcar, S1);
   assert.ok(r.infraCont > 99, `infraseguro esperado >99 %, obtuve ${r.infraCont}`);
   cerca(calcIndemnizacion(sinMarcar, S1, { ...S3, reglaContinente: true }), 0.52, 0.01);
+});
+
+test("...pero ahora la app avisa en vez de dar el bloque por bueno", () => {
+  const sinMarcar = { ...ENC, primerRiesgo: false };
+  const avisos = avisosDelRiesgo(sinMarcar, S1);
+  assert.equal(avisos.length, 1);
+  assert.match(avisos[0].motivos[0], /PRIMER RIESGO/);
+  assert.equal(s1BlockStates(S1, sinMarcar)[2], "error");
 });
 
 // ─── Verificación meteorológica ──────────────────────────────────────────────

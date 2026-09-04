@@ -41,10 +41,11 @@ peritia/
 │   ├── catalogos.mjs        ← COMPANIAS, normCompania, TIPOS_USO, TIPOS_GARANTIA
 │   ├── ia.mjs               ← parseJSON, iaError (lectura de respuestas de la IA)
 │   ├── meteo.mjs            ← reglas XEMA (atmosférico, umbrales de la póliza)
+│   ├── alertas.mjs          ← avisos cuando un número calculado no cuadra (infraseguro)
 │   ├── progreso.mjs         ← semáforo y bloques pendientes por sección
 │   ├── index.mjs            ← única puerta de entrada (Peritia.jsx importa de aquí)
 │   └── README.md            ← qué es core/ y sus reglas
-├── tests/                   ← 108 tests, incluido un caso real cerrado (`npm test`)
+├── tests/                   ← 123 tests, incluido un caso real cerrado (`npm test`)
 ├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada PR
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)

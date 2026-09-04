@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 4 septiembre 2026 (sesión 24 — **primer caso real contrastado**. Pol aporta la documentación y el informe cerrado de un expediente real. Pasado por el núcleo, PERIT.IA habría propuesto **0,52 € donde el perito propuso 463,59 €**, con el semáforo en verde y sin ningún aviso. Tres causas, dos ya corregidas. Ver "Caso real 01" más abajo)
+**Última actualización:** 4 septiembre 2026 (sesión 25 — **opción (b) implementada**: la app ya no acepta en silencio un infraseguro absurdo. Por encima del 90 % avisa en rojo, explica las tres causas probables empezando por el primer riesgo, marca el bloque como "Revisar" y lo saca en el panel de Pendientes. Además, la búsqueda de provincia con comparación exacta estaba repetida en tres sitios del archivo, no en uno)
+
+**Anterior:** 4 septiembre 2026 (sesión 24 — **primer caso real contrastado**. Pol aporta la documentación y el informe cerrado de un expediente real. Pasado por el núcleo, PERIT.IA habría propuesto **0,52 € donde el perito propuso 463,59 €**, con el semáforo en verde y sin ningún aviso. Tres causas, dos ya corregidas. Ver "Caso real 01" más abajo)
 
 **Anterior:** 4 septiembre 2026 (sesión 23 — **Fases 1, 2 y 3 del plan de migración**: se extrae de `Peritia.jsx` toda la lógica que no necesita interfaz (cálculo, baremo, valoración, reglas meteo, lectura de respuestas de la IA y semáforo de secciones) a `core/`; se crea la primera red de seguridad automática del proyecto (100 tests + CI en GitHub Actions); se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
 
@@ -60,6 +62,31 @@ El motor de cálculo es correcto: marcando `primerRiesgo` da exactamente 463,59 
 **Cuarto hallazgo, menor — la verificación meteo no se ofrece cuando hace falta.** El perito basó todo el estudio de cobertura en el umbral de lluvia de Riesgos Extensivos (40 l/m², se midieron 30 → no superado). Pero la cobertura afectada que trae el encargo es "DAGUA ; RCEXP", y con esa cadena `esSiniestroAtmosferico` devuelve `false`: la app no habría ofrecido la verificación XEMA. La regla actual (solo si la garantía afectada es Atmosféricos o Riesgos Extensivos) se queda corta cuando la causa real es lluvia pero la compañía lo abre como daños por agua.
 
 Todo esto queda fijado en `tests/caso-real-01.test.mjs`, anonimizado: solo cifras y estructura, sin nombres, NIF ni direcciones. **Los documentos originales no están en el repositorio y no deben subirse.**
+
+---
+
+### Sesión 25 — la app ya no acepta un infraseguro absurdo sin decir nada
+
+Pol eligió la opción (b) del caso real 01. Implementado.
+
+**Corrección importante de lo que se dijo en la sesión 24:** no era verdad que la app tirase la etiqueta "(primer riesgo)". El prompt de extracción de la póliza (`Peritia.jsx`, `polPrompt`) ya la pide explícitamente — `"Para DAGUA, RGEXT, INCEN: usa EDIFICIO PRIMER RIESGO si existe con valor>0"` y un campo `primerRiesgo` en el JSON. El problema real es más fino: **todo el cálculo del infraseguro cuelga de un único `true/false` producido por la IA, sin verificación y sin alarma si vuelve mal.** Eso es lo que arregla esta sesión.
+
+**Qué hace ahora la app.** Cuando el infraseguro calculado supera el 90 %:
+- Sale un aviso en rojo en la Sección 1, con las tres causas probables ordenadas por frecuencia. La primera es siempre el primer riesgo, y el aviso enseña las cifras concretas (capital leído y valor preexistente calculado) para poder contrastarlas contra la póliza.
+- El bloque "Capitales Asegurados" pasa de "Completo" a **"Revisar"**, en rojo, y arranca abierto.
+- El semáforo de la sección se pone en **rojo**.
+- El apartado aparece en el panel de **Pendientes** antes de exportar, con una nota que lo distingue: *"Hay un dato que no cuadra, no es que falte rellenarlo"*.
+
+Es un **aviso, no un bloqueo**: si el perito confirma que el infraseguro es real, exporta igual. El umbral (90 %) vive en `core/alertas.mjs` con la explicación de por qué es ese número.
+
+Detalle técnico: el estado `"error"` de los bloques ya estaba previsto en `semaforoFromStates` desde la sesión 20, pero no lo producía nadie. Este es su primer uso real. El componente `Block` no lo entendía —`"error"` es un valor verdadero en JavaScript, así que habría pintado el bloque como "Completo"— y se ha enseñado a distinguir los tres estados.
+
+**Cuarto sitio con el bug de la provincia.** Al implementar esto salió que la búsqueda `PROVINCIAS.find(p => p.l === enc.provincia)` estaba **repetida en tres puntos** de `Peritia.jsx` (Sección 1, vista del informe y exportación), no solo dentro de `calcReglas`. Las tres usan ya `findProvincia`. El campo Provincia es de texto libre (`Ej: Girona`), así que la comparación exacta era especialmente frágil.
+
+Tests: de 108 a 123.
+
+**Lo que sigue pendiente:** la opción (a) — que la extracción detecte "(primer riesgo)" con más fiabilidad. Con (b) puesta, (a) deja de ser crítica: si la IA falla, ahora se ve.
+
 
 
 Dos cosas que salieron a la luz nada más poner la red:
@@ -418,7 +445,7 @@ Datos hardcodeados:
 ### Corto plazo (próxima sesión)
 
 **Decisiones pendientes de Pol (bloquean trabajo concreto):**
-- [ ] **PRIORITARIO — la modalidad «primer riesgo» debe llegar al cálculo.** Ver "Caso real 01". Hoy la app tira la etiqueta y puede proponer 0,52 € en vez de 463,59 €. Tres opciones a decidir: (a) que la extracción de la póliza detecte "(primer riesgo)" y marque la casilla sola; (b) que la app avise cuando el infraseguro calculado sea absurdo (>90 %) en vez de aceptarlo callando; (c) las dos. Recomendación: las dos, empezando por (b), que es barata y protege también de casos que aún no conocemos.
+- [ ] **Opción (a) — mejorar la detección de «primer riesgo» en la extracción.** Ya no es crítica: con el aviso de la sesión 25, un fallo de la IA se ve en rojo en vez de pasar en silencio. Pendiente de decidir si se aborda ahora o se espera a tener más casos reales.
 - [ ] **¿Ampliar cuándo se ofrece la verificación meteo?** Hoy solo si la garantía afectada es Atmosféricos o Riesgos Extensivos. En el caso real la garantía era DAGUA y la verificación hacía falta igual.
 - [ ] **`parseCap` con miles españoles sin decimales.** "6.000 €" hoy devuelve **6**, no 6.000, porque en formato anglosajón "6.000" es seis coma cero. Hay un test marcado como `todo` en `tests/formato.test.mjs` esperando la decisión. Cambiarlo afecta al importe de expedientes ya guardados, así que **no se toca sin que Pol lo diga**.
 - [ ] **Verificar en Vercel que el proyecto de producción tiene puestas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.** Si no las tiene, hoy funciona por la caída a producción; conviene ponerlas igualmente para poder quitar las credenciales del código más adelante.

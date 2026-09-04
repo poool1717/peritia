@@ -13,7 +13,8 @@ import {
 // automáticamente con `npm test` sin arrancar la interfaz. Ver core/README.md.
 import {
   BAREMO, PCT_INDIRECTO, matchBaremo,
-  PROVINCIAS, ARQ_N2, ARQ_N3, getModuloArq, getFactorArq, calcVPreexCont,
+  findProvincia, ARQ_N2, ARQ_N3, getModuloArq, getFactorArq, calcVPreexCont,
+  avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO,
   fmt, fmtE, fmtSmart, norm, parseCap,
   calcPartida, getPartidas, sumRepos, sumIVA, sumReal,
   calcReglas, sumAjustado, calcIndemnizacion, fraseIndemn,
@@ -432,11 +433,17 @@ const AutoBadge = ({children}) => (
 // completo), para que se vea primero lo que falta. Al plegarse se estrecha
 // (máx. 600px) y lee como una línea de lista; al abrirse vuelve a ancho
 // completo para que quepan los campos de varias columnas.
+// `done` tiene tres estados, no dos: true (completo), false (pendiente) y
+// "error" (relleno, pero con un dato que no cuadra — ver core/alertas.mjs).
+// El tercero se pinta en rojo y arranca abierto, para que no se pueda pasar
+// de largo sin verlo.
 const Block = ({title,badge,done,summary,children}) => {
-  const [open,setOpen] = useState(!done);
+  const err = done === "error";
+  const ok  = done === true;
+  const [open,setOpen] = useState(!ok);
   return (
     <div style={{marginBottom:14}}>
-      <div style={{background:C.white,border:`1px solid ${open?"#D8CFC0":C.border}`,borderRadius:10,
+      <div style={{background:C.white,border:`1px solid ${err?C.red:open?"#D8CFC0":C.border}`,borderRadius:10,
         overflow:"hidden",maxWidth:open?"100%":600,transition:"border-color .15s,max-width .18s ease"}}>
         <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",
           padding:open?"13px 16px":"11px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left",
@@ -449,9 +456,9 @@ const Block = ({title,badge,done,summary,children}) => {
           </span>
           <span style={{marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:4,
             fontSize:open?11:10,fontWeight:700,padding:open?"3px 8px":"2px 7px",borderRadius:20,
-            flexShrink:0,whiteSpace:"nowrap",background:done?C.greenBg:C.orangeBg,color:done?C.green:C.orange}}>
-            {done?<Check size={10}/>:<span style={{width:6,height:6,borderRadius:"50%",background:C.orange}}/>}
-            {done?"Completo":"Pendiente"}
+            flexShrink:0,whiteSpace:"nowrap",background:err?C.redBg:ok?C.greenBg:C.orangeBg,color:err?C.red:ok?C.green:C.orange}}>
+            {err?<AlertTriangle size={10}/>:ok?<Check size={10}/>:<span style={{width:6,height:6,borderRadius:"50%",background:C.orange}}/>}
+            {err?"Revisar":ok?"Completo":"Pendiente"}
           </span>
           <ChevronDown size={16} style={{color:C.muted,flexShrink:0,transition:"transform .18s ease",
             transform:open?"rotate(180deg)":"none"}}/>
@@ -1297,7 +1304,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
 const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
-  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const arqKeyPrev = s1?.tipoArqKey || "unif_aislada";
   const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKeyPrev, s1?.calidad||"Media");
   const capCont = parseFloat(enc.capitalContinente||0);
@@ -1672,7 +1679,7 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
   },[esInstant, enc.lugarIntervencion, enc.municipio]);
 
 
-  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const arqKey   = data.tipoArqKey||"unif_aislada";
   const capCont  = data.capContOverride!=null ? parseCap(data.capContOverride)  : parseCap(enc.capitalContinente);
   const capCont2 = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
@@ -1900,10 +1907,27 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
         </div>
       )}
-      {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
+      {/* Avisos de infraseguro absurdo. Un infraseguro por encima del 90 % casi
+          siempre significa que falta un dato —lo más habitual, que el capital
+          está a primer riesgo y no se ha marcado—, no que el riesgo esté así
+          de mal asegurado. Antes esto pasaba en silencio y con el semáforo en
+          verde. Es un aviso, no un bloqueo. Ver core/alertas.mjs. */}
+      {avisosDelRiesgo(enc, data).map(av => (
+        <div key={av.bloque} style={{background:C.redBg,border:`1.5px solid ${C.red}`,borderRadius:8,padding:"12px 14px",marginTop:10}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:14,fontWeight:700,color:C.red,marginBottom:6}}>
+            <AlertTriangle size={15} style={{flexShrink:0,marginTop:1}}/>{av.titulo}
+          </div>
+          <div style={{fontSize:13.5,color:C.ink,lineHeight:1.6,marginBottom:8}}>{av.detalle}</div>
+          <ul style={{margin:0,paddingLeft:18,fontSize:13.5,color:C.ink,lineHeight:1.65}}>
+            {av.motivos.map((m,i)=><li key={i} style={{marginBottom:3}}>{m}</li>)}
+          </ul>
+        </div>
+      ))}
+
+      {infraCont>0&&infraCont<UMBRAL_INFRASEGURO_SOSPECHOSO&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro continente {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
       </div>}
-      {infraC2>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
+      {infraC2>0&&infraC2<UMBRAL_INFRASEGURO_SOSPECHOSO&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro contenido {fmt(infraC2)}%</b> — Regla proporcional: coeficiente {(capCont2/vPCont).toFixed(4)}
       </div>}
 
@@ -3262,7 +3286,7 @@ const exportPDF = (cData, dniPerito='') => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
-  const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const reglas=calcReglas(enc,s1);
   const capC=reglas.capCont, capC2=reglas.capCont2, vRC=reglas.vPreexCont;
   const ajustado=sumAjustado(enc,s1,s3);
@@ -3765,7 +3789,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
     ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],
   ].forEach(([id,states,labels])=>{
-    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i]}); });
+    // st puede ser true (hecho), false (falta rellenar) o "error" (relleno pero
+    // con un dato que no cuadra). Los dos últimos van a la lista de pendientes,
+    // pero se pintan distinto: no es lo mismo que falte un campo que que un
+    // número esté mal.
+    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i],esError:st==="error"}); });
   });
   const goToPending = secId => { setSec(secId); setPendingOpen(false); };
   const handleExportClick = () => {
@@ -3924,10 +3952,13 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
                 <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{pendingList.length} apartados pendientes</div>
                 {pendingList.map((it,i)=>(
                   <div key={it.secId+i} onClick={()=>goToPending(it.secId)} style={{display:"flex",alignItems:"flex-start",gap:10,
-                    background:C.white,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>
+                    background:C.white,border:`1px solid ${it.esError?C.red:C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
+                    {it.esError
+                      ? <AlertTriangle size={13} style={{color:C.red,marginTop:2,flexShrink:0}}/>
+                      : <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13.5,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
+                      {it.esError&&<div style={{fontSize:12.5,color:C.red,marginTop:2}}>Hay un dato que no cuadra, no es que falte rellenarlo</div>}
                     </div>
                     <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
                   </div>
