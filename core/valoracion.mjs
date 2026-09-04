@@ -5,12 +5,40 @@
 // sin cambiar una coma de la lógica (ver core/README.md).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { norm } from './formato.mjs';
+
 export const PROVINCIAS = [
   {v:"07",l:"Baleares"},{v:"08",l:"Barcelona"},{v:"17",l:"Girona"},
   {v:"25",l:"Lleida"},{v:"28",l:"Madrid"},{v:"29",l:"Málaga"},{v:"33",l:"Asturias"},
   {v:"35",l:"Las Palmas"},{v:"38",l:"S.C.Tenerife"},{v:"41",l:"Sevilla"},
   {v:"43",l:"Tarragona"},{v:"46",l:"Valencia"},{v:"00",l:"Otras"},
 ];
+
+// Nombres alternativos con los que una provincia puede llegar escrita en un
+// encargo o en una póliza. Hasta la sesión 24 la comparación era exacta, así
+// que un encargo real que dice "GERONA" no encontraba "Girona": el cálculo
+// caía a la tabla genérica "Otras" y usaba precios por m² equivocados, sin
+// avisar de nada.
+const ALIAS_PROVINCIA = {
+  "gerona": "17",
+  "lerida": "25",
+  "islas baleares": "07", "illes balears": "07", "balears": "07",
+  "santa cruz de tenerife": "38", "tenerife": "38", "s.c. tenerife": "38",
+  "las palmas de gran canaria": "35",
+};
+
+// Busca la provincia sin importar mayúsculas, tildes ni espacios sobrantes.
+// Devuelve null si de verdad no está en la lista, para que quien llame decida
+// qué hacer en vez de recibir un dato equivocado sin enterarse.
+export const findProvincia = nombre => {
+  const n = norm(nombre);
+  if(!n) return null;
+  const exacta = PROVINCIAS.find(p => norm(p.l) === n || p.v === n);
+  if(exacta) return exacta;
+  const code = ALIAS_PROVINCIA[n];
+  return code ? PROVINCIAS.find(p => p.v === code) : null;
+};
+
 
 // Tablas módulos arquitectura 2025 — [Básica, Media, Alta] €/m²
 export const TABLAS_ARQ = {

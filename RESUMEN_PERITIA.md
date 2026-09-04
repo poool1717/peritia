@@ -1,7 +1,7 @@
 # PERIT.IA — Resumen del Proyecto
 
 **Archivo principal:** `components/Peritia.jsx` · 4.114 líneas · React 18
-**Núcleo puro:** `core/` · 9 módulos sin React, cubiertos por 100 tests (`npm test`)
+**Núcleo puro:** `core/` · 9 módulos sin React, cubiertos por 108 tests (`npm test`)
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -31,7 +31,8 @@ App (Root) — auth state (user, token, sidebarOpen)
 core/
 ├── formato.mjs     — fmt · fmtE · fmtSmart · norm · parseCap
 ├── baremo.mjs      — BAREMO (47 partidas) · PCT_INDIRECTO · matchBaremo
-├── valoracion.mjs  — PROVINCIAS · TABLAS_ARQ · getModuloArq · getFactorArq · calcVPreexCont
+├── valoracion.mjs  — PROVINCIAS · findProvincia · TABLAS_ARQ · getModuloArq
+│                     getFactorArq · calcVPreexCont
 ├── calculo.mjs     — calcPartida · resolvePartidas · getPartidas · sumRepos/sumIVA/sumReal
 │                     calcReglas · calcRegla · reglaPartida · sumAjustado
 │                     calcIndemnizacion · fraseIndemn
@@ -42,7 +43,8 @@ core/
 │                     semaforoFromStates
 └── index.mjs       — única puerta de entrada; Peritia.jsx importa siempre desde aquí
 
-tests/              — 100 tests con `node --test` (motor de Node, sin dependencias)
+tests/              — 108 tests con `node --test`; caso-real-01 contrasta la app
+                      contra un informe pericial real ya cerrado
 .github/workflows/  — CI: tests + balance de llaves + build en cada PR
 ```
 
@@ -316,7 +318,7 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Sec 3 — Auto-relleno concepto de garantía + franquicia | ✅ |
 | Sec 4 — Textos automáticos (valoración, cobertura, indemnización) editables | ✅ |
 | Núcleo de cálculo separado en `core/` | ✅ |
-| Tests automáticos del núcleo (100) | ✅ |
+| Tests automáticos del núcleo (108, uno de caso real) | ✅ |
 | CI en GitHub Actions (tests + build por PR) | ✅ |
 | Protección contra escribir en la BD real desde un preview | ✅ |
 | Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |

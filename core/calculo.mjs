@@ -7,7 +7,7 @@
 
 import { fmt, parseCap } from './formato.mjs';
 import { PCT_INDIRECTO } from './baremo.mjs';
-import { PROVINCIAS, calcVPreexCont } from './valoracion.mjs';
+import { findProvincia, calcVPreexCont } from './valoracion.mjs';
 
 // ─── CÁLCULO DE PARTIDAS (fuente única de verdad) ────────────────────────────
 // Baremo: sin IVA (iva=0). Factura/presupuesto: IVA del documento.
@@ -33,7 +33,7 @@ export const sumReal  = rows => rows.reduce((a,p)=>a+calcPartida(p).vReal,0);
 //   regla = capital asegurado / valor preexistente  (solo si hay infraseguro)
 export const calcReglas = (enc, s1) => {
   enc=enc||{}; s1=s1||{};
-  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const arqKey = s1.tipoArqKey || "unif_aislada";
   const primerRiesgo = !!enc.primerRiesgo;
   // Continente

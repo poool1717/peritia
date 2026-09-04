@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 4 septiembre 2026 (sesión 23 — **Fases 1, 2 y 3 del plan de migración**: se extrae de `Peritia.jsx` toda la lógica que no necesita interfaz (cálculo, baremo, valoración, reglas meteo, lectura de respuestas de la IA y semáforo de secciones) a `core/`; se crea la primera red de seguridad automática del proyecto (100 tests + CI en GitHub Actions); se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
+**Última actualización:** 4 septiembre 2026 (sesión 24 — **primer caso real contrastado**. Pol aporta la documentación y el informe cerrado de un expediente real. Pasado por el núcleo, PERIT.IA habría propuesto **0,52 € donde el perito propuso 463,59 €**, con el semáforo en verde y sin ningún aviso. Tres causas, dos ya corregidas. Ver "Caso real 01" más abajo)
+
+**Anterior:** 4 septiembre 2026 (sesión 23 — **Fases 1, 2 y 3 del plan de migración**: se extrae de `Peritia.jsx` toda la lógica que no necesita interfaz (cálculo, baremo, valoración, reglas meteo, lectura de respuestas de la IA y semáforo de secciones) a `core/`; se crea la primera red de seguridad automática del proyecto (100 tests + CI en GitHub Actions); se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
 
 **Anterior:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
 
@@ -30,6 +32,35 @@ login → subida PDFs → extracción IA → editor → guardar → exportar PDF
 | `progreso.mjs` | semáforo de secciones y bloques pendientes — la lógica que decide si un informe está listo para exportar |
 
 Se verificó bloque a bloque que el código movido es **idéntico carácter a carácter** al original. La única corrección deliberada fue el fallo de `parseCap`.
+
+---
+
+### Caso real 01 — lo que enseñó el primer expediente de verdad (sesión 24)
+
+Hotel en Girona. Filtración de agua desde la terraza que daña un local colindante. El perito propuso **463,59 €**. PERIT.IA, con los mismos datos, habría propuesto **0,52 €**.
+
+| | Informe del perito | PERIT.IA antes de la sesión 24 |
+|---|---|---|
+| Valor preexistente continente | 6.000,00 € | 5.397.265,08 € |
+| Infraseguro | 0,00 % | 99,89 % |
+| Indemnización propuesta | 463,59 € | 0,52 € |
+
+Y el semáforo salía **verde**: todos los campos obligatorios estaban rellenos. El error era invisible.
+
+**Causa 1 — los importes con la palabra «euros» se rompían (CORREGIDO).** La póliza no escribe "6.000,00 €" sino "6.000,00 euros", con la palabra entera. La corrección de la sesión 23 solo quitaba el símbolo, así que seguía fallando: `parseCap("1.388.139,45 euros")` devolvía **1,388**. Ahora `parseCap` aísla primero la cifra del texto que la rodea (cogiendo el grupo de dígitos más largo, para que un "Pág. 11: 6.000,00 euros" siga dando 6000) y solo después decide el formato.
+
+**Causa 2 — la provincia no se reconocía (CORREGIDO).** El encargo dice "GERONA"; la lista de la app tiene "Girona". La comparación era exacta, así que no encontraba nada y usaba la tabla de precios genérica "Otras" sin avisar. Fallaban igual "BARCELONA", "GIRONA" y "LERIDA". Nueva función `findProvincia`: ignora mayúsculas, tildes y espacios, y entiende los nombres alternativos (Gerona/Girona, Lérida/Lleida, Tenerife, Islas Baleares).
+
+**Causa 3 — el primer riesgo se pierde por el camino (PENDIENTE, decisión de producto).** La póliza dice, literalmente: `Edificio (primer riesgo): 6.000,00 euros`. Esos 6.000 € no son el valor del hotel, son el límite de una cobertura a primer riesgo, y por eso el perito puso valor preexistente = valor asegurado e infraseguro 0 %. La app extrae el número y **tira la etiqueta "(primer riesgo)"**, así que calcula la preexistencia por m² (2.899 m² de hotel) y sale un infraseguro del 99,89 %.
+
+El motor de cálculo es correcto: marcando `primerRiesgo` da exactamente 463,59 €. Lo que falla es el dato de entrada.
+
+**Esto es el argumento empírico para las Knowledge Units, y ya no es teórico.** Un capital asegurado no es un número: es `{valor: 6.000, modalidad: "primer riesgo", concepto: "Edificio", fuente: "póliza, tabla resumen de garantías"}`. Sin la modalidad, el número no basta para calcular bien. Ese es el primer contenido concreto de una Knowledge Unit, sacado de un expediente real en vez de diseñado en abstracto.
+
+**Cuarto hallazgo, menor — la verificación meteo no se ofrece cuando hace falta.** El perito basó todo el estudio de cobertura en el umbral de lluvia de Riesgos Extensivos (40 l/m², se midieron 30 → no superado). Pero la cobertura afectada que trae el encargo es "DAGUA ; RCEXP", y con esa cadena `esSiniestroAtmosferico` devuelve `false`: la app no habría ofrecido la verificación XEMA. La regla actual (solo si la garantía afectada es Atmosféricos o Riesgos Extensivos) se queda corta cuando la causa real es lluvia pero la compañía lo abre como daños por agua.
+
+Todo esto queda fijado en `tests/caso-real-01.test.mjs`, anonimizado: solo cifras y estructura, sin nombres, NIF ni direcciones. **Los documentos originales no están en el repositorio y no deben subirse.**
+
 
 Dos cosas que salieron a la luz nada más poner la red:
 
@@ -299,6 +330,8 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 | Extracción falla (400) | Modelo `claude-sonnet-4-20250514` deprecado | Actualizar a `claude-sonnet-4-6` |
 | Importes con € se convertían en 6 (sesión 23) | `parseCap` quitaba el símbolo de moneda *después* de comprobar el formato español, así que "6.000,00 €" no encajaba con el patrón, caía al caso genérico y `parseFloat("6.000.00")` devolvía 6. Capital asegurado a 6 € → infraseguro falso del 99,9 % | Limpiar símbolo de moneda y espacios (incluido el espacio duro de los PDFs) **antes** de decidir el formato. Test de regresión en `tests/formato.test.mjs` |
 | Un preview de Vercel podía escribir en la BD real (P-01, sesión 23) | La caída a las credenciales de producción se aplicaba a cualquier despliegue sin variables de entorno, no solo al de producción | La caída solo ocurre si `NEXT_PUBLIC_VERCEL_ENV` no es `preview`. Un preview sin variables muestra la pantalla `SinBDScreen` y no se conecta a ninguna base |
+| Importes con la palabra «euros» se rompían (sesión 24) | La corrección de la sesión 23 solo quitaba el símbolo €; una póliza real escribe "6.000,00 euros". `parseCap("1.388.139,45 euros")` devolvía 1,388 | `parseCap` aísla la cifra del texto que la rodea (grupo de dígitos más largo) antes de decidir el formato. Fijado en `tests/caso-real-01.test.mjs` |
+| La provincia del encargo no se reconocía (sesión 24) | Comparación exacta contra la lista: "GERONA" no encuentra "Girona", y caía a la tabla genérica "Otras" con precios por m² equivocados, en silencio | Nueva `findProvincia`: ignora mayúsculas, tildes y espacios, y entiende nombres alternativos (Gerona, Lérida, Tenerife, Islas Baleares) |
 | Extracción falla (max_tokens) | proxy no garantizaba max_tokens | Añadir `if(!body.max_tokens) body.max_tokens=1500` |
 | Extracción falla (créditos) | Cuenta Anthropic sin saldo | Usuario añadió $5 en créditos |
 | Trash2 not defined | Icono usado pero no importado | Añadir Trash2 a imports lucide-react |
@@ -385,6 +418,8 @@ Datos hardcodeados:
 ### Corto plazo (próxima sesión)
 
 **Decisiones pendientes de Pol (bloquean trabajo concreto):**
+- [ ] **PRIORITARIO — la modalidad «primer riesgo» debe llegar al cálculo.** Ver "Caso real 01". Hoy la app tira la etiqueta y puede proponer 0,52 € en vez de 463,59 €. Tres opciones a decidir: (a) que la extracción de la póliza detecte "(primer riesgo)" y marque la casilla sola; (b) que la app avise cuando el infraseguro calculado sea absurdo (>90 %) en vez de aceptarlo callando; (c) las dos. Recomendación: las dos, empezando por (b), que es barata y protege también de casos que aún no conocemos.
+- [ ] **¿Ampliar cuándo se ofrece la verificación meteo?** Hoy solo si la garantía afectada es Atmosféricos o Riesgos Extensivos. En el caso real la garantía era DAGUA y la verificación hacía falta igual.
 - [ ] **`parseCap` con miles españoles sin decimales.** "6.000 €" hoy devuelve **6**, no 6.000, porque en formato anglosajón "6.000" es seis coma cero. Hay un test marcado como `todo` en `tests/formato.test.mjs` esperando la decisión. Cambiarlo afecta al importe de expedientes ya guardados, así que **no se toca sin que Pol lo diga**.
 - [ ] **Verificar en Vercel que el proyecto de producción tiene puestas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.** Si no las tiene, hoy funciona por la caída a producción; conviene ponerlas igualmente para poder quitar las credenciales del código más adelante.
 - [ ] **`next@14.2.3` tiene una vulnerabilidad de seguridad conocida** (aviso de npm al instalar). Subir de versión es una decisión de Pol: toca la base de la app y necesita comprobar el despliegue.

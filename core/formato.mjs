@@ -19,12 +19,24 @@ export const norm = s => String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"")
 // Normaliza valores monetarios extraídos por IA (6.000,00 → 6000 | 6000.00 → 6000)
 export const parseCap = v => {
   if(!v && v!==0) return 0;
-  // Se quitan primero el símbolo de moneda y los espacios (incluido el espacio
-  // duro que meten muchos PDFs). Antes no se hacía, así que "6.000,00 €" no
-  // encajaba con el patrón español de abajo, caía al caso genérico y devolvía
-  // 6 en vez de 6000: el capital asegurado quedaba a 6 € y la regla
-  // proporcional daba un infraseguro falso del 99,9%.
-  const s = String(v).replace(/[€$\s ]/g, "").trim();
+  // Primero se aísla la cifra del texto que la rodea, y solo después se decide
+  // si está en formato español o anglosajón.
+  //
+  // Por qué: los importes no llegan limpios. Una póliza real escribe
+  // "6.000,00 euros" con la palabra entera, un encargo escribe "6.000,00 €",
+  // y un PDF mete espacios duros. Cuando ese texto sobraba, la cifra no
+  // encajaba con el patrón español de abajo, caía al caso genérico y
+  // "1.388.139,45 euros" se convertía en 1,388. Con un capital así la regla
+  // proporcional inventa un infraseguro del 99,9 % y la indemnización
+  // propuesta se desploma, sin ningún mensaje de error.
+  //
+  // Se coge el grupo de dígitos MÁS LARGO de la cadena, no el primero, para
+  // que un "Pág. 11: 6.000,00 euros" siga dando 6000 y no 11.
+  const trozos = String(v).match(/-?\d[\d.,\s\u00A0\u202F]*\d|-?\d/g);
+  if(!trozos) return 0;
+  const s = trozos
+    .map(t => t.replace(/[\s\u00A0\u202F]/g, ""))
+    .reduce((a, b) => (b.replace(/\D/g, "").length > a.replace(/\D/g, "").length ? b : a));
   // Spanish format: 6.000,00
   if(/^[\d.]+,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g,"").replace(",","."));
   // Remove all non-numeric except dot/comma, then parse

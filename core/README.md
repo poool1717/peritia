@@ -22,7 +22,7 @@ ordenador compruebe los números **solo, en dos segundos, en cada cambio**.
 |---|---|
 | `formato.mjs` | Cómo se escriben los números y los euros, y cómo se leen las cifras que extrae la IA de un PDF |
 | `baremo.mjs` | El baremo de precios de reparación y la búsqueda de la partida que corresponde a cada daño |
-| `valoracion.mjs` | Módulos de arquitectura 2025 por provincia: cuánto vale construir un m² |
+| `valoracion.mjs` | Módulos de arquitectura 2025 por provincia: cuánto vale construir un m². Incluye `findProvincia`, que reconoce la provincia venga como venga escrita |
 | `calculo.mjs` | Partidas, costes indirectos, reglas proporcionales por infraseguro e indemnización final |
 | `catalogos.mjs` | Compañías, tipos de uso y de garantía, y la normalización del nombre comercial |
 | `ia.mjs` | Cómo se lee lo que devuelve la IA y cómo se detecta que no ha servido |
@@ -45,7 +45,7 @@ ordenador compruebe los números **solo, en dos segundos, en cada cambio**.
 npm test
 ```
 
-Tarda dos segundos (100 tests). Si sale todo en verde, el núcleo de cálculo se comporta
+Tarda dos segundos (108 tests). Si sale todo en verde, el núcleo de cálculo se comporta
 exactamente igual que antes. Si sale algo en rojo, dice qué fórmula ha cambiado
 y qué valor esperaba.
 
