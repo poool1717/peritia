@@ -1,9 +1,11 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
+**Última actualización:** 4 septiembre 2026 (sesión 23 — **Fase 1 y 2 del plan de migración**: se extrae el núcleo de cálculo de `Peritia.jsx` a `core/`, se crea la primera red de seguridad automática del proyecto (58 tests + CI en GitHub Actions) y se cierra el riesgo de que un despliegue de prueba escriba en la base de datos de producción. Por el camino, el primer test escrito destapó un fallo real en `parseCap`. Ver sesión 23 más abajo)
 
-**Anterior:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
+**Anterior:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio. Ver sesión 22 más abajo)
+
+**Y antes:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
 
 ---
 
@@ -11,6 +13,13 @@
 
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
+
+**Sesión 23 — el proyecto pasa a tener red de seguridad.** Hasta ahora, la única forma de saber si un cambio rompía un cálculo era abrir la app y mirar los números a ojo. Desde esta sesión, el cálculo (baremo, valoración, reglas proporcionales, indemnización) vive separado de la interfaz, en `core/`, y **58 tests automáticos lo comprueban en dos segundos en cada Pull Request**. Esto es la Fase 1 del `MIGRATION_MASTER_PLAN` (red de seguridad) más el primer trozo de la Fase 3 (extracción del núcleo puro). La interfaz no ha cambiado: ni un píxel, ni una fórmula.
+
+Dos cosas que salieron a la luz nada más poner la red:
+
+1. **Fallo real en `parseCap` (corregido).** Cualquier importe que la IA extrajera de un PDF con el símbolo de euro y formato español —"6.000,00 €"— se convertía en **6**, no en 6.000. El capital asegurado quedaba en 6 €, la regla proporcional calculaba un infraseguro falso del 99,9 % y la indemnización propuesta salía por los suelos. Estaba ahí desde el principio y era invisible, porque no hay ningún mensaje de error: solo un número distinto del que debería.
+2. **Riesgo P-01 cerrado.** Un despliegue de preview de Vercel sin las variables de Supabase caía en silencio a la base de datos **de producción**. Ahora eso solo puede pasar en el despliegue de producción o en desarrollo local; un preview sin variables muestra una pantalla de aviso y no se conecta a nada.
 
 **Sesión 22 — entorno de test.** Pol pidió poder trabajar en una versión paralela de la app sin tocar producción, para más adelante decidir si pasarla a `main`. Se ha montado el "Nivel 2" de la propuesta: rama `test` permanente + base de datos de pruebas separada, coste 0 €.
 
@@ -188,6 +197,9 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 - [x] Editor completo Sec 0–4 + Anexos
 - [x] Preview live del informe
 - [x] Cálculo de valoración auditado (calcPartida, getPartidas, calcRegla — fuente única)
+- [x] **Núcleo de cálculo separado de la interfaz en `core/`** (sesión 23): baremo, valoración, reglas proporcionales e indemnización, sin React ni base de datos
+- [x] **58 tests automáticos del núcleo** (`npm test`, con el motor que trae Node — cero dependencias nuevas)
+- [x] **CI en GitHub Actions** (`.github/workflows/ci.yml`): tests + balance de llaves + compilación en cada push y cada Pull Request
 - [x] Exportación PDF (window.print) y Word (Blob .doc)
 - [x] Login/registro con Supabase Auth
 - [x] Persistencia BD Supabase (informes + perfiles)
@@ -270,6 +282,8 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 | CSP bloquea fetch a Supabase | Claude.ai artifact sandbox | Migrar a Vercel (fetch desde browser, sin restricciones) |
 | PDF export bloqueado | document.write bloqueado por CSP | Reemplazar con Blob URL + window.open |
 | Extracción falla (400) | Modelo `claude-sonnet-4-20250514` deprecado | Actualizar a `claude-sonnet-4-6` |
+| Importes con € se convertían en 6 (sesión 23) | `parseCap` quitaba el símbolo de moneda *después* de comprobar el formato español, así que "6.000,00 €" no encajaba con el patrón, caía al caso genérico y `parseFloat("6.000.00")` devolvía 6. Capital asegurado a 6 € → infraseguro falso del 99,9 % | Limpiar símbolo de moneda y espacios (incluido el espacio duro de los PDFs) **antes** de decidir el formato. Test de regresión en `tests/formato.test.mjs` |
+| Un preview de Vercel podía escribir en la BD real (P-01, sesión 23) | La caída a las credenciales de producción se aplicaba a cualquier despliegue sin variables de entorno, no solo al de producción | La caída solo ocurre si `NEXT_PUBLIC_VERCEL_ENV` no es `preview`. Un preview sin variables muestra la pantalla `SinBDScreen` y no se conecta a ninguna base |
 | Extracción falla (max_tokens) | proxy no garantizaba max_tokens | Añadir `if(!body.max_tokens) body.max_tokens=1500` |
 | Extracción falla (créditos) | Cuenta Anthropic sin saldo | Usuario añadió $5 en créditos |
 | Trash2 not defined | Icono usado pero no importado | Añadir Trash2 a imports lucide-react |
@@ -317,7 +331,7 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 ## Arquitectura del componente Peritia.jsx
 
 ```
-Líneas: ~4.230 · Balance llaves: 0
+Líneas: 4.226 (eran 4.413; el núcleo de cálculo se movió a core/, y se añadió la pantalla SinBDScreen) · Balance llaves: 0
 Modelo IA: claude-sonnet-4-6
 Proxy: /api/claude (Vercel serverless)
 Proxy meteo: /api/meteocat (XEMA + captura de mapa)
@@ -354,6 +368,16 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
+
+**Decisiones pendientes de Pol (bloquean trabajo concreto):**
+- [ ] **`parseCap` con miles españoles sin decimales.** "6.000 €" hoy devuelve **6**, no 6.000, porque en formato anglosajón "6.000" es seis coma cero. Hay un test marcado como `todo` en `tests/formato.test.mjs` esperando la decisión. Cambiarlo afecta al importe de expedientes ya guardados, así que **no se toca sin que Pol lo diga**.
+- [ ] **Verificar en Vercel que el proyecto de producción tiene puestas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.** Si no las tiene, hoy funciona por la caída a producción; conviene ponerlas igualmente para poder quitar las credenciales del código más adelante.
+- [ ] **`next@14.2.3` tiene una vulnerabilidad de seguridad conocida** (aviso de npm al instalar). Subir de versión es una decisión de Pol: toca la base de la app y necesita comprobar el despliegue.
+
+**Siguiente paso del plan de migración (Fases 4-7):**
+- [ ] Definir con arquitectura el modelo de **Knowledge Unit** antes de escribir código. La red de seguridad ya está puesta, así que el terreno está listo — lo que falta es el spec, no la implementación.
+- [ ] `MIGRATION_MASTER_PLAN.md` y los ADRs **no existen en el repositorio**. El documento de la nueva versión los da por aprobados, pero aquí no están. Recuperarlos o reescribirlos antes de seguir.
+
 - [x] Auto-relleno de concepto de garantía y franquicia en Sec3 desde encargo/póliza
 - [x] **Sección 4 renovada (sesión 5):**
   - Texto de valoración fijo según modo (baremo/presupuesto/factura), editable con botón Restaurar.

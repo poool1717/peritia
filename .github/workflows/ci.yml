@@ -1,0 +1,37 @@
+# Red de seguridad de PERIT.IA (Fase 1 del plan de migración).
+# Se ejecuta en cada push y en cada Pull Request: si el núcleo de cálculo
+# cambia de comportamiento o la app deja de compilar, GitHub lo marca en rojo
+# antes de que nada llegue a producción.
+name: CI
+
+on:
+  push:
+    branches: [main, test]
+  pull_request:
+
+jobs:
+  verificar:
+    name: Tests y compilación
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Tests del núcleo de cálculo
+        run: npm test
+
+      - name: Balance de llaves de Peritia.jsx
+        run: |
+          node -e "const fs=require('fs');const c=fs.readFileSync('components/Peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}if(o!==b){console.error('Llaves descuadradas en Peritia.jsx: '+(o-b));process.exit(1);}console.log('Balance de llaves correcto.');"
+
+      - name: Compilar la aplicación
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: clave-de-compilacion

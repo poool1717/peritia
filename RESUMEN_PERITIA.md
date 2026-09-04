@@ -1,6 +1,7 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~4.413 líneas · React 18
+**Archivo principal:** `components/Peritia.jsx` · 4.226 líneas · React 18
+**Núcleo de cálculo:** `core/` · 5 módulos sin React, cubiertos por 58 tests (`npm test`)
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -23,6 +24,25 @@ App (Root) — auth state (user, token, sidebarOpen)
     ├── [Sec 4]            — Cobertura e indemnización
     └── [Anexos]           — Fotos, catastro, Meteosim, facturas
 ```
+
+**Núcleo puro (desde la sesión 23)** — la lógica de negocio ya no vive en la interfaz:
+
+```
+core/
+├── formato.mjs     — fmt · fmtE · fmtSmart · norm · parseCap
+├── baremo.mjs      — BAREMO (47 partidas) · PCT_INDIRECTO · matchBaremo
+├── valoracion.mjs  — PROVINCIAS · TABLAS_ARQ · getModuloArq · getFactorArq · calcVPreexCont
+├── calculo.mjs     — calcPartida · resolvePartidas · getPartidas · sumRepos/sumIVA/sumReal
+│                     calcReglas · calcRegla · reglaPartida · sumAjustado
+│                     calcIndemnizacion · fraseIndemn
+└── index.mjs       — única puerta de entrada; Peritia.jsx importa siempre desde aquí
+
+tests/              — 58 tests con `node --test` (motor de Node, sin dependencias)
+.github/workflows/  — CI: tests + balance de llaves + build en cada PR
+```
+
+Regla: en `core/` no entra React, ni `fetch`, ni Supabase, ni `window`. Todo lo
+que se exporta desde ahí tiene que tener test.
 
 ---
 
@@ -290,6 +310,10 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Sec 3 — Frase de indemnización automática + drag & drop de filas | ✅ |
 | Sec 3 — Auto-relleno concepto de garantía + franquicia | ✅ |
 | Sec 4 — Textos automáticos (valoración, cobertura, indemnización) editables | ✅ |
+| Núcleo de cálculo separado en `core/` | ✅ |
+| Tests automáticos del núcleo (58) | ✅ |
+| CI en GitHub Actions (tests + build por PR) | ✅ |
+| Protección contra escribir en la BD real desde un preview | ✅ |
 | Valor preexistente CYPE 2025 (TABLAS_ARQ) | ✅ |
 | Fórmula de cálculo auditada y verificada | ✅ |
 | Preview live del informe | ✅ |

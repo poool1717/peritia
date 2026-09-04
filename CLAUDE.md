@@ -22,6 +22,8 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 | IA | Anthropic API · modelo `claude-sonnet-4-6` |
 | Proxy API | `pages/api/claude.js` (Next.js serverless) |
 | Repositorio | `github.com/poool1717/peritia` (rama `main` = producción, rama `test` = entorno paralelo) |
+| Tests | `node --test` (motor incluido en Node ≥18) · `npm test` |
+| CI | GitHub Actions · `.github/workflows/ci.yml` |
 
 ---
 
@@ -30,7 +32,16 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.410 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (4.226 líneas, solo interfaz)
+├── core/                    ← NÚCLEO PURO: baremo, valoración, reglas, indemnización
+│   ├── formato.mjs          ← números, euros, normalización de texto (parseCap)
+│   ├── baremo.mjs           ← BAREMO + matchBaremo
+│   ├── valoracion.mjs       ← PROVINCIAS + TABLAS_ARQ + calcVPreexCont
+│   ├── calculo.mjs          ← calcPartida, calcReglas, calcIndemnizacion…
+│   ├── index.mjs            ← única puerta de entrada (Peritia.jsx importa de aquí)
+│   └── README.md            ← qué es core/ y sus reglas
+├── tests/                   ← 58 tests del núcleo (`npm test`, sin dependencias)
+├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada PR
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
@@ -161,6 +172,10 @@ Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), co
    - Si cambia la estructura de archivos del repo: actualizar el árbol de archivos
    - Si se acuerda una nueva regla de desarrollo: añadirla a esta sección
 
+8. **Toda lógica de negocio nueva va a `core/`, no a `Peritia.jsx`.** Si un cálculo no necesita React, ni red, ni base de datos, su sitio es `core/` y tiene que llegar con test. `Peritia.jsx` es solo la interfaz.
+9. **`npm test` tiene que estar en verde antes de crear una Pull Request.** Es más rápido y más fiable que abrir la app y mirar los números a ojo. Si un test se pone en rojo, la pregunta no es "¿cómo arreglo el test?" sino "¿qué expediente acabo de cambiar sin querer?".
+10. **No cambiar una fórmula ni un precio del baremo sin decirlo explícitamente en la Pull Request.** Son dinero real en informes ya emitidos.
+
 ---
 
 ## Workflow de deploy (Claude Code)
@@ -170,6 +185,7 @@ Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), co
 2. Leer el archivo afectado antes de modificarlo
 3. Aplicar cambios en components/Peritia.jsx (y/o pages/api/claude.js si toca el proxy)
 4. Verificar balance de llaves con el script de arriba
+4b. Ejecutar `npm test` — tiene que salir todo en verde (OBLIGATORIO)
 5. Actualizar documentación según regla 7 (OBLIGATORIO)
 6. Crear Pull Request con descripción del cambio
 7. Vercel auto-despliega al hacer merge a main (2-3 min)
