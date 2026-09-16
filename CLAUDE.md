@@ -22,6 +22,8 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 | IA | Anthropic API · modelo `claude-sonnet-4-6` |
 | Proxy API | `pages/api/claude.js` (Next.js serverless) |
 | Repositorio | `github.com/poool1717/peritia` (rama `main` = producción, rama `test` = entorno paralelo) |
+| Tests | `vitest` · `npm test` (437 tests) |
+| CI | GitHub Actions · `.github/workflows/ci.yml` |
 
 ---
 
@@ -30,7 +32,22 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.410 líneas)
+│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (4343 líneas, solo interfaz)
+├── lib/
+│   ├── dominio/
+│   │   ├── calculo.js       ← motor de cálculo: baremo, valoración, reglas, indemnización
+│   │   └── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
+│   └── knowledge/           ← Knowledge Core (KP-01): unidades, registro, resolución,
+│                              esquemas, motor de cobertura y motor de razonamiento
+├── docs/                    ← arquitectura, dominio, deuda técnica, plan de migración
+│   ├── migration/MIGRATION_MASTER_PLAN.md   ← hoja de ruta oficial
+│   ├── architecture/        ← FOUNDATION_ARCHITECTURE.md · PERIT_EXPERT_SYSTEM.md
+│   ├── domain/              ← modelo de dominio y 28 fichas de entidad
+│   └── TECHNICAL_DEBT.md    ← deudas DT-01…DT-24 con prioridad y estado
+├── knowledge/               ← Knowledge Library: ontología, taxonomía, plantillas, fichas
+├── tests/                   ← 437 tests con vitest, incluido un caso real cerrado
+├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada push y PR
+├── vitest.config.mjs
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
@@ -50,6 +67,11 @@ peritia/
 ```
 
 **Archivo principal:** `components/Peritia.jsx` — es el único componente React de la app.
+
+**Dónde va cada cosa (desde el Sprint 4):** la lógica de negocio que no necesita
+pantalla vive en `lib/dominio/`, no en `Peritia.jsx`. Si un cálculo no necesita
+React, ni red, ni base de datos, su sitio es `lib/dominio/` y tiene que llegar
+con test. `Peritia.jsx` es solo la interfaz.
 
 ---
 
@@ -136,6 +158,9 @@ Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), co
    ```
 3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí.
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
+4b. **Toda lógica de negocio nueva va a `lib/dominio/`, no a `Peritia.jsx`**, y llega con test.
+4c. **`npm test` tiene que estar en verde antes de crear una Pull Request.** Si un test se pone en rojo, la pregunta no es "¿cómo arreglo el test?" sino "¿qué expediente acabo de cambiar sin querer?".
+4d. **No cambiar una fórmula ni un precio del baremo sin decirlo explícitamente en la Pull Request.** Son dinero real en informes ya emitidos.
 5. **Preguntar antes de cambios grandes.** Para refactorizaciones que afecten >5 componentes, proponer y esperar confirmación.
 5b. **Antes de empezar un trabajo grande (rediseño, refactor), verificar el estado real de las ramas en GitHub** (`git log`, PRs abiertos, `git branch -a`) — no asumir que el estado de partida sigue siendo el mismo que al principio de la sesión, ni que las ramas que se mencionan en este archivo o en CONTEXT.md siguen existiendo. Pol suele lanzar varias sesiones de Claude Code en paralelo sobre el mismo repo; dos sesiones distintas ya construyeron de forma independiente el mismo fix de sidebar/responsive porque una partía de una `staging` desactualizada sin saber que la otra ya lo había resuelto en `main` (ver CONTEXT.md, sesión 12). Si el PR no se puede fusionar limpiamente (`mergeable_state` distinto de `clean`) o la rama base ha avanzado desde que se creó la rama de trabajo, avisar a Pol antes de forzar nada.
 5c. **Ramas del repositorio (actualizado sesión 22):** `main` es producción. La rama `staging` que existía hasta la sesión 11 ya no existe (se fusionó a `main` y se borró) — no asumir que sigue ahí. Desde la sesión 22 existe `test`, rama permanente para el entorno de pruebas (BD propia, ver más abajo). Antes de basar una rama nueva en `test` o en cualquier otra rama de larga duración, comprobar con `git log` que no está por detrás de `main`.

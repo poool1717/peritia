@@ -23,7 +23,7 @@
 | Ref. | Título | Prioridad |
 |---|---|---|
 | DT-01 | Aplicación completa en un único archivo | Alta |
-| DT-02 | Credenciales de producción como respaldo silencioso | **Crítica** |
+| DT-02 | Credenciales de producción como respaldo silencioso | **Crítica** · ✅ RESUELTO |
 | DT-03 | Sesión sin persistencia ni refresco de token | **Crítica** |
 | DT-04 | `/api/claude` abierto y sin límite de uso | **Crítica** |
 | DT-05 | Lógica específica de AXA incrustada | Alta |
@@ -45,7 +45,7 @@
 | DT-21 | La documentación contradice al código | Media |
 | DT-22 | Sin límite de tamaño en los PDFs de entrada | Baja |
 | DT-23 | Sin política de tratamiento y retención de datos | Alta |
-| DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | Media |
+| DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | ~~Media~~ → **Crítica** · ✅ RESUELTO |
 
 ---
 
@@ -76,7 +76,7 @@ completitud; **no debe abordarse sin petición expresa.**
 
 ---
 
-## DT-02 · Credenciales de producción como respaldo silencioso
+## DT-02 · Credenciales de producción como respaldo silencioso — ✅ RESUELTO
 
 **Problema.** La URL y la clave anónima del proyecto Supabase de producción están
 escritas en el código como valor de respaldo. Si un despliegue no tiene definidas
@@ -110,6 +110,25 @@ visible, sino que el respaldo **dirige la escritura a la base equivocada sin
 señal alguna**.
 
 **Prioridad.** Crítica.
+
+**Corregido.** La caída a las credenciales de producción queda restringida al
+despliegue de producción de Vercel y al desarrollo local. Se deduce de
+`NEXT_PUBLIC_VERCEL_ENV`, que Vercel expone por su cuenta: si vale `"preview"`
+y no hay variables de Supabase definidas, la aplicación **no se conecta a
+ninguna base** y muestra la pantalla `SinBDScreen` explicando qué falta
+configurar.
+
+Esto invierte el fallo silencioso: antes, un preview mal configurado escribía
+en producción sin señal; ahora se planta y lo dice. El matiz de la ficha sigue
+siendo válido —la clave `anon` es pública por diseño y la protección real es
+RLS— y por eso la corrección ataca el destino de la escritura, no la
+visibilidad de la clave.
+
+**Sigue pendiente, y no lo resuelve el código:** comprobar en Vercel que el
+proyecto de producción tiene definidas `NEXT_PUBLIC_SUPABASE_URL` y
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Hoy producción funciona **gracias al
+respaldo**; hasta que esas variables estén puestas, no se pueden sacar las
+credenciales del código.
 
 ---
 
@@ -641,7 +660,7 @@ con cada cliente nuevo.
 
 ---
 
-## DT-24 · `parseCap` da un resultado incorrecto con símbolo de euro y espacio final
+## DT-24 · `parseCap` da un resultado incorrecto con símbolo de euro y espacio final — ✅ RESUELTO
 
 **Problema.** Descubierto al escribir las pruebas de `parseCap` en el Sprint 4
 (Fase 0). Con un valor que incluye el símbolo de euro y un espacio antes de él
@@ -656,22 +675,32 @@ numéricos, quedando `"6.000,00"`, y `.replace(",",".")` sustituye **solo la
 primera coma** por un punto, dando `"6.000.00"`. `parseFloat("6.000.00")`
 se detiene en el segundo punto y devuelve `6`.
 
-**Impacto.** Si algún campo de importe llega con el símbolo de euro incluido
-—por ejemplo, un capital corregido a mano por el perito escribiendo
-"6.000,00 €" en vez de "6000"— el valor se trunca a una fracción minúscula
-de su valor real, sin ningún aviso. No hay evidencia de que esto ocurra hoy
-en producción: los prompts de extracción piden explícitamente a la IA
-"solo el número, sin símbolo", así que la entrada real casi nunca lleva el
-símbolo de euro. El riesgo es la corrección manual del perito en un campo de
-texto libre, no la extracción automática.
+**Impacto — corregido al alza tras ver un expediente real.** Esta ficha
+estimaba que el riesgo era la corrección manual del perito, no la extracción
+automática, porque los prompts piden "solo el número, sin símbolo". El
+análisis era optimista por un motivo que solo se ve mirando documentos de
+verdad: **la póliza no escribe el símbolo, escribe la palabra entera.** El
+literal de la tabla resumen de garantías es:
 
-**Prioridad.** Media — no se ha observado en producción, pero la corrección
-es barata y el fallo, si ocurre, es silencioso y con impacto económico
-directo (DT-19 ya señalaba el riesgo general de `parseCap` frente a
-`parseFloat`; esta ficha documenta un caso concreto dentro de la propia
-`parseCap`, no de su sustitución por `parseFloat`).
+```
+Edificio (primer riesgo):    6.000,00 euros
+Obras de reforma:        1.388.139,45 euros
+```
 
-**No corregido en este sprint**, conforme al alcance de la Fase 0 del plan de
-migración (`docs/migration/MIGRATION_MASTER_PLAN.md`): solo se documenta.
-Candidato natural para la Fase 2 (extracción del motor de cálculo), donde
-`parseCap` ya va a tener pruebas y va a moverse de sitio.
+Con ese texto, `parseCap("1.388.139,45 euros")` devolvía **1,388**.
+
+En el expediente real 01 (hotel en Girona, ver `tests/caso-real-01.test.js`),
+el capital de continente quedaba en 6 €, la regla proporcional calculaba un
+infraseguro del 99,9 % y la indemnización propuesta caía de **463,59 € a
+prácticamente cero**, con el semáforo de la sección en verde y sin ningún
+mensaje de error.
+
+**Prioridad.** ~~Media~~ → **Crítica**: pérdida económica directa, silenciosa
+y en la vía de extracción automática, no en la corrección manual.
+
+**Corregido.** `parseCap` aísla ahora la cifra del texto que la rodea —cogiendo
+el grupo de dígitos más largo, para que un "Pág. 11: 6.000,00 euros" siga
+dando 6000— y solo después decide si el formato es español o anglosajón.
+El test de caracterización de `tests/utilidades.test.js` pasa a fijar el
+comportamiento correcto, y `tests/caso-real-01.test.js` fija el expediente
+completo.

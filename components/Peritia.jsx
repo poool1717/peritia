@@ -8,13 +8,14 @@ import {
 } from "lucide-react";
 
 import {
-  BAREMO, PCT_INDIRECTO, TABLAS_ARQ, PROVINCIAS,
+  BAREMO, PCT_INDIRECTO, TABLAS_ARQ, findProvincia,
   getModuloArq, getFactorArq, calcVPreexCont,
   fmt, norm, parseCap,
   calcPartida, resolvePartidas, getPartidas, sumRepos, sumIVA, sumReal,
   calcReglas, calcRegla, reglaPartida, sumAjustado, calcIndemnizacion, fraseIndemn,
   matchBaremo,
 } from "../lib/dominio/calculo.js";
+import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/alertas.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -104,13 +105,25 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
 const SB_URL_PROD = "https://yrulaaxdusvmzohugmnc.supabase.co";
 const SB_KEY_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydWxhYXhkdXN2bXpvaHVnbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NzQyMTUsImV4cCI6MjA5NjE1MDIxNX0.TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw";
 
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL      || SB_URL_PROD;
-const SB_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SB_KEY_PROD;
+// Vercel expone esta variable sola: "production" | "preview" | "development".
+const ES_PREVIEW_VERCEL = process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
+
+// DT-02, corregida. Antes, CUALQUIER despliegue sin variables caía en silencio
+// a la base de producción, así que un preview de la rama `test` mal
+// configurado escribía sobre los expedientes reales sin ningún aviso. Ahora la
+// caída a producción solo ocurre en el despliegue de producción de Vercel y en
+// desarrollo local. En un preview sin variables la app se planta y lo dice, que
+// es mucho mejor que corromper datos reales.
+const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL      || (ES_PREVIEW_VERCEL ? "" : SB_URL_PROD);
+const SB_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (ES_PREVIEW_VERCEL ? "" : SB_KEY_PROD);
+
+// Preview sin variables: no hay base de datos a la que conectarse.
+const SIN_BD = !SB_URL || !SB_KEY;
 
 // Verdadero cuando la app NO está apuntando a la base de datos de producción.
 // Se deduce de la propia URL en vez de con otra variable aparte, así no puede
 // quedar desincronizado: si apunta a otra base, el aviso sale sí o sí.
-const ES_TEST = SB_URL !== SB_URL_PROD;
+const ES_TEST = !SIN_BD && SB_URL !== SB_URL_PROD;
 
 const sbAuth = async (path, body) => {
   const r = await fetch(`${SB_URL}/auth/v1/${path}`, {
@@ -501,11 +514,17 @@ const AutoBadge = ({children}) => (
 // completo), para que se vea primero lo que falta. Al plegarse se estrecha
 // (máx. 600px) y lee como una línea de lista; al abrirse vuelve a ancho
 // completo para que quepan los campos de varias columnas.
+// `done` tiene tres estados, no dos: true (completo), false (pendiente) y
+// "error" (relleno, pero con un dato que no cuadra — ver lib/dominio/alertas.js).
+// El tercero se pinta en rojo y arranca abierto, para que no se pueda pasar de
+// largo sin verlo.
 const Block = ({title,badge,done,summary,children}) => {
-  const [open,setOpen] = useState(!done);
+  const err = done === "error";
+  const ok  = done === true;
+  const [open,setOpen] = useState(!ok);
   return (
     <div style={{marginBottom:14}}>
-      <div style={{background:C.white,border:`1px solid ${open?"#D8CFC0":C.border}`,borderRadius:10,
+      <div style={{background:C.white,border:`1px solid ${err?C.red:open?"#D8CFC0":C.border}`,borderRadius:10,
         overflow:"hidden",maxWidth:open?"100%":600,transition:"border-color .15s,max-width .18s ease"}}>
         <button onClick={()=>setOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",
           padding:open?"13px 16px":"11px 14px",background:"none",border:"none",cursor:"pointer",textAlign:"left",
@@ -518,9 +537,9 @@ const Block = ({title,badge,done,summary,children}) => {
           </span>
           <span style={{marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:4,
             fontSize:open?11:10,fontWeight:700,padding:open?"3px 8px":"2px 7px",borderRadius:20,
-            flexShrink:0,whiteSpace:"nowrap",background:done?C.greenBg:C.orangeBg,color:done?C.green:C.orange}}>
-            {done?<Check size={10}/>:<span style={{width:6,height:6,borderRadius:"50%",background:C.orange}}/>}
-            {done?"Completo":"Pendiente"}
+            flexShrink:0,whiteSpace:"nowrap",background:err?C.redBg:ok?C.greenBg:C.orangeBg,color:err?C.red:ok?C.green:C.orange}}>
+            {err?<AlertTriangle size={10}/>:ok?<Check size={10}/>:<span style={{width:6,height:6,borderRadius:"50%",background:C.orange}}/>}
+            {err?"Revisar":ok?"Completo":"Pendiente"}
           </span>
           <ChevronDown size={16} style={{color:C.muted,flexShrink:0,transition:"transform .18s ease",
             transform:open?"rotate(180deg)":"none"}}/>
@@ -545,10 +564,16 @@ const encargoBlockStates = enc => [
 ];
 const s1BlockStates = (data,enc) => {
   const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
+  // El bloque de capitales puede estar en tres estados, no en dos: relleno,
+  // vacío, o relleno CON UN DATO QUE NO CUADRA. El tercero se marca "error"
+  // (rojo, "Revisar") en vez de verde, porque un infraseguro absurdo con el
+  // semáforo en verde es la peor combinación posible: el informe sale mal y
+  // nada lo indica. Ver lib/dominio/alertas.js.
+  const hayAviso = avisosDelRiesgo(enc, data).length > 0;
   return [
     !!data.estado,
     !!(data.superficieConstruida&&data.tipoArqKey),
-    capCont>0,
+    capCont>0 ? (hayAviso ? "error" : true) : false,
   ];
 };
 const s2BlockStates = (data,enc) => {
@@ -1470,7 +1495,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
 const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
-  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const arqKeyPrev = s1?.tipoArqKey || "unif_aislada";
   const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKeyPrev, s1?.calidad||"Media");
   const capCont = parseFloat(enc.capitalContinente||0);
@@ -1845,7 +1870,7 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
   },[esInstant, enc.lugarIntervencion, enc.municipio]);
 
 
-  const prov = PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const arqKey   = data.tipoArqKey||"unif_aislada";
   const capCont  = data.capContOverride!=null ? parseCap(data.capContOverride)  : parseCap(enc.capitalContinente);
   const capCont2 = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
@@ -2073,10 +2098,27 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
           {fmt(parseFloat(data.superficieConstruida))} m² × {fmt(modulo)} €/m² × {factor.toFixed(3)} = {fmtE(vPreexCalc)} · {arqLabel}
         </div>
       )}
-      {infraCont>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
+      {/* Avisos de infraseguro absurdo. Un infraseguro por encima del 90 % casi
+          siempre significa que falta un dato —lo más habitual, que el capital
+          está a primer riesgo y no se ha marcado—, no que el riesgo esté así
+          de mal asegurado. Antes esto pasaba en silencio y con el semáforo en
+          verde. Es un aviso, no un bloqueo. Ver lib/dominio/alertas.js. */}
+      {avisosDelRiesgo(enc, data).map(av => (
+        <div key={av.bloque} style={{background:C.redBg,border:`1.5px solid ${C.red}`,borderRadius:8,padding:"12px 14px",marginTop:10}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:14,fontWeight:700,color:C.red,marginBottom:6}}>
+            <AlertTriangle size={15} style={{flexShrink:0,marginTop:1}}/>{av.titulo}
+          </div>
+          <div style={{fontSize:13.5,color:C.ink,lineHeight:1.6,marginBottom:8}}>{av.detalle}</div>
+          <ul style={{margin:0,paddingLeft:18,fontSize:13.5,color:C.ink,lineHeight:1.65}}>
+            {av.motivos.map((m,i)=><li key={i} style={{marginBottom:3}}>{m}</li>)}
+          </ul>
+        </div>
+      ))}
+
+      {infraCont>0&&infraCont<UMBRAL_INFRASEGURO_SOSPECHOSO&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro continente {fmt(infraCont)}%</b> — Regla proporcional: coeficiente {(capCont/vPreex).toFixed(4)}
       </div>}
-      {infraC2>0&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
+      {infraC2>0&&infraC2<UMBRAL_INFRASEGURO_SOSPECHOSO&&<div style={{background:C.orangeBg,border:"1px solid #FED7AA",borderRadius:6,padding:"8px 10px",marginTop:8,fontSize:13,color:C.orange}}>
         <b style={{display:"inline-flex",alignItems:"center",gap:5}}><AlertTriangle size={12}/>Infraseguro contenido {fmt(infraC2)}%</b> — Regla proporcional: coeficiente {(capCont2/vPCont).toFixed(4)}
       </div>}
 
@@ -3442,7 +3484,7 @@ const exportPDF = (cData, dniPerito='') => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
-  const prov=PROVINCIAS.find(p=>p.l===enc.provincia||p.v===enc.provincia);
+  const prov = findProvincia(enc.provincia);
   const reglas=calcReglas(enc,s1);
   const capC=reglas.capCont, capC2=reglas.capCont2, vRC=reglas.vPreexCont;
   const ajustado=sumAjustado(enc,s1,s3);
@@ -3945,7 +3987,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
     ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
     ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],
   ].forEach(([id,states,labels])=>{
-    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i]}); });
+    // st puede ser true (hecho), false (falta rellenar) o "error" (relleno pero
+    // con un dato que no cuadra). Los dos últimos van a la lista de pendientes,
+    // pero se pintan distinto: no es lo mismo que falte un campo que que un
+    // número esté mal.
+    states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i],esError:st==="error"}); });
   });
   const goToPending = secId => { setSec(secId); setPendingOpen(false); };
   const handleExportClick = () => {
@@ -4104,10 +4150,13 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
                 <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{pendingList.length} apartados pendientes</div>
                 {pendingList.map((it,i)=>(
                   <div key={it.secId+i} onClick={()=>goToPending(it.secId)} style={{display:"flex",alignItems:"flex-start",gap:10,
-                    background:C.white,border:`1px solid ${C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
-                    <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>
+                    background:C.white,border:`1px solid ${it.esError?C.red:C.border}`,borderRadius:9,padding:"11px 13px",marginBottom:7,cursor:"pointer"}}>
+                    {it.esError
+                      ? <AlertTriangle size={13} style={{color:C.red,marginTop:2,flexShrink:0}}/>
+                      : <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13.5,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
+                      {it.esError&&<div style={{fontSize:12.5,color:C.red,marginTop:2}}>Hay un dato que no cuadra, no es que falte rellenarlo</div>}
                     </div>
                     <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
                   </div>
@@ -4145,6 +4194,25 @@ const TestBadge = () => ES_TEST ? (
     <FlaskConical size={15}/> ENTORNO DE PRUEBAS
   </div>
 ) : null;
+
+// Pantalla de bloqueo: preview de Vercel sin las variables de Supabase puestas.
+// Antes esta situación pasaba desapercibida y la app escribía en producción.
+const SinBDScreen = () => (
+  <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:C.bg}}>
+    <div style={{maxWidth:520,textAlign:"center",background:C.card,border:`1.5px solid ${C.orange}`,borderRadius:16,padding:32}}>
+      <AlertTriangle size={34} style={{color:C.orange,marginBottom:14}}/>
+      <h1 style={{fontSize:21,fontWeight:700,color:C.ink,marginBottom:10}}>Falta configurar la base de datos</h1>
+      <p style={{fontSize:15,color:C.muted,lineHeight:1.6}}>
+        Este despliegue de prueba no tiene definidas <b>NEXT_PUBLIC_SUPABASE_URL</b> y
+        {" "}<b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> en Vercel.
+      </p>
+      <p style={{fontSize:15,color:C.muted,lineHeight:1.6,marginTop:12}}>
+        La app se ha detenido a propósito: sin esas variables acabaría escribiendo
+        en la base de datos de producción, con expedientes reales.
+      </p>
+    </div>
+  </div>
+);
 
 export default function App(){
   const [user,setUser]   = useState(null);
@@ -4262,6 +4330,7 @@ export default function App(){
     if(active?.id===id){ setActive(null); setView('dashboard'); }
   };
 
+  if(SIN_BD) return <><SinBDScreen/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;

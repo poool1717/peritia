@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 3 agosto 2026 (sesión 23 — Sprints 4 y 5: infraestructura de pruebas, extracción del motor de cálculo a `lib/dominio/calculo.js`, plano de arquitectura fundacional (`docs/architecture/FOUNDATION_ARCHITECTURE.md`) y Fase 1.1-1.3 del plan de migración: documentación corregida, `alert()` sustituidos por avisos en pantalla, guarda de tamaño en los PDFs de entrada. Ver sesión 23 más abajo)
+**Última actualización:** 16 septiembre 2026 (sesión 26 — **consolidación de las dos ramas nuevas**. Se descubre que la nueva versión de PERIT.IA se estaba construyendo por duplicado en dos ramas que se ignoraban entre sí. Esta rama las une: se toma como base la de arquitectura (Sprints 1-5) y se le portan encima las correcciones y la validación con expediente real de la otra. Cierra DT-02 (Crítica) y DT-24, esta última reclasificada de Media a Crítica. 437 tests en verde. Ver "Sesión 26" más abajo)
+
+**Anterior:** 3 agosto 2026 (sesión 23 — Sprints 4 y 5: infraestructura de pruebas, extracción del motor de cálculo a `lib/dominio/calculo.js`, plano de arquitectura fundacional (`docs/architecture/FOUNDATION_ARCHITECTURE.md`) y Fase 1.1-1.3 del plan de migración: documentación corregida, `alert()` sustituidos por avisos en pantalla, guarda de tamaño en los PDFs de entrada. Ver sesión 23 más abajo)
 
 **Anterior:** 1 agosto 2026 (sesión 22 — **entorno de test**: la app deja de tener la base de datos soldada en el código y pasa a leerla de variables de entorno; nuevo proyecto Supabase `PeritIA-test` con el esquema replicado y vacío; rama `test` permanente; esquema completo de la BD versionado por primera vez en el repositorio)
 
@@ -10,6 +12,36 @@
 ---
 
 ## Estado actual
+
+### Sesión 26 — las dos ramas nuevas eran una sola, por duplicado
+
+**Lo que pasó.** La nueva versión de PERIT.IA se estaba construyendo en dos ramas a la vez, sin que ninguna supiera de la otra:
+
+| | Rama de arquitectura (agosto) | Rama `test` (septiembre) |
+|---|---|---|
+| Qué tenía | Sprints 1-5: dominio, Knowledge Library, Knowledge Core, plan de migración, 411 tests | Red de seguridad propia, motor extraído a `core/`, 123 tests |
+| Motor de cálculo | `lib/dominio/calculo.js` | `core/*.mjs` |
+| Motor de tests | vitest | `node --test` |
+
+Las dos hicieron **el mismo refactor a direcciones distintas** (extraer el motor de cálculo fuera de la interfaz) y las dos montaron **su propia red de seguridad**. Trabajo duplicado por partida doble.
+
+**Causa.** La sesión de septiembre comprobó las ramas con `git branch -a` sobre un clon que solo tenía `test`, sin hacer `git fetch origin` antes. Con esa vista incompleta concluyó —y repitió durante cuatro sesiones— que `MIGRATION_MASTER_PLAN.md` no existía y que la Fase 4 estaba bloqueada por falta de especificación. Existía desde el 4 de agosto. **Es exactamente el fallo contra el que avisa la regla 5b de CLAUDE.md**, y se repitió.
+
+**Qué se ha hecho.** Base: la rama de arquitectura, que tiene lo irreemplazable (28 fichas de entidad, la Knowledge Library, el Knowledge Core implementado y probado, y el plan de migración). Encima, portado de `test`:
+
+1. **`parseCap` corregido — cierra DT-24, reclasificada de Media a Crítica.** La ficha original estimaba que el riesgo era la corrección manual del perito, "no la extracción automática", porque los prompts piden "solo el número, sin símbolo". El análisis era optimista: **la póliza real no escribe el símbolo, escribe la palabra entera** (`Edificio (primer riesgo): 6.000,00 euros`). Con ese texto, `parseCap` devolvía 6. Ahora la cifra se aísla del texto que la rodea antes de decidir el formato.
+2. **`findProvincia` — la provincia no se reconocía.** El encargo dice "GERONA", la lista tiene "Girona", la comparación era exacta: caía a la tabla de precios genérica "Otras" en silencio. Estaba repetida en **tres puntos** de `Peritia.jsx` además de dentro de `calcReglas`.
+3. **DT-02 cerrada (Crítica).** La caída a las credenciales de producción queda restringida al despliegue de producción y a desarrollo local. Un preview sin variables muestra `SinBDScreen` y no se conecta a ninguna base.
+4. **Aviso de infraseguro absurdo** (`lib/dominio/alertas.js`). Por encima del 90 %, aviso en rojo con las causas probables, bloque en "Revisar" y entrada diferenciada en el panel de Pendientes. Aviso, no bloqueo.
+5. **`tests/caso-real-01.test.js`** — el expediente real que originó todo lo anterior.
+
+**El caso real.** Hotel en Girona, 2.899 m², continente asegurado a primer riesgo por 6.000 €. El perito propuso **463,59 €**. La app, con los mismos datos, proponía **0,52 €** — infraseguro del 99,89 %, semáforo en verde, ningún aviso. Anonimizado en el test: solo cifras y estructura. **Los documentos originales no están en el repositorio y no deben subirse.**
+
+**Numeración de sesiones:** hubo dos sesiones llamadas "23" en paralelo (3 de agosto en la rama de arquitectura, 4 de septiembre en `test`). Esta consolidación se numera 26 para no reusar un número ya gastado.
+
+**Pendiente y no lo resuelve el código:** comprobar en Vercel que producción tiene definidas `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Hoy producción funciona **gracias al respaldo** que acabamos de restringir.
+
+---
 
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.

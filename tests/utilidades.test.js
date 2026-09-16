@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmt, parseCap, norm } from "../lib/dominio/calculo.js";
+import { fmt, parseCap, norm, findProvincia } from "../lib/dominio/calculo.js";
 
 // fmtE, fmtSmart y normCompania se quedaron en components/Peritia.jsx (no
 // forman parte del motor de cálculo strictamente, y Peritia.jsx ya no
@@ -56,17 +56,65 @@ describe("parseCap — interpretación de importes extraídos por IA", () => {
     expect(parseCap("1.234,56")).toBe(1234.56);
   });
 
-  // Caso límite descubierto al escribir esta batería (no existía antes ningún
-  // test que lo hubiera revelado): con el símbolo de euro y espacio al final,
-  // el segundo punto que introduce el propio parseCap al convertir la coma en
-  // punto ("6.000,00" -> "6.000.00") hace que parseFloat corte en el primer
-  // punto y devuelva 6, no 6000. No es el comportamiento esperado por nadie,
-  // pero es el comportamiento REAL de hoy — se documenta aquí como
-  // caracterización (no como corrección) y se traslada como hallazgo nuevo a
-  // docs/TECHNICAL_DEBT.md (DT-24), conforme a la instrucción de este sprint
-  // de anotar sin implementar.
-  it("[caracterización] con símbolo de euro y espacio, el resultado NO es el importe correcto — ver DT-24", () => {
-    expect(parseCap("6.000,00 €")).toBe(6);
+  // DT-24, CERRADA. El Sprint 4 dejó aquí un test de caracterización fijando
+  // que "6.000,00 €" devolvía 6 en vez de 6000, con la instrucción de anotar
+  // sin implementar. Un expediente real (ver tests/caso-real-01.test.js)
+  // demostró después que la prioridad era más alta de lo que parecía: con el
+  // capital a 6 € la regla proporcional inventa un infraseguro del 99,9 % y
+  // la indemnización propuesta cae de 463,59 € a 0,52 €, sin ningún mensaje
+  // de error. Corregido: parseCap aísla la cifra del texto que la rodea antes
+  // de decidir el formato.
+  it("el símbolo de euro ya no rompe la cifra", () => {
+    expect(parseCap("6.000,00 €")).toBe(6000);
+    expect(parseCap(" 12.500,50 € ")).toBe(12500.5);
+  });
+
+  // La póliza real no escribe el símbolo: escribe la palabra entera.
+  it("la palabra «euros» tampoco la rompe", () => {
+    expect(parseCap("6.000,00 euros")).toBe(6000);
+    expect(parseCap("1.388.139,45 euros")).toBe(1388139.45);
+    expect(parseCap("561.545,08 euros")).toBe(561545.08);
+    expect(parseCap("0,00 euros")).toBe(0);
+  });
+
+  // Se coge el grupo de dígitos más largo, no el primero.
+  it("un número suelto delante no despista a la función", () => {
+    expect(parseCap("Pág. 11: 6.000,00 euros")).toBe(6000);
+  });
+
+  it("un texto sin cifras sigue dando 0", () => {
+    expect(parseCap("sin especificar")).toBe(0);
+    expect(parseCap("No")).toBe(0);
+  });
+});
+
+describe("findProvincia — la provincia llega escrita de cualquier manera", () => {
+  // El campo Provincia es de texto libre y lo rellena la IA desde el encargo.
+  // La comparación era exacta contra la lista, así que un encargo real que
+  // dice "GERONA" no encontraba "Girona" y el cálculo caía a la tabla de
+  // precios genérica "Otras" sin avisar de nada.
+  it("reconoce la provincia en mayúsculas y con el nombre en castellano", () => {
+    expect(findProvincia("GERONA").v).toBe("17");
+    expect(findProvincia("Gerona").v).toBe("17");
+    expect(findProvincia("GIRONA").v).toBe("17");
+    expect(findProvincia("BARCELONA").v).toBe("08");
+    expect(findProvincia("LERIDA").v).toBe("25");
+  });
+  it("ignora tildes y espacios sobrantes", () => {
+    expect(findProvincia("  malaga ").v).toBe("29");
+    expect(findProvincia("Málaga").v).toBe("29");
+  });
+  it("acepta también el código de dos dígitos", () => {
+    expect(findProvincia("17").v).toBe("17");
+  });
+  it("entiende los nombres alternativos", () => {
+    expect(findProvincia("Tenerife").v).toBe("38");
+    expect(findProvincia("Islas Baleares").v).toBe("07");
+  });
+  it("devuelve null si la provincia de verdad no está, en vez de un dato equivocado", () => {
+    expect(findProvincia("Cuenca")).toBe(null);
+    expect(findProvincia("")).toBe(null);
+    expect(findProvincia(null)).toBe(null);
   });
 });
 
