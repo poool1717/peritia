@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 30 septiembre 2026 (sesión 22 — panel de administración, Fase 1: proxy de IA protegido con sesión obligatoria, registro del coste de IA por perito y por sección, panel `/admin` dentro de la app con Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (ficha con plan, cuota, notas y bloqueo), Informes (solo metadatos) y Ajustes; renovación automática de la sesión de Supabase. Rama `claude/festive-cray-862qqv`. **Pendiente: aplicar la migración `supabase/migrations/20260930120000_admin_fase1.sql` en Supabase**)
+**Última actualización:** 30 septiembre 2026 (sesión 22 — panel de administración, Fase 1: proxy de IA protegido con sesión obligatoria, registro del coste de IA por perito y por sección, panel `/admin` dentro de la app con Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (ficha con plan, cuota, notas y bloqueo), Informes (solo metadatos) y Ajustes; renovación automática de la sesión de Supabase. Rama `claude/festive-cray-862qqv`. Migración `supabase/migrations/20260930120000_admin_fase1.sql` **ya aplicada en Supabase por Pol** y verificada (Pol figura en `admins`))
 
 ---
 
@@ -178,7 +178,7 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 ## Lo que está completado y funcionando
 
 ### Core
-- [x] **Panel de administración — Fase 1 (sesión 22):** Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (plan, cuota, notas, bloqueo), Informes (metadatos) y Ajustes. Pendiente de aplicar la migración en Supabase y validar en producción.
+- [x] **Panel de administración — Fase 1 (sesión 22):** Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (plan, cuota, notas, bloqueo), Informes (metadatos) y Ajustes. Migración aplicada en Supabase; pendiente de validar en producción tras fusionar.
 - [x] **Proxy de IA protegido (sesión 22):** solo usuarios con sesión y no bloqueados; coste de cada llamada registrado en `uso_ia`.
 - [x] **Renovación automática de la sesión de Supabase (sesión 22).**
 - [x] Extracción IA de 24 campos desde PDFs de encargo y póliza
@@ -402,7 +402,7 @@ Datos hardcodeados:
 - [x] **Sesión 20 — las 4 propuestas pendientes de la sesión 18 aplicadas:** acordeón con resumen en los bloques de cada sección (más estrecho al plegarse), navegación rápida con semáforo en la topbar, resumen plegado integrado en la tarjeta, y botón "Pendientes" con panel de revisión antes de exportar. Validado visualmente por Pol y fusionado a `main` (PR #19), en producción.
 - [x] **Sesión 21 (revisión de tareas pendientes, sin cambios de código):** confirmado con Pol que todo el trabajo acumulado de las sesiones 14 a 20 está validado en producción con casos reales. Verificado en GitHub que no hay Pull Requests abiertas y que el PR #11 (superado) sigue cerrado. Único punto que queda fuera, a petición explícita de Pol: el refactor grande de `Peritia.jsx` en módulos (punto 10 de la auditoría, ver más arriba), diferido para más adelante.
 
-- [ ] **Sesión 22 — aplicar en Supabase la migración `supabase/migrations/20260930120000_admin_fase1.sql`** (SQL Editor → pegar → Run). Crea `admins`, `cuentas`, `uso_ia`, `cobros` y las funciones `mi_cuenta`/`admin_*`, y da de alta como admin a `poool.1717@gmail.com`. Se puede ejecutar más de una vez.
+- [x] **Sesión 22 — migración `supabase/migrations/20260930120000_admin_fase1.sql` aplicada en Supabase por Pol** (SQL Editor, sin errores; `poool.1717@gmail.com` figura como admin).
 - [ ] **Sesión 22 — validar en producción:** entrar al panel, asignar plan y cuota a cada perito real, registrar los cobros ya recibidos, y comprobar que una extracción real aparece en Costes y margen.
 - [ ] **Admin Fase 2 (con Stripe):** planes con precios y límites aplicados por la app, cobro con tarjeta, renovaciones y facturas automáticas, avisos de impago.
 - [ ] **Admin Fase 3:** Analíticas (prueba→pago, tiempo por sección, informes por garantía/compañía), control del registro (libre / con aprobación / solo invitación), baremos por compañía editables, avisos por correo.

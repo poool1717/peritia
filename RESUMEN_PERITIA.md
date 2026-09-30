@@ -323,8 +323,8 @@ Funciones: `is_admin()`, `mi_cuenta()` (→ `{es_admin, bloqueado}`, la usan la 
 | Fix: `primerRiesgo` ya no se fuerza a `true` en todos los casos de Hogar | ✅ (validar oráculo) |
 | Frases y etiquetas "IA"/✨ retiradas de la interfaz visible | ✅ |
 | Proxy de IA con sesión obligatoria + bloqueo de cuentas | ✅ (sesión 22) |
-| Registro del coste de IA por perito y sección | ✅ (sesión 22, pendiente migración) |
-| Panel de administración Fase 1 (Inicio, Ingresos, Costes, Peritos, Informes, Ajustes) | ✅ (sesión 22, pendiente migración) |
+| Registro del coste de IA por perito y sección | ✅ (sesión 22, migración aplicada) |
+| Panel de administración Fase 1 (Inicio, Ingresos, Costes, Peritos, Informes, Ajustes) | ✅ (sesión 22, migración aplicada) |
 | Admin Fase 2 (Stripe, planes) / Fase 3 (Analíticas, registro, baremos) | ⏳ |
 
 ---
