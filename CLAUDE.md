@@ -22,7 +22,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 | IA | Anthropic API · modelo `claude-sonnet-4-6` |
 | Proxy API | `pages/api/claude.js` (Next.js serverless) |
 | Repositorio | `github.com/poool1717/peritia` (rama `main` = producción, rama `test` = entorno paralelo) |
-| Tests | `vitest` · `npm test` (437 tests) |
+| Tests | `vitest` · `npm test` (448 tests) |
 | CI | GitHub Actions · `.github/workflows/ci.yml` |
 
 ---
@@ -32,11 +32,14 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (4343 líneas, solo interfaz)
+│   ├── Peritia.jsx          ← COMPONENTE PRINCIPAL (4394 líneas, solo interfaz)
+│   └── Admin.jsx            ← panel de administración (762 líneas; solo cuentas en public.admins)
 ├── lib/
 │   ├── dominio/
 │   │   ├── calculo.js       ← motor de cálculo: baremo, valoración, reglas, indemnización
 │   │   └── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
+│   ├── supabase/
+│   │   └── config.js        ← a qué base de datos se conecta cada despliegue (frontend y proxy)
 │   └── knowledge/           ← Knowledge Core (KP-01): unidades, registro, resolución,
 │                              esquemas, motor de cobertura y motor de razonamiento
 ├── docs/                    ← arquitectura, dominio, deuda técnica, plan de migración
@@ -45,7 +48,7 @@ peritia/
 │   ├── domain/              ← modelo de dominio y 28 fichas de entidad
 │   └── TECHNICAL_DEBT.md    ← deudas DT-01…DT-24 con prioridad y estado
 ├── knowledge/               ← Knowledge Library: ontología, taxonomía, plantillas, fichas
-├── tests/                   ← 437 tests con vitest, incluido un caso real cerrado
+├── tests/                   ← 448 tests con vitest, incluido un caso real cerrado
 ├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada push y PR
 ├── vitest.config.mjs
 ├── pages/
@@ -66,7 +69,7 @@ peritia/
 └── RESUMEN_PERITIA.md       ← resumen técnico completo
 ```
 
-**Archivo principal:** `components/Peritia.jsx` — es el único componente React de la app.
+**Archivo principal:** `components/Peritia.jsx`. Única excepción: el panel de administración vive en `components/Admin.jsx` (zona independiente, solo para admins; recibe la paleta por props).
 
 **Dónde va cada cosa (desde el Sprint 4):** la lógica de negocio que no necesita
 pantalla vive en `lib/dominio/`, no en `Peritia.jsx`. Si un cálculo no necesita
@@ -88,7 +91,9 @@ con test. `Peritia.jsx` es solo la interfaz.
 ## Credenciales de infraestructura
 
 Las credenciales sensibles (API keys, tokens) están guardadas como variables de entorno en Vercel.
-Desde la sesión 22, `Peritia.jsx` lee la URL/key de Supabase de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`) como fuente primaria. **Ojo:** los valores de producción siguen escritos en el propio archivo como respaldo silencioso para cuando esas variables no están definidas (`SB_URL_PROD`/`SB_KEY_PROD`) — no es cierto que ya no estén en el código fuente. Retirar ese respaldo es el paso 1.5 de la Fase 1 del plan de migración, bloqueado por el gate G-2 (variables de test en Vercel, ámbito *Preview*, pendiente desde la sesión 22). Consultar Vercel dashboard si es necesario.
+La base de datos a la que se conecta cada despliegue se decide en **un único sitio**: `lib/supabase/config.js` (`resolverSupabase`), que usan tanto el frontend (`Peritia.jsx`) como el proxy de IA (`pages/api/claude.js`). Lee `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` (ver `.env.example`).
+
+**Ojo:** los valores de producción siguen escritos en el código como respaldo (`SB_URL_PROD`/`SB_KEY_PROD`), ahora solo en `lib/supabase/config.js`. Ese respaldo **solo se usa en el despliegue de producción y en desarrollo local**; en un preview sin variables la app muestra `SinBDScreen` y el proxy devuelve un error de configuración, en vez de conectarse a producción (DT-02). Retirar el respaldo del todo es el paso 1.5 de la Fase 1 del plan de migración, bloqueado por el gate G-2 (variables en Vercel). Consultar Vercel dashboard si es necesario.
 
 | Servicio | Variable de entorno |
 |---|---|
@@ -106,6 +111,8 @@ Desde la sesión 22, `Peritia.jsx` lee la URL/key de Supabase de `NEXT_PUBLIC_SU
 
 El archivo `pages/api/claude.js` es el proxy entre el frontend y Anthropic:
 - Inyecta `ANTHROPIC_API_KEY` (nunca en el cliente)
+- **Exige sesión:** valida el token de Supabase (`Authorization: Bearer`) y rechaza cuentas bloqueadas (`rpc/mi_cuenta`). Toda llamada nueva a la IA debe pasar por `callClaude` con su etiqueta de sección (5º argumento)
+- Registra tokens y coste de cada llamada en `public.uso_ia` (para el panel de administración)
 - Usa modelo `claude-sonnet-4-6`
 - Añade `anthropic-beta: pdfs-2024-09-25` automáticamente si el body contiene `application/pdf`
 - Garantiza `max_tokens` (default 1500 si el cliente no lo envía)
@@ -141,11 +148,13 @@ Esquema versionado en `supabase/migrations/20260604120000_esquema_base.sql` (má
 Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), con el mismo esquema que producción pero **vacío**, para poder trabajar en una versión paralela de la app sin tocar los datos reales.
 
 - **Rama de trabajo:** `test` (permanente, no se borra al fusionar como las ramas `claude/*` normales)
-- **Qué la diferencia de producción:** `Peritia.jsx` lee `SB_URL`/`SB_KEY` de `process.env.NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Sin esas variables definidas, cae a producción — así que **si un despliegue no tiene las variables del proyecto de test puestas en Vercel, escribe en la base de datos real** aunque venga de la rama `test`. Comprobarlo si algo no cuadra.
+- **Qué la diferencia de producción:** frontend y proxy de IA leen la base de `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` a través de `lib/supabase/config.js`. Desde la sesión 26, un preview **sin** esas variables ya no cae a producción: la app muestra la pantalla "Falta configurar la base de datos" y el proxy de IA devuelve un error de configuración. Si la rama `test` enseña esa pantalla, faltan las variables del proyecto de test en Vercel, ámbito *Preview*.
 - **Aviso visual:** cuando la app apunta a una base distinta de la de producción, se muestra un badge fijo "ENTORNO DE PRUEBAS" en las 4 pantallas (componente `TestBadge`). Si no aparece, la app está contra producción.
 - **Anthropic API key:** compartida con producción (decisión explícita de Pol) — las pruebas consumen créditos reales.
 - **Para pasar algo de `test` a `main`:** PR normal de `test` → `main`. Antes de fusionar, comprobar con `git log origin/main..origin/test` (y al revés) que no hay divergencia inesperada — mismo cuidado que con cualquier rama de larga duración (regla 5c).
 - **Si se necesita ampliar el esquema de test** (nueva columna, nueva tabla): aplicar la migración correspondiente en `supabase/migrations/` a los **dos** proyectos, producción y test, no solo a uno.
+
+Tablas del panel de administración (`admins`, `cuentas`, `uso_ia`, `cobros`) y funciones `mi_cuenta`/`admin_*`: ver `supabase/migrations/20260930120000_admin_fase1.sql` y RESUMEN_PERITIA.md.
 
 ---
 
@@ -156,7 +165,7 @@ Existe un segundo proyecto Supabase, `PeritIA-test` (`yvconlqtetxvyzxkhxib`), co
    ```bash
    node -e "const fs=require('fs');const c=fs.readFileSync('components/Peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}console.log('diff:',o-b);"
    ```
-3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí.
+3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí, salvo el panel de administración (`components/Admin.jsx`).
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
 4b. **Toda lógica de negocio nueva va a `lib/dominio/`, no a `Peritia.jsx`**, y llega con test.
 4c. **`npm test` tiene que estar en verde antes de crear una Pull Request.** Si un test se pone en rojo, la pregunta no es "¿cómo arreglo el test?" sino "¿qué expediente acabo de cambiar sin querer?".

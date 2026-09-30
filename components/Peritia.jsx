@@ -6,6 +6,8 @@ import {
   FileImage, Receipt, Save, Eye, RefreshCw, Edit3, Trash2, GripVertical,
   ExternalLink, Mail, Info, FlaskConical,
 } from "lucide-react";
+import AdminPanel from "./Admin";
+import { resolverSupabase } from "../lib/supabase/config.js";
 
 import {
   BAREMO, PCT_INDIRECTO, TABLAS_ARQ, findProvincia,
@@ -78,11 +80,19 @@ const fmtE = n => `${fmt(n)} €`;
 // en vez de "3,00"/"21,00%"); con 2 decimales solo si de verdad los tiene.
 const fmtSmart = n => { const v=+n||0; return Number.isInteger(v) ? new Intl.NumberFormat("es-ES").format(v) : fmt(v); };
 
-const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
+// Token de la sesión activa. El proxy /api/claude solo atiende a usuarios con
+// sesión iniciada (y no bloqueados), así que cada llamada a la IA lo envía.
+// App lo mantiene al día al iniciar sesión y al renovar la sesión.
+let AUTH_TOKEN = "";
+const setAuthToken = tk => { AUTH_TOKEN = tk || ""; };
+
+// `seccion` identifica qué parte de la app hace la llamada; el proxy lo usa
+// para registrar el coste de IA por sección en el panel de administración.
+const callClaude = async (system, userContent, onTokens, maxTok=1500, seccion="otros") => {
   const res = await fetch("/api/claude",{
-    method:"POST", headers:{"Content-Type":"application/json"},
+    method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${AUTH_TOKEN}`},
     body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTok,
-      system, messages:[{role:"user",content:userContent}] })
+      system, messages:[{role:"user",content:userContent}], _seccion:seccion })
   });
   const d = await res.json();
   if(!res.ok || d.error){
@@ -102,28 +112,18 @@ const callClaude = async (system, userContent, onTokens, maxTok=1500) => {
 // producción, que es el comportamiento que había antes de separarlas.
 // Ojo: en Next.js estas variables se resuelven al compilar, no al ejecutar —
 // hay que escribir `process.env.NEXT_PUBLIC_X` literal, no por índice.
-const SB_URL_PROD = "https://yrulaaxdusvmzohugmnc.supabase.co";
-const SB_KEY_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlydWxhYXhkdXN2bXpvaHVnbW5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NzQyMTUsImV4cCI6MjA5NjE1MDIxNX0.TOS0mgr0TdHxlC_kMhqOya_WNWyt2KTEn356USWKQFw";
-
-// Vercel expone esta variable sola: "production" | "preview" | "development".
-const ES_PREVIEW_VERCEL = process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
-
-// DT-02, corregida. Antes, CUALQUIER despliegue sin variables caía en silencio
-// a la base de producción, así que un preview de la rama `test` mal
-// configurado escribía sobre los expedientes reales sin ningún aviso. Ahora la
-// caída a producción solo ocurre en el despliegue de producción de Vercel y en
-// desarrollo local. En un preview sin variables la app se planta y lo dice, que
-// es mucho mejor que corromper datos reales.
-const SB_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL      || (ES_PREVIEW_VERCEL ? "" : SB_URL_PROD);
-const SB_KEY  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (ES_PREVIEW_VERCEL ? "" : SB_KEY_PROD);
-
-// Preview sin variables: no hay base de datos a la que conectarse.
-const SIN_BD = !SB_URL || !SB_KEY;
-
-// Verdadero cuando la app NO está apuntando a la base de datos de producción.
-// Se deduce de la propia URL en vez de con otra variable aparte, así no puede
-// quedar desincronizado: si apunta a otra base, el aviso sale sí o sí.
-const ES_TEST = !SIN_BD && SB_URL !== SB_URL_PROD;
+// La regla vive en lib/supabase/config.js, compartida con el proxy de IA.
+// Aquí solo se le pasan las variables escritas literalmente, que es como
+// Next.js las sustituye al compilar para el navegador.
+const SB = resolverSupabase({
+  url:       process.env.NEXT_PUBLIC_SUPABASE_URL,
+  key:       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  vercelEnv: process.env.NEXT_PUBLIC_VERCEL_ENV,
+});
+const SB_URL  = SB.url;
+const SB_KEY  = SB.key;
+const SIN_BD  = SB.sinBD;   // preview sin variables: no hay base a la que conectarse
+const ES_TEST = SB.esTest;  // la app no apunta a producción
 
 const sbAuth = async (path, body) => {
   const r = await fetch(`${SB_URL}/auth/v1/${path}`, {
@@ -267,7 +267,7 @@ CALIDAD PÓLIZA: ${enc.calidadPóliza||""}
 
 Devuelve SOLO este JSON:
 {"tipoRiesgo":"tipo de uso (Hotel, Local, Vivienda...)","tipoVivienda":"tipo de vivienda del apartado descripción de la póliza si disponible, si no estima","usoVivienda":"uso de la vivienda (Habitual, Segunda residencia, Arrendamiento...) si disponible","ubicacion":"ubicación exacta del riesgo asegurado si disponible","anoConstruccion":"año numérico","superficieConstruida":"m2 numérico","refCatastral":"si la conoces","calidad":"Básica|Media|Alta","justificacionCalidad":"una frase técnica"}`,
-    onTokens
+    onTokens, 1500, "sec1_riesgo"
   );
   return parseJSON(raw);
 };
@@ -730,7 +730,9 @@ const LoginScreen = ({onAuth}) => {
       const token = res.access_token;
       const user  = res.user || res;
       if(!token) { setErr('No se pudo obtener la sesión. Inténtalo de nuevo.'); setLoad(false); return; }
-      onAuth(user, token);
+      // onAuth devuelve un mensaje si la cuenta está desactivada desde el admin.
+      const aviso = await onAuth(user, token, res);
+      if(aviso) setErr(aviso);
     } catch(e) {
       setErr('Error de conexión con el servidor. Verifica tu conexión.');
     } finally {
@@ -801,7 +803,7 @@ const fmtUpdated = v => {
 };
 const DASH_FILTERS_EMPTY = {asegurado:"",compania:"",numReferencia:"",ramo:"",tipo:"",provincia:"",estado:"",progreso:"",updatedAt:""};
 
-const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOpen,setSidebarOpen}) => {
+const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOpen,setSidebarOpen,onAdmin}) => {
   const [dashView,setDashView] = useState("tabla");
   const [filters,setFilters] = useState(DASH_FILTERS_EMPTY);
   const [sortCol,setSortCol] = useState(null);
@@ -887,6 +889,11 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
             </div>
           </div>
           <div style={{padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,.07)",fontSize:13,color:"rgba(255,255,255,.4)"}}>
+            {onAdmin&&<button onClick={onAdmin} style={{width:"100%",display:"flex",alignItems:"center",gap:8,
+              padding:"8px 10px",marginBottom:10,background:"rgba(255,255,255,.07)",color:"#fff",border:"none",borderRadius:9,
+              cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"inherit"}}>
+              <Shield size={13}/>Panel de administración
+            </button>}
             <div style={{marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.email}</div>
             <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
               color:"rgba(255,255,255,.35)",fontSize:13,fontFamily:"inherit",padding:0}}>
@@ -920,6 +927,11 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
               display:"flex",alignItems:"center",gap:5}}>
               <Plus size={12}/>Nuevo
             </button>
+            {onAdmin&&<button onClick={onAdmin} title="Panel de administración" aria-label="Panel de administración" style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:6,
+              padding:"5px 10px",cursor:"pointer",color:"#fff",fontSize:14,fontWeight:600,fontFamily:"inherit",
+              display:"flex",alignItems:"center",gap:5}}>
+              <Shield size={12}/>Admin
+            </button>}
             <button onClick={onSignOut} style={{background:"none",border:"none",cursor:"pointer",
               color:"rgba(255,255,255,.4)",fontSize:13,fontFamily:"inherit"}}>Salir</button>
           </>}
@@ -1215,7 +1227,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       "Eres un extractor experto de documentos periciales y de seguros espanoles. Responde SOLO con JSON valido sin markdown.",
       [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
        {type:"text",text:encPrompt}],
-      onTokens, 4000).catch(()=>"{}");
+      onTokens, 4000, "encargo").catch(()=>"{}");
     const rawParsed = parseJSON(raw);
     // Check for API error response
     if(rawParsed?._apiError) {
@@ -1248,7 +1260,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
         "Eres un extractor experto de polizas de seguro empresariales espanolas, especialmente AXA Multirriesgo Empresa. Responde SOLO con JSON valido sin markdown.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:pb64}},
          {type:"text",text:polPrompt}],
-        onTokens, 8000
+        onTokens, 8000, "poliza"
       ).catch(()=>"{}");
       pol = parseJSON(praw);
       // Si la poliza no se pudo leer, avisamos: antes fallaba sin decir nada y el
@@ -1899,7 +1911,7 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
             `Mejora este texto para la sección de verificación del riesgo de un informe Instant Payment. Debe incluir la localización del riesgo y que se ha gestionado documentalmente:
 TEXTO: "${data.textoInstant||""}"
 DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
-            onTokens
+            onTokens, 1500, "sec1_texto"
           ).catch(()=>data.textoInstant||"");
           onChange({...data,textoInstant:t});
           setAiLoad(false);
@@ -2157,7 +2169,7 @@ PRECIPITACIÓN TOTAL DEL DÍA: ${d.precipTotal} l/m²
 UMBRAL VIENTO PÓLIZA: ${enc.umbralViento||"no especificado"} km/h · UMBRAL LLUVIA PÓLIZA: ${enc.umbralLluvia||"no especificado"} l/m²/h
 CONCLUSIÓN UMBRALES: ${sup.hayUmbral?sup.label:"la póliza no fija umbrales"}
 Fuente: Servei Meteorològic de Catalunya, datos abiertos. Menciona la fuente al final sin usar siglas ni acrónimos técnicos.`,
-      onTokens
+      onTokens, 1500, "sec2_meteo"
     ).catch(()=>"");
     const textoLimpio = (texto&&!texto.includes('"_apiError"'))?texto:"";
     onChange({...data, meteo:{...d, texto:textoLimpio}});
@@ -2176,7 +2188,7 @@ Fuente: Servei Meteorològic de Catalunya, datos abiertos. Menciona la fuente al
       `Mejora este texto para causas y circunstancias del siniestro. Tercera persona, técnico, conciso:
 CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
 "${data.textoRaw}"`,
-      onTokens
+      onTokens, 1500, "sec2_texto"
     ).catch(()=>"Error de conexión.");
     onChange({...data,textoAI:text,aiApplied:false});
     setImproving(false);
@@ -2367,7 +2379,7 @@ const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave,scrollRef}) =>
       `Mejora este texto para el apartado de valoración de daños. Directo, técnico, sin redundancias:
 CAUSA: ${enc.causa||""} | GARANTÍA: ${enc.garantia||""}
 TEXTO: "${data.textoRaw}"`,
-      onTokens
+      onTokens, 1500, "sec3_texto"
     ).catch(()=>"Error al conectar.");
     onChange({...data,textoAI:text});
     setImproving(false);
@@ -2392,7 +2404,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 {"partidas":[{"oficio":"","desc":"","uds":1,"garantia":"continente","cobertura":true}]}`,
       // 4000 tokens: con el límite anterior una tabla larga se cortaba a medias
       // y el JSON quedaba invalido, así que no aparecía ninguna partida.
-      onTokens, 4000
+      onTokens, 4000, "sec3_baremo"
     ).catch(()=>'{"partidas":[]}');
     const j = parseJSON(raw);
     const err = iaError(j);
@@ -2443,7 +2455,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
          {type:"text",text:`Extrae todas las líneas de esta factura o presupuesto. Devuelve SOLO:
 {"partidas":[{"oficio":"","desc":"descripción","uds":1,"p":0.00,"iva":21,"perceptor":"Asegurado","cobertura":true}]}`}],
-        onTokens, 2000
+        onTokens, 2000, "sec3_facturas"
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
       if(iaError(j)) hadError=true;
@@ -4243,8 +4255,46 @@ export default function App(){
     setSbLoading(false);
   };
 
-  const handleAuth = (u, tk) => { setUser(u); setToken(tk); loadCases(tk); };
-  const handleSignOut = () => { setUser(null); setToken(null); setCases([]); setActive(null); setView('dashboard'); };
+  // ── Sesión: renovación automática y cuenta (admin / bloqueada) ──────────────
+  // El token de Supabase caduca a la hora. Antes, pasada esa hora, los
+  // guardados fallaban en silencio; ahora que la IA también exige sesión, se
+  // renueva solo con el refresh_token antes de que caduque.
+  const [isAdmin,setIsAdmin] = useState(false);
+  const refreshRef = useRef({rt:null, exp:0});
+
+  const applySession = (tk, s) => {
+    setToken(tk); setAuthToken(tk);
+    refreshRef.current = {
+      rt: s?.refresh_token || refreshRef.current.rt,
+      exp: s?.expires_at || (s?.expires_in ? Math.floor(Date.now()/1000)+s.expires_in : 0),
+    };
+  };
+
+  useEffect(()=>{
+    if(!user) return;
+    const renew = async () => {
+      const {rt,exp} = refreshRef.current;
+      if(!rt || (exp && exp - Date.now()/1000 > 600)) return; // quedan >10 min
+      const r = await sbAuth('token?grant_type=refresh_token',{refresh_token:rt}).catch(()=>null);
+      if(r?.access_token) applySession(r.access_token, r);
+    };
+    const t = setInterval(renew, 60*1000);
+    const onVis = () => { if(document.visibilityState==='visible') renew(); };
+    document.addEventListener('visibilitychange', onVis);
+    return ()=>{ clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+  },[user]);
+
+  const handleAuth = async (u, tk, s) => {
+    // Si la migración del admin no está aplicada, la función no existe y
+    // sbDb devuelve null: se entra como siempre (sin panel de admin).
+    const cuenta = await sbDb('rpc/mi_cuenta','POST',{},tk);
+    if(cuenta?.bloqueado) return 'Tu cuenta está desactivada. Contacta con PERIT.IA para reactivarla.';
+    setIsAdmin(!!cuenta?.es_admin);
+    applySession(tk, s);
+    setUser(u); loadCases(tk);
+    return null;
+  };
+  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setCases([]); setActive(null); setView('dashboard'); };
 
   const handleDone = async enc => {
     // Always open editor immediately with extracted data
@@ -4333,9 +4383,10 @@ export default function App(){
   if(SIN_BD) return <><SinBDScreen/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
+  if(view==="admin"&&isAdmin) return <><AdminPanel token={token} user={user} onExit={()=>setView("dashboard")} theme={{C,FONT,Logo}} sb={{url:SB_URL,key:SB_KEY}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
   return <>
-    <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}/>
+    <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onAdmin={isAdmin?()=>setView("admin"):null}/>
     <TestBadge/>
     <link rel="stylesheet" href={FONT}/>
     <style>{css}</style>

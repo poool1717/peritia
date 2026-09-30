@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `peritia.jsx` · ~4.413 líneas · React 18
+**Archivo principal:** `components/Peritia.jsx` · 4394 líneas · React 18 · panel de administración aparte en `components/Admin.jsx` (762 líneas)
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -12,6 +12,7 @@ App (Root) — auth state (user, token, sidebarOpen)
 ├── LoginScreen            — Registro / inicio de sesión (Supabase Auth)
 ├── Dashboard              — Lista de encargos + sidebar colapsable
 ├── UploadEncargo          — Subida PDF encargo + póliza + extracción IA
+├── AdminPanel (Admin.jsx) — Panel de administración (solo cuentas en public.admins)
 └── ReportEditor           — Editor principal
     ├── TopBar             — Info encargo + toggle sidebar + tokens + Exportar
     ├── Sidebar            — Navegación colapsable (toggle ‹/›)
@@ -62,7 +63,7 @@ App (Root) — auth state (user, token, sidebarOpen)
 
 ---
 
-## Llamadas a la IA (8 en total)
+## Llamadas a la IA (9 en total)
 
 | # | Dónde | Qué hace | max_tokens |
 |---|---|---|---|
@@ -74,6 +75,9 @@ App (Root) — auth state (user, token, sidebarOpen)
 | 6 | Sec3 | Mejora texto de descripción de daños | 1500 |
 | 7 | Sec3 | Genera tabla de daños desde descripción + Baremo por oficio (tipo de daño / condición) — reparte cada partida a Continente o Contenido según la garantía | 4000 |
 | 8 | Sec3 | Extrae partidas desde facturas/presupuestos PDF | 2000 |
+| 9 | Sec1 (`getRiesgoIA`) | Deduce tipo de riesgo/vivienda desde el encargo | 1500 |
+
+> **Coste registrado (sesión 22):** cada llamada envía una etiqueta de sección (`encargo`, `poliza`, `sec1_riesgo`, `sec1_texto`, `sec2_meteo`, `sec2_texto`, `sec3_texto`, `sec3_baremo`, `sec3_facturas`) y el proxy guarda tokens y coste en `public.uso_ia`. El proxy solo atiende a usuarios con sesión iniciada y no bloqueados.
 
 > **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
 > **El bloque "Redacción IA — Sección 1" se ha eliminado.** Ya no hay generación de texto por IA en Sec1 (fuera del flujo Instant Payment); el resto de textos generados por IA (viñetas, ✨, "con IA") se han retirado de los textos visibles de la interfaz — la funcionalidad de fondo se mantiene donde sigue siendo necesaria (extracción de PDFs, mejora de texto, generación de tabla).
@@ -247,6 +251,18 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 
 **`informes.estado`:** `borrador` (por defecto) → `exportado` automáticamente al generar PDF o Word desde el editor (`markExported`, reutiliza el mismo `saveToSb` del autoguardado — no hay un mecanismo de escritura separado). El Dashboard deriva un cuarto estado visual "Pendiente revisión" cuando `estado!=='exportado'` pero las 4 secciones están completas (`done===4/4`); no existe como valor en BD, solo como etiqueta calculada en el frontend.
 
+**Admin (sesión 22, migración `supabase/migrations/20260930120000_admin_fase1.sql`):**
+```sql
+public.admins  (user_id PK)                       -- sin políticas: solo se edita desde Supabase
+public.cuentas (user_id PK, plan, cuota_mensual, bloqueado, notas)   -- RLS: solo admin
+public.uso_ia  (id, user_id, created_at, seccion, modelo, input_tokens, output_tokens, coste_usd)
+               -- RLS: insert solo a nombre propio; select solo admin
+public.cobros  (id, user_id, fecha, concepto, importe, metodo, estado pagado|pendiente)  -- RLS: solo admin
+```
+Funciones: `is_admin()`, `mi_cuenta()` (→ `{es_admin, bloqueado}`, la usan la app y el proxy), y `admin_peritos()`, `admin_informes(limite)`, `admin_mensual(meses)`, `admin_uso_secciones(desde)` — `SECURITY DEFINER`, solo admin, devuelven metadatos (nunca el contenido de los informes).
+
+**Sesión:** el token de Supabase se renueva solo con el `refresh_token` antes de caducar (comprobación cada minuto y al volver a la pestaña).
+
 **Storage — bucket `anexos`:** los archivos de Anexos (fotos, catastro, meteosim, facturas) se suben a Supabase Storage en vez de guardarse como base64 en `informes.anexos`; el JSONB solo guarda `{id,name,url,type,caption,cat}` con `url` apuntando a la URL pública del objeto. Bucket público en lectura; INSERT/DELETE restringidos por RLS al propio usuario (ruta `{user_id}/{informe_id}/{tab}/{timestamp}-{nombre}`). Migración: `supabase/migrations/20260719120000_anexos_storage_bucket.sql`.
 
 ---
@@ -311,6 +327,10 @@ RLS activo (policy `informes_own`, `ALL`, `user_id = auth.uid()`). `handleDone` 
 | Sec3 — fix de foco: los campos numéricos (Uds/V.Unit/%IVA/%Depr) ya no saltan al escribir | ✅ |
 | Fix: `primerRiesgo` ya no se fuerza a `true` en todos los casos de Hogar | ✅ (validar oráculo) |
 | Frases y etiquetas "IA"/✨ retiradas de la interfaz visible | ✅ |
+| Proxy de IA con sesión obligatoria + bloqueo de cuentas | ✅ (sesión 22) |
+| Registro del coste de IA por perito y sección | ✅ (sesión 22, migración aplicada) |
+| Panel de administración Fase 1 (Inicio, Ingresos, Costes, Peritos, Informes, Ajustes) | ✅ (sesión 22, migración aplicada) |
+| Admin Fase 2 (Stripe, planes) / Fase 3 (Analíticas, registro, baremos) | ⏳ |
 
 ---
 
