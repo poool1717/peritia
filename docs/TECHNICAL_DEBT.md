@@ -29,7 +29,7 @@
 | DT-05 | Lógica específica de AXA incrustada | Alta |
 | DT-06 | Conocimiento del dominio incrustado como código | Alta |
 | DT-07 | El informe se genera tres veces | Alta |
-| DT-08 | La vista previa calcula el infraseguro distinto que el motor | Alta |
+| DT-08 | La vista previa calcula el infraseguro distinto que el motor | Alta · ✅ RESUELTO |
 | DT-09 | Respuestas de IA sin validación de esquema | Media |
 | DT-10 | Sin pruebas ni integración continua | Alta |
 | DT-11 | Bucket de anexos público | **Crítica** |
@@ -40,7 +40,7 @@
 | DT-16 | Precios del modelo incrustados en la interfaz | Baja |
 | DT-17 | Código duplicado en proxys y componente | Media |
 | DT-18 | Errores mostrados con `alert()` | Baja |
-| DT-19 | Dos formas de interpretar importes | Media |
+| DT-19 | Dos formas de interpretar importes | Media · 🟡 parte visible resuelta |
 | DT-20 | `reactStrictMode` desactivado | Baja |
 | DT-21 | La documentación contradice al código | Media |
 | DT-22 | Sin límite de tamaño en los PDFs de entrada | Baja |
@@ -264,7 +264,7 @@ es viable.
 
 ---
 
-## DT-08 · La vista previa calcula el infraseguro distinto que el motor
+## DT-08 · La vista previa calcula el infraseguro distinto que el motor — ✅ RESUELTO
 
 **Problema.** `SecInforme` recalcula el capital, el valor preexistente, el
 porcentaje de infraseguro y la regla proporcional con una lógica **que no
@@ -294,6 +294,32 @@ Tres diferencias concretas:
   evitar, y `Sec1` introduce una tercera variante propia (`2000-2003`).
 
 **Prioridad.** Alta.
+
+**Comprobado con un expediente real antes de corregir.** Con el expediente
+real 01 (hotel en Girona, continente a primer riesgo por 6.000 €), la vista
+previa enseñaba **capital 6,00 €, valor preexistente 5.316.211,83 €,
+infraseguro 100 % y contenido 550,53 €**. Justo debajo proponía 463,59 € (la
+cifra buena, porque la indemnización ya salía del motor), y el PDF exportado
+decía 6.000 € / 6.000 € / 0 %. El perito veía un informe que se contradecía
+a sí mismo.
+
+**Corregido (R-06, sesión 28).** La vista previa y la Sección 1 usan
+`calcReglas`, igual que la Sección 3 y la exportación. No cambia ninguna
+fórmula del motor (`lib/dominio/` no se toca): solo cambia qué valores
+intermedios se enseñan en pantalla, que ahora coinciden con los que se
+aplican.
+
+- La Sección 1 ya daba los mismos números que el motor; era una tercera
+  copia de la regla, no un error. `tests/dt08-infraseguro-unico.test.js`
+  compara la fórmula antigua con el motor en 160 combinaciones y demuestra
+  que unificarla no cambia ningún resultado.
+- El mismo test fija la divergencia antigua de la vista previa con el
+  expediente real, y añade una **guardia** que se pone en rojo si alguien
+  vuelve a leer un capital con `parseFloat` o a escribir la fórmula del
+  infraseguro a mano en `Peritia.jsx`. Verificado: con el código anterior al
+  cambio, la guardia falla y señala las cinco líneas culpables.
+- Se elimina `regla`, una variable de la vista previa que se calculaba y no
+  se usaba en ningún sitio.
 
 ---
 
@@ -542,7 +568,7 @@ comportamiento salvo el propio objetivo del fix.
 
 ---
 
-## DT-19 · Dos formas de interpretar importes
+## DT-19 · Dos formas de interpretar importes — 🟡 parte visible resuelta
 
 **Problema.** Conviven dos maneras de convertir un texto en número, con resultados
 distintos para el mismo dato.
@@ -559,6 +585,21 @@ una función correcta y no se use en todas partes es más peligroso que no tener
 da la impresión de que el problema está resuelto.
 
 **Prioridad.** Media.
+
+**Estado (sesión 28).** Ya no queda ningún capital ni valor preexistente
+leído con `parseFloat` en la interfaz: los de la vista previa se sustituyeron
+al cerrar DT-08, y una guardia en `tests/dt08-infraseguro-unico.test.js`
+impide que vuelvan.
+
+Quedan dos `parseFloat` revisados y **sin riesgo hoy**, que no se tocan
+porque cambiarlos sería cambiar cómo lee el motor sus entradas:
+- `calcVPreexCont` lee la superficie construida con `parseFloat`. La
+  superficie llega de un campo numérico del formulario (`type="number"`, sin
+  separador de miles) o del Catastro, que la devuelve como entero
+  (`parseInt` de `<sfc>`). Si algún día se extrae con IA desde un PDF, "2.899"
+  se leería como 2,9 m² y **habría que cambiarlo**.
+- `meteoSupera` lee los umbrales de viento y lluvia (40, 90…): números
+  pequeños sin separador de miles.
 
 ---
 

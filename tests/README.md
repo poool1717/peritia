@@ -91,6 +91,11 @@ resultado idéntico antes y después.
   `catastro.js`). Requieren simular peticiones HTTP y servicios externos;
   se considera para una fase posterior.
 - **La meteorología y la interpretación de respuestas de IA** — ver arriba.
+- **Actualización (sesión 28): el primer oráculo ya está cubierto.** El caso
+  de 463,59 € ("Empresa, obras de reforma") es el expediente real que Pol
+  aportó en septiembre, reconstruido con sus documentos originales en
+  `tests/caso-real-01.test.js`. **Sigue faltando el de 1.291,47 €**, por el
+  motivo que se explica a continuación.
 - **Los "casos oráculo" históricos** (463,59 € y 1.291,47 €, citados en
   `CONTEXT.md` como validados por Pol). No existe en ningún documento del
   repositorio el detalle de los datos de entrada que producen esas cifras

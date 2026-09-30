@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 30 septiembre 2026 (sesión 27 — **la rama `test` se pone al día con `main`**. Otra sesión construyó hoy el panel de administración y el proxy de IA protegido directamente sobre `main`, sin pasar por `test`. Se traen a `test` y se corrige un fallo que habrían introducido: el proxy nuevo comprobaba las sesiones contra la base de producción aunque el frontend las hubiera abierto en la de test, así que toda llamada a la IA habría fallado en `test`. La regla "¿a qué base me conecto?" pasa a vivir en un único sitio, `lib/supabase/config.js`. 448 tests. Ver "Sesión 27" más abajo)
+**Última actualización:** 30 septiembre 2026 (sesión 28 — **DT-08 cerrada: la vista previa ya no contradice al informe**. La vista previa calculaba capitales e infraseguro por su cuenta y, con el expediente real 01, enseñaba capital 6,00 € e infraseguro 100 % mientras proponía 463,59 € y el PDF decía 6.000 € y 0 %. Ahora la vista previa y la Sección 1 usan el motor, como el resto. No cambia ninguna fórmula. 455 tests. Ver "Sesión 28" más abajo)
+
+**Anterior:** 30 septiembre 2026 (sesión 27 — **la rama `test` se pone al día con `main`**. Otra sesión construyó hoy el panel de administración y el proxy de IA protegido directamente sobre `main`, sin pasar por `test`. Se traen a `test` y se corrige un fallo que habrían introducido: el proxy nuevo comprobaba las sesiones contra la base de producción aunque el frontend las hubiera abierto en la de test, así que toda llamada a la IA habría fallado en `test`. La regla "¿a qué base me conecto?" pasa a vivir en un único sitio, `lib/supabase/config.js`. 448 tests. Ver "Sesión 27" más abajo)
 
 **Anterior (en `main`):** 30 septiembre 2026 (sesión "22" — la tercera con ese número, ver nota de numeración en la sesión 27 — panel de administración, Fase 1: proxy de IA protegido con sesión obligatoria, registro del coste de IA por perito y por sección, panel `/admin` dentro de la app con Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (ficha con plan, cuota, notas y bloqueo), Informes (solo metadatos) y Ajustes; renovación automática de la sesión de Supabase. Rama `claude/festive-cray-862qqv`. Migración `supabase/migrations/20260930120000_admin_fase1.sql` **ya aplicada en Supabase por Pol** y verificada (Pol figura en `admins`))
 
@@ -16,6 +18,30 @@
 ---
 
 ## Estado actual
+
+### Sesión 28 — DT-08: la vista previa ya no contradice al informe
+
+**El fallo, comprobado con el expediente real 01 antes de tocar nada:**
+
+| | Vista previa (antes) | Motor, PDF y Word |
+|---|---|---|
+| Continente · valor asegurado | 6,00 € | 6.000,00 € |
+| Continente · valor preexistente | 5.316.211,83 € | 6.000,00 € |
+| Continente · infraseguro | 100 % | 0 % |
+| Contenido · valor asegurado | 550,53 € | 550.534,40 € |
+| Indemnización propuesta | 463,59 € | 463,59 € |
+
+La vista previa leía el capital con `parseFloat` ("6.000,00 euros" → 6), ignoraba la corrección manual del perito y no contemplaba el primer riesgo. La indemnización salía bien porque esa sí venía del motor. El perito veía, en la misma pantalla, un infraseguro del 100 % y una propuesta de 463,59 € que no casaban, y un PDF que decía otra cosa.
+
+**Corrección.** La vista previa y la Sección 1 usan `calcReglas`, igual que la Sección 3 y la exportación. `lib/dominio/` no se toca: no cambia ninguna fórmula ni ningún importe, solo qué valores intermedios se enseñan. La Sección 1 ya daba los mismos números (era una tercera copia de la regla, no un error), y así queda demostrado en 160 combinaciones.
+
+**Protección contra la recaída.** `tests/dt08-infraseguro-unico.test.js` incluye una guardia que se pone en rojo si alguien vuelve a leer un capital con `parseFloat` o a escribir la fórmula del infraseguro a mano en `Peritia.jsx`. Se comprobó que falla con el código anterior al cambio y que señala las cinco líneas culpables.
+
+**Casos oráculo.** El de 463,59 € es el expediente real 01, ya cubierto por test. El de 1.291,47 € no se puede verificar: sus datos de entrada no están en el repositorio. Para cubrirlo hace falta el expediente original.
+
+**Revisado y sin riesgo hoy:** el motor lee la superficie construida con `parseFloat`. No hay problema porque llega de un campo numérico o del Catastro como entero, pero si algún día la extrae la IA de un PDF habrá que cambiarlo (anotado en DT-19).
+
+---
 
 ### Sesión 27 — `test` se pone al día con `main`
 

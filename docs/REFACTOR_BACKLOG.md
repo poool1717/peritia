@@ -32,7 +32,7 @@
 | R-03 | Persistencia de sesión y refresco de token | DT-03 | Medio | Medio | 3 |
 | R-04 | Proteger `/api/claude` | DT-04 | Bajo | Bajo | 4 |
 | R-05 | Anexos con acceso restringido | DT-11 | Medio | Medio | 5 |
-| R-06 | Unificar el cálculo del infraseguro | DT-08, DT-19 | Bajo | **Bajo** | 6 |
+| R-06 | Unificar el cálculo del infraseguro | DT-08, DT-19 | Bajo | **Bajo** | ✅ Hecho (sesión 28) |
 | R-07 | Subir las facturas de Sección 3 a Storage | DT-13 | Bajo | Bajo | 7 |
 | R-08 | Extraer los prompts a `prompts/` | DT-12 parcial | Bajo | Bajo | 8 |
 | R-09 | Validación de respuestas de IA con esquema | DT-09 | Medio | Bajo | ⛔ Diferido |
@@ -198,7 +198,7 @@ expedientes existentes).
 
 ---
 
-## R-06 · Unificar el cálculo del infraseguro
+## R-06 · Unificar el cálculo del infraseguro — ✅ HECHO (sesión 28)
 
 **Cierra:** DT-08 y la parte visible de DT-19.
 **Prioridad: 6.** Relación beneficio/riesgo excelente.
@@ -220,6 +220,18 @@ cambia es que los valores intermedios mostrados pasan a coincidir con ellos.
 dando el mismo resultado.
 
 **Esfuerzo:** bajo · **Riesgo:** bajo.
+
+**Cómo se cumplió el criterio de cierre.** El criterio era que los dos casos
+oráculo siguieran dando el mismo resultado. Como el cambio no toca el motor,
+los importes no pueden moverse; aun así:
+- El **primer oráculo (463,59 €, "Empresa, obras de reforma")** es el
+  expediente real que Pol aportó en septiembre, y está reconstruido como test
+  con los datos de los documentos originales (`tests/caso-real-01.test.js`).
+  Sigue dando 463,59 €.
+- El **segundo oráculo (1.291,47 €, "Hogar, primer riesgo, IVA mixto")** no
+  se puede verificar: sus datos de entrada no están en ningún documento del
+  repositorio (ver `tests/README.md`). Para reconstruirlo hace falta el
+  expediente original.
 
 ---
 

@@ -1507,12 +1507,17 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
 const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
-  const prov = findProvincia(enc.provincia);
-  const arqKeyPrev = s1?.tipoArqKey || "unif_aislada";
-  const vReal = calcVPreexCont(s1?.superficieConstruida, prov?.v||"00", arqKeyPrev, s1?.calidad||"Media");
-  const capCont = parseFloat(enc.capitalContinente||0);
-  const infraCont = vReal>0&&capCont>0&&capCont<vReal?((vReal-capCont)/vReal*100):0;
-  const regla = infraCont>0?(capCont/vReal):1;
+  // DT-08. La vista previa calculaba capitales e infraseguro por su cuenta, y
+  // mal: leía el capital con parseFloat ("6.000,00 euros" → 6), ignoraba la
+  // corrección manual del perito y no contemplaba el primer riesgo. En el
+  // expediente real 01 enseñaba capital 6,00 €, infraseguro 100 % y contenido
+  // 550,53 €, mientras la indemnización de debajo (463,59 €) y el PDF exportado
+  // usaban el motor y decían otra cosa. Ahora sale todo de calcReglas, la misma
+  // función que usan la Sección 1, la Sección 3 y la exportación.
+  const reglas = calcReglas(enc, s1);
+  const capCont = reglas.capCont;
+  const vReal = reglas.vPreexCont;
+  const infraCont = reglas.infraCont;
   const partidas = s3?.partidas||[];
   const totalDano = sumReal(getPartidas(s3));
   const ajustado = sumAjustado(enc,s1,s3);
@@ -1611,7 +1616,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
               </div>:null;
             })()}
             <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              {[["CONTINENTE",capCont,vReal,infraCont],["CONTENIDO",parseFloat(enc.capitalContenido||0),parseFloat(enc.capitalContenido||0),0]].map(([t,aseg,prev,infra])=>(
+              {[["CONTINENTE",capCont,vReal,infraCont],["CONTENIDO",reglas.capCont2,reglas.vPreexContenido,reglas.infraContenido]].map(([t,aseg,prev,infra])=>(
                 <div key={t} style={{background:infra>0?C.redBg:C.greenBg,border:`1px solid ${infra>0?"#FECACA":"#A7F3D0"}`,borderRadius:7,padding:12}}>
                   <div style={{fontSize:12,fontWeight:700,color:infra>0?C.red:C.green,marginBottom:7,textTransform:"uppercase"}}>{t}</div>
                   {[["Valor Asegurado",fmtE(aseg)],["Valor Preexistente",fmtE(prev)],["Infraseguro",`${fmt(infra)} %`]].map(([k,v])=>(
@@ -1884,14 +1889,22 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
 
   const prov = findProvincia(enc.provincia);
   const arqKey   = data.tipoArqKey||"unif_aislada";
-  const capCont  = data.capContOverride!=null ? parseCap(data.capContOverride)  : parseCap(enc.capitalContinente);
-  const capCont2 = data.capCont2Override!=null ? parseCap(data.capCont2Override) : parseCap(enc.capitalContenido);
+  // DT-08. Capitales, valor preexistente e infraseguro salen del motor
+  // (calcReglas), la misma función que usan la vista previa, la Sección 3 y la
+  // exportación. Antes esta sección repetía la fórmula a mano: daba lo mismo,
+  // pero era la tercera copia de una regla que ya se había desincronizado en la
+  // vista previa. Aquí solo se calcula aparte lo que es de presentación: el
+  // módulo, el factor y el valor por m² antes del primer riesgo, para enseñar
+  // la fórmula al perito.
+  const reglas   = calcReglas(enc, data);
+  const capCont  = reglas.capCont;
+  const capCont2 = reglas.capCont2;
   const primerRiesgoDetectado = !!enc.primerRiesgo;
   const vPreexCalc = calcVPreexCont(data.superficieConstruida, prov?.v||"00", arqKey, data.calidad||"Media");
-  const vPreex = primerRiesgoDetectado ? capCont : vPreexCalc;
+  const vPreex = reglas.vPreexCont;
   const modulo = getModuloArq(prov?.v||"00", arqKey, data.calidad||"Media");
   const factor = getFactorArq(arqKey);
-  const infraCont = !primerRiesgoDetectado&&vPreexCalc>0&&capCont>0&&capCont<vPreexCalc ? ((vPreexCalc-capCont)/vPreexCalc*100) : 0;
+  const infraCont = reglas.infraCont;
 
   if(esInstant) return (
     <div className="fade">
@@ -1934,8 +1947,8 @@ DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
   const n2opciones = ARQ_N2[data.tipoArqNivel1||"Residencial"]||[];
   const n3opciones = ARQ_N3[data.tipoArqNivel2||""]||[];
   const arqLabel = n3opciones.find(x=>x.k===arqKey)?.l||"";
-  const vPCont = data.vPreexContenido!=null?parseCap(data.vPreexContenido):capCont2;
-  const infraC2 = vPCont>0&&capCont2>0&&capCont2<vPCont?((vPCont-capCont2)/vPCont*100):0;
+  const vPCont = reglas.vPreexContenido;
+  const infraC2 = reglas.infraContenido;
   const s1b = s1BlockStates(data,enc);
 
   return (
