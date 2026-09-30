@@ -30,7 +30,8 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   └── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.030 líneas)
+│   ├── Peritia.jsx          ← COMPONENTE PRINCIPAL (~4.440 líneas)
+│   └── Admin.jsx            ← panel de administración (solo cuentas en public.admins)
 ├── pages/
 │   ├── _app.js              ← <meta name="viewport"> global (Next.js Head)
 │   ├── index.js             ← página raíz (carga Peritia dinámicamente)
@@ -48,7 +49,7 @@ peritia/
 └── RESUMEN_PERITIA.md       ← resumen técnico completo
 ```
 
-**Archivo principal:** `components/Peritia.jsx` — es el único componente React de la app.
+**Archivo principal:** `components/Peritia.jsx`. Única excepción: el panel de administración vive en `components/Admin.jsx` (zona independiente, solo para admins; recibe la paleta por props).
 
 ---
 
@@ -80,6 +81,8 @@ NO están en el código fuente. Consultar Vercel dashboard si es necesario.
 
 El archivo `pages/api/claude.js` es el proxy entre el frontend y Anthropic:
 - Inyecta `ANTHROPIC_API_KEY` (nunca en el cliente)
+- **Exige sesión:** valida el token de Supabase (`Authorization: Bearer`) y rechaza cuentas bloqueadas (`rpc/mi_cuenta`). Toda llamada nueva a la IA debe pasar por `callClaude` con su etiqueta de sección (5º argumento)
+- Registra tokens y coste de cada llamada en `public.uso_ia` (para el panel de administración)
 - Usa modelo `claude-sonnet-4-6`
 - Añade `anthropic-beta: pdfs-2024-09-25` automáticamente si el body contiene `application/pdf`
 - Garantiza `max_tokens` (default 1500 si el cliente no lo envía)
@@ -106,6 +109,8 @@ public.perfiles (
 ```
 RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `handle_new_user` crea perfil al registrarse.
 
+Tablas del panel de administración (`admins`, `cuentas`, `uso_ia`, `cobros`) y funciones `mi_cuenta`/`admin_*`: ver `supabase/migrations/20260930120000_admin_fase1.sql` y RESUMEN_PERITIA.md.
+
 ---
 
 ## Reglas de desarrollo
@@ -115,7 +120,7 @@ RLS activo en ambas tablas. Trigger `handle_updated_at` automático. Trigger `ha
    ```bash
    node -e "const fs=require('fs');const c=fs.readFileSync('components/Peritia.jsx','utf8');let o=0,b=0;for(const x of c){if(x==='{')o++;if(x==='}')b++;}console.log('diff:',o-b);"
    ```
-3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí.
+3. **Archivo principal:** `components/Peritia.jsx`. Todos los cambios de UI y lógica van aquí, salvo el panel de administración (`components/Admin.jsx`).
 4. **No instalar dependencias externas** salvo las ya en `package.json`. Las librerías de `lucide-react` ya están disponibles.
 5. **Preguntar antes de cambios grandes.** Para refactorizaciones que afecten >5 componentes, proponer y esperar confirmación.
 5b. **Antes de empezar un trabajo grande (rediseño, refactor), verificar el estado real de `main` y `staging` en GitHub** (`git log`, PRs abiertos) — no asumir que el estado de partida sigue siendo el mismo que al principio de la sesión. Pol suele lanzar varias sesiones de Claude Code en paralelo sobre el mismo repo; dos sesiones distintas ya construyeron de forma independiente el mismo fix de sidebar/responsive porque una partía de una `staging` desactualizada sin saber que la otra ya lo había resuelto en `main` (ver CONTEXT.md, sesión 12). Si el PR no se puede fusionar limpiamente (`mergeable_state` distinto de `clean`) o `staging`/`main` han avanzado desde que se creó la rama, avisar a Pol antes de forzar nada.

@@ -1,11 +1,19 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 31 julio 2026 (sesión 21 — revisión de tareas pendientes: la sesión 20 (acordeón con resumen, navegación rápida con semáforo, botón "Pendientes" con panel de revisión) está fusionada a `main` y en producción, PR #19. Pol ha validado en producción **todo** lo que quedaba pendiente de validación en el roadmap de sesiones anteriores — ver checklist actualizada más abajo. No hay Pull Requests abiertas en el repositorio; el PR #11 original del rediseño frontend, superado por la v2 ya fusionada, sigue cerrado sin fusionar, como corresponde. Sesiones 17, 18, 19 y 20 ya fusionadas a `main`)
+**Última actualización:** 30 septiembre 2026 (sesión 22 — panel de administración, Fase 1: proxy de IA protegido con sesión obligatoria, registro del coste de IA por perito y por sección, panel `/admin` dentro de la app con Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (ficha con plan, cuota, notas y bloqueo), Informes (solo metadatos) y Ajustes; renovación automática de la sesión de Supabase. Rama `claude/festive-cray-862qqv`. **Pendiente: aplicar la migración `supabase/migrations/20260930120000_admin_fase1.sql` en Supabase**)
 
 ---
 
 ## Estado actual
+
+**Sesión 22 — Panel de administración, Fase 1 (rama `claude/festive-cray-862qqv`):** Pol pidió un admin "como el de una tienda de Shopify pero adaptado a PERIT.IA", con control de ingresos y sin ver el contenido de los informes. Se hizo primero una maqueta navegable (Artifact) con las 8 pantallas y el reparto por fases; Pol la aprobó y pidió empezar la Fase 1.
+- **Seguridad — el proxy de IA ya no está abierto:** `pages/api/claude.js` atendía a cualquiera que conociera la URL, a costa de los créditos de Anthropic. Ahora exige el token de sesión de Supabase (lo valida contra `/auth/v1/user`), rechaza a los peritos bloqueados (`rpc/mi_cuenta`) y registra cada llamada en `public.uso_ia` (tokens + coste en USD con la tarifa de `claude-sonnet-4-6`, 3 $/15 $ por millón). Si la migración aún no está aplicada, el proxy sigue funcionando (solo exige sesión).
+- **Frontend (`Peritia.jsx`):** `callClaude` envía `Authorization: Bearer <token>` y una etiqueta `_seccion` (encargo, poliza, sec1_riesgo, sec1_texto, sec2_meteo, sec2_texto, sec3_texto, sec3_baremo, sec3_facturas) que el proxy quita antes de llamar a Anthropic. La sesión de Supabase (caduca a la hora) **se renueva sola** con el `refresh_token` antes de caducar — antes, pasada una hora, los guardados fallaban en silencio. Al iniciar sesión se consulta `mi_cuenta`: si la cuenta está bloqueada se muestra "Tu cuenta está desactivada" y no se entra; si es admin aparece el botón "Panel de administración" en la barra lateral (y "Admin" en la cabecera con la barra plegada).
+- **Nuevo `components/Admin.jsx`** (excepción acordada a la regla "todo en Peritia.jsx": es una zona independiente y `Peritia.jsx` ya pasa de 4.400 líneas). Recibe paleta y `Logo` por props. Pantallas: **Inicio** (ingresos del mes, recurrente, margen, peritos de pago, informes, coste IA, gráfico ingresos vs coste 6 meses, alertas: cobros pendientes, peritos que gastan más de lo que pagan, sin actividad 30 días, nuevos sin plan), **Ingresos** (cobros manuales: registrar, marcar pagado, eliminar), **Costes y margen** (coste por sección y margen por perito), **Peritos** (tabla con filtros y buscador + ficha lateral con plan, cuota €/mes, notas internas, cobros y bloqueo con confirmación; el admin no puede bloquearse a sí mismo), **Informes** (solo metadatos) y **Ajustes** (estado de seguridad). Planes y Analíticas aparecen como "Pronto" (Fases 2 y 3).
+- **Privacidad:** el admin no tiene lectura sobre `public.informes`. Lee todo a través de funciones `admin_*` (`SECURITY DEFINER`, comprueban `is_admin()`) que devuelven solo referencia, compañía, garantía, estado y fechas.
+- **Verificado:** migración probada en un PostgreSQL 16 local con un esquema que imita Supabase (roles `authenticated`/`anon`, `auth.users`, `auth.uid()`): perito normal no ve ni escribe nada del admin ni puede registrar uso a nombre de otro; admin ve peritos/informes/costes pero sigue sin poder leer el contenido de los informes; bloqueo detectado; migración re-ejecutable. `next build` limpio, balance de llaves 0 en ambos archivos. Proxy probado: sin token → 401 "Inicia sesión para usar la IA"; token falso → 401 (validado contra el Supabase real). Prueba en navegador (Playwright, Supabase simulado): login admin, las 8 pantallas, escritura continua en buscador y ficha sin perder el foco, guardar ficha, bloquear, registrar cobro (con validación), móvil a 390px sin desbordamiento; login sin migración aplicada → entra como siempre sin botón de admin; cuenta bloqueada → aviso y no entra.
+- **Nota de diseño:** el skill `peritia-visual-style` describe Source Serif 4 / IBM Plex Mono, pero `main` usa solo **DM Sans** (títulos incluidos) con `tabular-nums` en cifras. El admin sigue el código real, no el skill — conviene actualizar el skill.
 
 La app está **desplegada y funcional en producción**. El flujo completo funciona:
 login → subida PDFs → extracción IA → editor → guardar → exportar PDF/Word.
@@ -170,6 +178,9 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 ## Lo que está completado y funcionando
 
 ### Core
+- [x] **Panel de administración — Fase 1 (sesión 22):** Inicio, Ingresos (cobros manuales), Costes y margen, Peritos (plan, cuota, notas, bloqueo), Informes (metadatos) y Ajustes. Pendiente de aplicar la migración en Supabase y validar en producción.
+- [x] **Proxy de IA protegido (sesión 22):** solo usuarios con sesión y no bloqueados; coste de cada llamada registrado en `uso_ia`.
+- [x] **Renovación automática de la sesión de Supabase (sesión 22).**
 - [x] Extracción IA de 24 campos desde PDFs de encargo y póliza
 - [x] Editor completo Sec 0–4 + Anexos
 - [x] Preview live del informe
@@ -260,6 +271,8 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 | Extracción falla (créditos) | Cuenta Anthropic sin saldo | Usuario añadió $5 en créditos |
 | Trash2 not defined | Icono usado pero no importado | Añadir Trash2 a imports lucide-react |
 | Dashboard sin toggle sidebar | Componente antiguo sin props sidebarOpen | Reconstruir Dashboard completo |
+| Cualquiera podía usar la IA a costa de los créditos de Anthropic | `/api/claude` no comprobaba quién llamaba | El proxy exige el token de sesión de Supabase y rechaza cuentas bloqueadas (sesión 22) |
+| Pasada una hora, los guardados fallaban en silencio | El token de Supabase caduca a los 60 min y la app nunca lo renovaba | Renovación automática con `refresh_token` antes de caducar y al volver a la pestaña (sesión 22) |
 | pLibres invisible en Sec4/PDF | getPartidas solo leía `partidas`, no `pLibres` | getPartidas() detecta modo y lee el array correcto |
 | IVA 0% → 21% (bug) | p.iva\|\|21 cambiaba 0 a 21 (falsy) | Cambiar a p.iva??21 (nullish coalescing) |
 | Regla proporcional incorrecta | Sec4 ignoraba tipoContinente/primerRiesgo | calcRegla() global con lógica correcta |
@@ -389,11 +402,17 @@ Datos hardcodeados:
 - [x] **Sesión 20 — las 4 propuestas pendientes de la sesión 18 aplicadas:** acordeón con resumen en los bloques de cada sección (más estrecho al plegarse), navegación rápida con semáforo en la topbar, resumen plegado integrado en la tarjeta, y botón "Pendientes" con panel de revisión antes de exportar. Validado visualmente por Pol y fusionado a `main` (PR #19), en producción.
 - [x] **Sesión 21 (revisión de tareas pendientes, sin cambios de código):** confirmado con Pol que todo el trabajo acumulado de las sesiones 14 a 20 está validado en producción con casos reales. Verificado en GitHub que no hay Pull Requests abiertas y que el PR #11 (superado) sigue cerrado. Único punto que queda fuera, a petición explícita de Pol: el refactor grande de `Peritia.jsx` en módulos (punto 10 de la auditoría, ver más arriba), diferido para más adelante.
 
+- [ ] **Sesión 22 — aplicar en Supabase la migración `supabase/migrations/20260930120000_admin_fase1.sql`** (SQL Editor → pegar → Run). Crea `admins`, `cuentas`, `uso_ia`, `cobros` y las funciones `mi_cuenta`/`admin_*`, y da de alta como admin a `poool.1717@gmail.com`. Se puede ejecutar más de una vez.
+- [ ] **Sesión 22 — validar en producción:** entrar al panel, asignar plan y cuota a cada perito real, registrar los cobros ya recibidos, y comprobar que una extracción real aparece en Costes y margen.
+- [ ] **Admin Fase 2 (con Stripe):** planes con precios y límites aplicados por la app, cobro con tarjeta, renovaciones y facturas automáticas, avisos de impago.
+- [ ] **Admin Fase 3:** Analíticas (prueba→pago, tiempo por sección, informes por garantía/compañía), control del registro (libre / con aprobación / solo invitación), baremos por compañía editables, avisos por correo.
+- [ ] Actualizar el skill `peritia-visual-style`: la app ya no usa Source Serif 4 ni IBM Plex Mono (solo DM Sans).
+
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
 - [ ] Refinamiento de prompts de extracción con casos reales
-- [ ] Panel de administración básico
-- [ ] Métricas de uso (cuántos informes, tiempo por sección, etc.)
+- [x] Panel de administración básico — Fase 1 hecha (sesión 22)
+- [ ] Métricas de uso: coste de IA por sección y perito ya registrado (sesión 22); falta tiempo por sección (Analíticas, Fase 3 del admin)
 
 ### Largo plazo (Fase 3–4)
 - [ ] Sistema de facturación (Stripe) y planes de suscripción
