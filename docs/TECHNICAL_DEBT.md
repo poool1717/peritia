@@ -24,7 +24,7 @@
 |---|---|---|
 | DT-01 | Aplicación completa en un único archivo | Alta |
 | DT-02 | Credenciales de producción como respaldo silencioso | **Crítica** · ✅ RESUELTO |
-| DT-03 | Sesión sin persistencia ni refresco de token | **Crítica** |
+| DT-03 | Sesión sin persistencia ni refresco de token | **Crítica** · 🟡 refresco resuelto, persistencia no |
 | DT-04 | `/api/claude` abierto y sin límite de uso | **Crítica** |
 | DT-05 | Lógica específica de AXA incrustada | Alta |
 | DT-06 | Conocimiento del dominio incrustado como código | Alta |
@@ -34,7 +34,7 @@
 | DT-10 | Sin pruebas ni integración continua | Alta |
 | DT-11 | Bucket de anexos público | **Crítica** |
 | DT-12 | La IA no deja rastro | Alta |
-| DT-13 | Facturas de Sección 3 no se suben nunca | Media |
+| DT-13 | Facturas de Sección 3 no se suben nunca | ~~Media~~ → Alta · ✅ RESUELTO |
 | DT-14 | Errores de negocio devueltos como HTTP 200 | Media |
 | DT-15 | Contador de tokens y coste no persistido | Baja |
 | DT-16 | Precios del modelo incrustados en la interfaz | Baja |
@@ -46,6 +46,7 @@
 | DT-22 | Sin límite de tamaño en los PDFs de entrada | Baja |
 | DT-23 | Sin política de tratamiento y retención de datos | Alta |
 | DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | ~~Media~~ → **Crítica** · ✅ RESUELTO |
+| DT-25 | Escrituras tardías con datos viejos (Sección 2 y Anexos) | Alta |
 
 ---
 
@@ -132,7 +133,7 @@ credenciales del código.
 
 ---
 
-## DT-03 · Sesión sin persistencia ni refresco de token
+## DT-03 · Sesión sin persistencia ni refresco de token — 🟡 PARCIAL
 
 **Problema.** El token de sesión vive únicamente en el estado de React. No se
 guarda en ningún sitio y no se renueva nunca.
@@ -155,6 +156,17 @@ guarda en ningún sitio y no se renueva nunca.
 - Las subidas a Storage fallan igual, con el mensaje "sesión no disponible".
 
 **Prioridad.** Crítica.
+
+**Estado (revisado en la sesión 29, sobre el código real de `test`).**
+- **Refresco: resuelto.** La sesión del panel de administración (30 de
+  septiembre, entrada en `test` en la sesión 27) guarda el `refresh_token` y
+  renueva la sesión sola cuando le quedan menos de 10 minutos, cada minuto y
+  al volver a la pestaña (`applySession`, `renew`). Esta ficha no se había
+  actualizado.
+- **Persistencia: sigue abierta.** Sigue sin haber `localStorage` ni
+  `sessionStorage` en `Peritia.jsx`: **recargar la página cierra la sesión**
+  y el perito vuelve al login. El trabajo guardado no se pierde (está en la
+  base de datos), pero lo que no se haya guardado sí.
 
 ---
 
@@ -435,7 +447,7 @@ Detalle completo en `AI_INVENTORY.md`, sección 7.
 
 ---
 
-## DT-13 · Facturas de Sección 3 no se suben nunca
+## DT-13 · Facturas de Sección 3 no se suben nunca — ✅ RESUELTO
 
 **Problema.** Las facturas adjuntadas en la Sección 3 para que la IA las lea se
 guardan como objetos `File` del navegador dentro de `s3.facturas`, y **nunca se
@@ -459,6 +471,45 @@ const news = Array.from(files).map(f => ({id:…, name:f.name, size:f.size, file
   correctamente: la incoherencia está solo en la vía de la Sección 3.
 
 **Prioridad.** Media.
+
+**Corregido (sesión 29, R-07).**
+- Las facturas de la Sección 3 se suben a Storage al adjuntarlas, igual que
+  las de la pestaña Anexos, y guardan su `url`. Sobreviven a guardar,
+  recargar, reabrir y exportar.
+- Una sola implementación de subida y otra de borrado (`subirArchivoAnexo`,
+  `borrarArchivoAnexo`), que usan los anexos manuales, las capturas
+  automáticas y la Sección 3. Antes el código de subida estaba copiado dos
+  veces; habría sido la tercera.
+- La exportación ya no confunde el `{}` de un archivo guardado con un archivo
+  (`lib/dominio/facturas.js`). Las facturas que se perdieron antes de este
+  arreglo salen como "[Documento adjunto]" en vez de romper el PDF/Word, y la
+  Sección 3 las marca en rojo para volver a adjuntarlas.
+- "Extraer tabla" lee cada factura de donde esté (memoria o Storage) y nombra
+  las que no puede leer, en vez de saltárselas y decir "No se encontraron
+  líneas".
+- **La carrera que casi anula el arreglo:** al adjuntar y pulsar enseguida
+  "Extraer tabla", la IA terminaba después de la subida y guardaba con los
+  datos del momento del clic, sin la `url`. Las tres escrituras que llegan
+  tarde en la Sección 3 (redactar texto, tabla desde baremo, tabla desde
+  facturas) cambian ahora solo su campo, sobre el estado más reciente, y solo
+  mientras el editor sigue abierto. De paso deja de perderse lo que el perito
+  escribía en la Sección 3 mientras esperaba a la IA.
+- Tests: `tests/facturas.test.js` reproduce el fallo (guardar y recargar
+  convierte el archivo en `{}`, y el código antiguo reventaba), simula la
+  carrera y añade una guardia sobre el código. Se comprobó que la guardia
+  falla con el código anterior y señala las cinco líneas culpables.
+
+**Prioridad corregida:** ~~Media~~ → Alta. La exportación fallaba entera en un
+flujo normal (valorar por factura, guardar, volver otro día y exportar), que
+es justo el del expediente real 01.
+
+**Sin decidir, a propósito:** si las facturas de la Sección 3 y las de la
+pestaña "Facturas" de Anexos son el mismo concepto. Se mantienen las dos vías
+como estaban. Ver `OPEN_QUESTIONS.md`, P-27.
+
+**Efecto sobre DT-11:** estas facturas pasan a estar en el bucket `anexos`,
+que hoy es público. Es el mismo sitio y la misma exposición que ya tenían las
+facturas de la pestaña Anexos, pero son documentos con datos personales.
 
 ---
 
@@ -745,3 +796,31 @@ dando 6000— y solo después decide si el formato es español o anglosajón.
 El test de caracterización de `tests/utilidades.test.js` pasa a fijar el
 comportamiento correcto, y `tests/caso-real-01.test.js` fija el expediente
 completo.
+
+---
+
+## DT-25 · Escrituras tardías con datos viejos (Sección 2 y Anexos)
+
+**Detectada en la sesión 29**, al corregir DT-13.
+
+**Problema.** Varias acciones guardan su resultado cuando termina una espera
+(una llamada a la IA, una subida a Storage) usando los datos del momento en
+que empezaron: `onChange({...data, campo})`. Todo lo que el perito cambió
+mientras tanto se pisa con la versión vieja.
+
+**Dónde sigue pasando:**
+- **Sección 2, "Redactar con IA":** `onChange({...data,textoAI:text,aiApplied:false})`.
+  Lo que el perito escriba en la Sección 2 durante la espera se pierde.
+- **Anexos, subida de archivos:** al terminar la subida,
+  `onChange({...data,[tab]:[...]})`. Si durante la subida el perito cambia un
+  pie de foto o sube otro lote, uno de los dos cambios se pierde.
+- En ambos casos, si el perito sale del editor y abre otro expediente antes de
+  que termine la espera, la pantalla puede saltar al expediente anterior.
+
+**Ya resuelto en la Sección 3** (sesión 29): las escrituras tardías usan
+`onPatch`/`updLatest`, que aplica el cambio sobre el estado más reciente y
+solo mientras el editor sigue abierto. La corrección para la Sección 2 y
+Anexos es la misma y es pequeña; no se hizo en la misma PR para no mezclar
+temas.
+
+**Prioridad.** Alta: pérdida de trabajo del perito, silenciosa.

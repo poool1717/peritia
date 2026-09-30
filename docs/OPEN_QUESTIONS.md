@@ -42,6 +42,7 @@
 | P-24 | ¿Cómo se reconcilian las carpetas de `knowledge/` del Sprint 0 con las del Sprint 2? | `knowledge/architecture/KNOWLEDGE_ARCHITECTURE.md` | Media |
 | P-25 | ¿Falta la garantía de Rotura de cristales en el catálogo? | `TAXONOMY.md` §4, catálogo de garantías | **Alta** |
 | P-26 | ¿El baremo debe cubrir parquet, cubierta e incendio? | Catálogo de métodos de reparación | **Alta** |
+| P-27 | ¿Las facturas de la Sección 3 y las de la pestaña "Facturas" de Anexos son lo mismo? | DT-13, R-07 | Media |
 
 ---
 
@@ -533,3 +534,27 @@ convencional, y dejan sin cubrir supuestos muy frecuentes:
 **Bloquea:** el alcance del catálogo de métodos de reparación
 (`knowledge/repairs/`) y la utilidad real de las fichas de material ya
 redactadas, que hoy no pueden referenciar ningún método aplicable.
+
+---
+
+## P-27 · ¿Las facturas de la Sección 3 y las de la pestaña "Facturas" son lo mismo? — sesión 29
+
+Hoy hay **dos sitios** para adjuntar una factura o un presupuesto:
+- **Sección 3**, para que la IA extraiga de ella las partidas de la valoración.
+- **Anexos → pestaña "Facturas" / "Presupuestos"**, como documento del informe.
+
+Las dos acaban en la exportación como una hoja más del informe. Si el perito
+adjunta la misma factura en los dos sitios, sale dos veces.
+
+Desde la sesión 29 (DT-13) las dos vías guardan el archivo en Storage de la
+misma manera, así que unificarlas ya no tiene obstáculo técnico. Lo que falta
+es la decisión:
+
+- ¿Son el mismo documento visto desde dos pantallas, y debería adjuntarse una
+  sola vez?
+- ¿O son cosas distintas (la factura "que se valora" frente a documentación
+  complementaria) y deben seguir separadas?
+- Si se unifican, ¿dónde debe adjuntarse: en la Sección 3, en Anexos, o en
+  cualquiera de los dos y verse en ambos?
+
+**No se ha tocado nada por esta decisión**: las dos vías siguen como estaban.

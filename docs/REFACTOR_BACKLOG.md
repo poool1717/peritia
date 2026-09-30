@@ -33,7 +33,7 @@
 | R-04 | Proteger `/api/claude` | DT-04 | Bajo | Bajo | 4 |
 | R-05 | Anexos con acceso restringido | DT-11 | Medio | Medio | 5 |
 | R-06 | Unificar el cálculo del infraseguro | DT-08, DT-19 | Bajo | **Bajo** | ✅ Hecho (sesión 28) |
-| R-07 | Subir las facturas de Sección 3 a Storage | DT-13 | Bajo | Bajo | 7 |
+| R-07 | Subir las facturas de Sección 3 a Storage | DT-13 | Bajo | Bajo | ✅ Hecho (sesión 29) |
 | R-08 | Extraer los prompts a `prompts/` | DT-12 parcial | Bajo | Bajo | 8 |
 | R-09 | Validación de respuestas de IA con esquema | DT-09 | Medio | Bajo | ⛔ Diferido |
 | R-10 | Registro y trazabilidad de ejecuciones de IA | DT-12, DT-15 | Alto | Medio | 9 |
@@ -235,7 +235,7 @@ los importes no pueden moverse; aun así:
 
 ---
 
-## R-07 · Subir las facturas de Sección 3 a Storage
+## R-07 · Subir las facturas de Sección 3 a Storage — ✅ HECHO (sesión 29)
 
 **Cierra:** DT-13.
 **Prioridad: 7.**
