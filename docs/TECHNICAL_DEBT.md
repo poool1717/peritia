@@ -499,6 +499,31 @@ const news = Array.from(files).map(f => ({id:…, name:f.name, size:f.size, file
   carrera y añade una guardia sobre el código. Se comprobó que la guardia
   falla con el código anterior y señala las cinco líneas culpables.
 
+**Ajustes de revisión de la PR (sesión 29, antes de la prueba manual).**
+- **Límite de tamaño.** Las facturas de la Sección 3 se guardaban con el
+  límite de Anexos (10 MB) pero la IA las lee hasta 14 MB: una factura de
+  10–14 MB se podía extraer y luego se perdía al recargar. Ahora se guardan
+  con el mismo límite que lee la IA (`PDF_IA_MAX_SIZE`, 14 MB). El de 10 MB
+  venía de la sesión 11 sin motivo documentado; el bucket no fija límite
+  propio, así que manda el límite global del proyecto de Supabase (50 MB por
+  defecto, **no verificable desde Claude Code**). El límite de la pestaña
+  Anexos no se ha tocado.
+- **Nunca en otro expediente.** Las escrituras tardías llevan el id del
+  expediente en el que empezaron y se descartan si el abierto es otro
+  (`lib/dominio/escrituraTardia.js`). Hoy no hay forma de cambiar de
+  expediente sin cerrar el editor, así que es una defensa adicional, no un
+  arreglo de un fallo observado. **Límite conocido:** un expediente nuevo
+  cambia de id al guardarse por primera vez (~1 s después de abrirlo); lo
+  que empiece antes y termine después se descarta (se prefiere perder un
+  resultado de la IA a escribirlo en el sitio equivocado).
+- **Subir y borrar a la vez.** Si el perito quita una factura mientras se
+  sube, no reaparece, y el archivo que ya se había subido se borra de
+  Storage (también cuando la escritura se descarta). Es un borrado de buena
+  fe: si falla la red en ese momento, el archivo queda huérfano en el bucket.
+- Tests: `tests/escrituraTardia.test.js` (la operación de A nunca llega a B)
+  y ampliación de `tests/facturas.test.js` (carrera subida → borrado y
+  guardias de los tres ajustes).
+
 **Prioridad corregida:** ~~Media~~ → Alta. La exportación fallaba entera en un
 flujo normal (valorar por factura, guardar, volver otro día y exportar), que
 es justo el del expediente real 01.

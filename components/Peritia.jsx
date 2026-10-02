@@ -18,7 +18,8 @@ import {
   matchBaremo,
 } from "../lib/dominio/calculo.js";
 import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/alertas.js";
-import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas } from "../lib/dominio/facturas.js";
+import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas, adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
+import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -2520,9 +2521,14 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       setErrFac('Adjuntada, pero NO guardada: sesión no disponible. Si recargas la página se perderá. Vuelve a iniciar sesión y adjúntala de nuevo.');
       return;
     }
-    const grandes = news.filter(n=>n.size>ANEXOS_MAX_SIZE);
-    const validas = news.filter(n=>n.size<=ANEXOS_MAX_SIZE);
-    if(grandes.length) setErrFac(`${grandes.map(n=>n.name).join(', ')}: supera el límite de 10 MB para guardarse. Se puede leer ahora, pero se perderá al recargar.`);
+    // Mismo límite que la IA (14 MB), no el de Anexos (10 MB): toda factura que
+    // "Extraer tabla" puede leer tiene que poder guardarse, o quedaría en el
+    // estado "se lee ahora pero se pierde al recargar". El límite de 10 MB de
+    // Anexos no tiene ninguna razón documentada y el bucket no fija ninguno
+    // propio (hereda el general del proyecto Supabase), pero no se toca aquí.
+    const grandes = news.filter(n=>n.size>PDF_IA_MAX_SIZE);
+    const validas = news.filter(n=>n.size<=PDF_IA_MAX_SIZE);
+    if(grandes.length) setErrFac(`${grandes.map(n=>n.name).join(', ')}: supera el límite de 14 MB. La IA no puede leerla y no se guardará: se perderá al recargar.`);
     if(!validas.length) return;
     setSubiendoFac(s=>[...s,...validas.map(n=>n.id)]);
     Promise.allSettled(validas.map(n=>
@@ -2530,10 +2536,13 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     )).then(res=>{
       const ok = res.filter(r=>r.status==='fulfilled').map(r=>r.value);
       const errs = res.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
-      if(ok.length) onPatch?.(s3=>({...s3, facturas:(s3.facturas||[]).map(f=>{
-        const u = ok.find(o=>o.id===f.id);
-        return u ? {...f, url:u.url, type:f.type||u.type} : f;
-      })}));
+      // Se añade la `url` a cada factura que siga en la lista. Las que el perito
+      // borró mientras se subían, y todas si la escritura se descarta (editor
+      // cerrado u otro expediente), dejan un archivo en Storage que nadie
+      // referencia: se borra para no dejar documentos huérfanos.
+      let huerfanas = ok.map(o=>o.url);
+      if(ok.length) onPatch?.(s3=>{ const r = adjuntarUrlsSubidas(s3, ok); huerfanas = r.huerfanas; return r.s3; });
+      huerfanas.forEach(url=>borrarArchivoAnexo(url, token));
       if(errs.length) setErrFac(prev=>[prev, `No se han guardado (se perderán al recargar): ${errs.join(' · ')}`].filter(Boolean).join(' '));
       setSubiendoFac(s=>s.filter(id=>!validas.some(n=>n.id===id)));
     });
@@ -3996,16 +4005,17 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   // empezó la subida. Con `upd` se pisarían los cambios hechos mientras tanto
   // (por ejemplo, las partidas extraídas por la IA durante la subida).
   //
-  // Solo mientras el editor sigue abierto. Si el perito ya ha salido (volvió
-  // al listado, abrió otro expediente), aplicar el cambio reactivaría este
-  // expediente y la pantalla saltaría a él. En ese caso se descarta: la
-  // factura queda sin `url` y, al volver, muestra el aviso "Sin guardar".
+  // Solo mientras el editor sigue abierto y solo sobre el MISMO expediente en
+  // el que empezó la operación (`idOrigen`, el de la pantalla en el momento de
+  // empezar). Si el perito ya ha salido o ha pasado a otro expediente, se
+  // descarta: la factura queda sin `url` y, al volver, muestra el aviso
+  // "Sin guardar". La regla vive en lib/dominio/escrituraTardia.js.
   const cDataRef = useRef(cData); cDataRef.current = cData;
   const editorAbiertoRef = useRef(true);
   useEffect(()=>{ editorAbiertoRef.current = true; return ()=>{ editorAbiertoRef.current = false; }; },[]);
-  const updLatest = (key, fn) => {
-    if(!editorAbiertoRef.current) return;
-    onUpdate({...cDataRef.current,[key]:fn(cDataRef.current[key]||{})});
+  const updLatest = (key, fn, idOrigen) => {
+    const nuevo = aplicarEscrituraTardia({actual:cDataRef.current, idOrigen, editorAbierto:editorAbiertoRef.current, clave:key, fn});
+    if(nuevo) onUpdate(nuevo);
   };
   // Sube una captura automática (Catastro/XEMA) y la añade a Anexos sin pasar por el editor de esa sección.
   const addAutoAnexo = async (tab,dataUrl,name,cat) => {
@@ -4041,7 +4051,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave} scrollRef={contentRef}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
-      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} onPatch={fn=>updLatest("s3",fn)} enc={cData.encargo||{}} s1={cData.s1||{}} token={token} userId={user?.id} informeId={cData._sbId||cData.id} {...commonProps}/>;
+      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} onPatch={fn=>updLatest("s3",fn,cData.id)} enc={cData.encargo||{}} s1={cData.s1||{}} token={token} userId={user?.id} informeId={cData._sbId||cData.id} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onNext={goNext} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id} scrollRef={contentRef}/>;
       default: return null;

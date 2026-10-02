@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 30 septiembre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde, pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
+**Última actualización:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
 
 **Anterior:** 30 septiembre 2026 (sesión 28 — **DT-08 cerrada: la vista previa ya no contradice al informe**. La vista previa calculaba capitales e infraseguro por su cuenta y, con el expediente real 01, enseñaba capital 6,00 € e infraseguro 100 % mientras proponía 463,59 € y el PDF decía 6.000 € y 0 %. Ahora la vista previa y la Sección 1 usan el motor, como el resto. No cambia ninguna fórmula. 455 tests. Ver "Sesión 28" más abajo)
 
@@ -46,12 +46,18 @@
 - Una carrera casi anulaba el arreglo: adjuntar y pulsar "Extraer tabla" enseguida borraba la dirección recién guardada. Las escrituras tardías de la Sección 3 usan ahora el estado más reciente, y solo mientras el editor sigue abierto.
 - Tests: `tests/facturas.test.js` reproduce el fallo, simula la carrera y añade una guardia sobre el código (comprobado que falla con el código anterior).
 
+**Ajustes tras la revisión de Pol (misma PR, antes de probarla):**
+- Las facturas de la Sección 3 se guardan hasta 14 MB, lo mismo que puede leer la IA. Antes se guardaban solo hasta 10 MB: una factura de 12 MB se podía extraer, pero desaparecía al recargar. El límite de Anexos no cambia.
+- Un resultado que llega tarde solo se escribe en el expediente donde empezó (`lib/dominio/escrituraTardia.js`). Límite aceptado: en un expediente recién creado, lo que se lance en el primer segundo y termine después se descarta.
+- Si el perito quita una factura mientras se sube, no reaparece y su archivo se borra de Storage.
+- 493 tests en verde (antes 475).
+
 **Hallazgos nuevos, anotados y sin corregir en esta PR:**
-- **DT-25:** el mismo patrón de "escritura tardía con datos viejos" sigue en la Sección 2 ("Redactar con IA") y en la subida de Anexos. Pérdida silenciosa de lo que el perito escribe mientras espera.
+- **DT-25:** el mismo patrón de "escritura tardía con datos viejos" sigue en la Sección 1 (Catastro, "Mejorar"), la Sección 2 (Meteo, "Redactar con IA") y en la subida de Anexos. Pérdida silenciosa de lo que el perito escribe mientras espera.
 - **P-27 (decisión de producto):** ¿las facturas de la Sección 3 y las de la pestaña "Facturas" son lo mismo? Si se adjunta la misma en los dos sitios, sale dos veces en el informe. No se ha tocado nada.
 - **DT-11 se agrava un poco:** las facturas de la Sección 3 ya están en el bucket `anexos`, que es público.
 
-**No verificado en la app real:** este cambio no se ha probado en un navegador contra la base de test (ver auditoría). Probarlo antes de fusionar la PR: adjuntar una factura en la Sección 3, pulsar "Extraer tabla" enseguida, guardar, recargar, reabrir el expediente y exportar a PDF y Word.
+**No verificado en la app real:** este cambio no se ha probado en un navegador contra la base de test (ver auditoría). Probarlo antes de fusionar la PR: adjuntar una factura en la Sección 3, pulsar "Extraer tabla" enseguida, guardar, recargar, reabrir el expediente y exportar a PDF y Word. Además: una factura de entre 10 y 14 MB, y quitar una factura mientras pone "guardando…".
 
 **Acciones manuales pendientes de Pol:**
 1. Aplicar `supabase/migrations/20260930120000_admin_fase1.sql` en el proyecto de test (`yvconlqtetxvyzxkhxib`).

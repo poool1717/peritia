@@ -187,3 +187,109 @@ describe("guardia DT-13 en Peritia.jsx", async () => {
     expect(malas).toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ajustes de revisión de la PR #23
+// ─────────────────────────────────────────────────────────────────────────────
+import { adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
+import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
+
+describe("adjuntarUrlsSubidas — la url llega a su factura y nada más", () => {
+  const s3 = { partidas: [{ desc: "x" }], facturas: [{ id: 1, name: "a.pdf", type: "" }, { id: 2, name: "b.pdf", type: "application/pdf" }] };
+
+  it("añade la url a las facturas que siguen en la lista", () => {
+    const r = adjuntarUrlsSubidas(s3, [{ id: 1, url: "u1", type: "application/pdf" }]);
+    expect(r.s3.facturas[0]).toMatchObject({ id: 1, url: "u1", type: "application/pdf" });
+    expect(r.s3.facturas[1].url).toBeUndefined();
+    expect(r.s3.partidas).toEqual(s3.partidas);
+    expect(r.huerfanas).toEqual([]);
+  });
+
+  it("no pisa el tipo que ya tenía la factura", () => {
+    const r = adjuntarUrlsSubidas(s3, [{ id: 2, url: "u2", type: "application/octet-stream" }]);
+    expect(r.s3.facturas[1].type).toBe("application/pdf");
+  });
+
+  it("una factura borrada mientras se subía NO reaparece y su archivo queda marcado como huérfano", () => {
+    const r = adjuntarUrlsSubidas(s3, [{ id: 99, url: "u99" }]);
+    expect(r.s3.facturas.map(f => f.id)).toEqual([1, 2]);
+    expect(r.huerfanas).toEqual(["u99"]);
+  });
+
+  it("aguanta una sección vacía", () => {
+    expect(adjuntarUrlsSubidas(undefined, [{ id: 1, url: "u" }])).toEqual({ s3: { facturas: [] }, huerfanas: ["u"] });
+  });
+});
+
+// Réplica literal del final de la subida en la Sección 3 (addFactura), con el
+// editor (updLatest) y el borrado de Storage simulados.
+describe("carrera subida → borrado de la factura", () => {
+  const montar = ({ editorAbierto = true } = {}) => {
+    let activo = { id: "A", s3: { facturas: [] } };
+    const borrar = vi.fn();
+    const onUpdate = u => { activo = u; };
+    const updLatest = (clave, fn, idOrigen) => {
+      const nuevo = aplicarEscrituraTardia({ actual: activo, idOrigen, editorAbierto, clave, fn });
+      if (nuevo) onUpdate(nuevo);
+    };
+    const onPatch = fn => updLatest("s3", fn, "A");
+    const terminarSubida = ok => {                              // literal de addFactura
+      let huerfanas = ok.map(o => o.url);
+      if (ok.length) onPatch(s3 => { const r = adjuntarUrlsSubidas(s3, ok); huerfanas = r.huerfanas; return r.s3; });
+      huerfanas.forEach(url => borrar(url));
+    };
+    return { get: () => activo, set: a => { activo = a; }, borrar, terminarSubida };
+  };
+
+  it("adjuntar, borrar antes de que termine: no queda factura visible y se borra el archivo subido", () => {
+    const ed = montar();
+    ed.set({ ...ed.get(), s3: { facturas: [{ id: 1, name: "VIADER.pdf", file: pdf() }] } }); // adjuntar
+    ed.set({ ...ed.get(), s3: { facturas: [] } });                                           // borrar (aún sin url)
+    ed.terminarSubida([{ id: 1, url: URL_STORAGE }]);                                         // termina la subida
+    expect(ed.get().s3.facturas).toEqual([]);
+    expect(ed.borrar).toHaveBeenCalledWith(URL_STORAGE);
+  });
+
+  it("si no se borra, la factura conserva su url y NO se borra nada de Storage", () => {
+    const ed = montar();
+    ed.set({ ...ed.get(), s3: { facturas: [{ id: 1, name: "VIADER.pdf", file: pdf() }] } });
+    ed.terminarSubida([{ id: 1, url: URL_STORAGE }]);
+    expect(ed.get().s3.facturas[0].url).toBe(URL_STORAGE);
+    expect(ed.borrar).not.toHaveBeenCalled();
+  });
+
+  it("de dos facturas, solo se borra el archivo de la que el perito quitó", () => {
+    const ed = montar();
+    ed.set({ ...ed.get(), s3: { facturas: [{ id: 1, name: "a.pdf" }, { id: 2, name: "b.pdf" }] } });
+    ed.set({ ...ed.get(), s3: { facturas: [{ id: 2, name: "b.pdf" }] } }); // quita la 1
+    ed.terminarSubida([{ id: 1, url: "u1" }, { id: 2, url: "u2" }]);
+    expect(ed.get().s3.facturas).toEqual([{ id: 2, name: "b.pdf", url: "u2", type: undefined }]);
+    expect(ed.borrar.mock.calls).toEqual([["u1"]]);
+  });
+
+  it("si el editor se cerró durante la subida, no se toca el expediente y no queda archivo huérfano", () => {
+    const ed = montar({ editorAbierto: false });
+    ed.set({ ...ed.get(), s3: { facturas: [{ id: 1, name: "a.pdf", file: pdf() }] } });
+    ed.terminarSubida([{ id: 1, url: "u1" }]);
+    expect(ed.get().s3.facturas[0].url).toBeUndefined(); // queda "Sin guardar", visible
+    expect(ed.borrar).toHaveBeenCalledWith("u1");
+  });
+});
+
+describe("guardia de los ajustes de la PR #23 en Peritia.jsx", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../components/Peritia.jsx", import.meta.url), "utf8");
+  const addFactura = src.slice(src.indexOf("const addFactura = files"), src.indexOf("const delFactura = id"));
+
+  it("las facturas de la Sección 3 se guardan con el mismo límite que lee la IA (14 MB)", () => {
+    expect(addFactura).toMatch(/n\.size>PDF_IA_MAX_SIZE/);
+    expect(addFactura).not.toMatch(/ANEXOS_MAX_SIZE/);
+  });
+  it("las escrituras tardías de la Sección 3 llevan el expediente de origen", () => {
+    expect(src).toMatch(/onPatch=\{fn=>updLatest\("s3",fn,cData\.id\)\}/);
+  });
+  it("al terminar la subida se borran los archivos que nadie referencia", () => {
+    expect(addFactura).toMatch(/adjuntarUrlsSubidas/);
+    expect(addFactura).toMatch(/huerfanas\.forEach\(url=>borrarArchivoAnexo\(url, token\)\)/);
+  });
+});
