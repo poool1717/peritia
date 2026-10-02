@@ -22,7 +22,7 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 | IA | Anthropic API · modelo `claude-sonnet-4-6` |
 | Proxy API | `pages/api/claude.js` (Next.js serverless) |
 | Repositorio | `github.com/poool1717/peritia` (rama `main` = producción, rama `test` = entorno paralelo) |
-| Tests | `vitest` · `npm test` (455 tests) |
+| Tests | `vitest` · `npm test` (493 tests) |
 | CI | GitHub Actions · `.github/workflows/ci.yml` |
 
 ---
@@ -32,12 +32,14 @@ SaaS de generación automática de informes periciales de seguros con IA. El per
 ```
 peritia/
 ├── components/
-│   ├── Peritia.jsx          ← COMPONENTE PRINCIPAL (4407 líneas, solo interfaz)
+│   ├── Peritia.jsx          ← COMPONENTE PRINCIPAL (4499 líneas, solo interfaz)
 │   └── Admin.jsx            ← panel de administración (762 líneas; solo cuentas en public.admins)
 ├── lib/
 │   ├── dominio/
 │   │   ├── calculo.js       ← motor de cálculo: baremo, valoración, reglas, indemnización
-│   │   └── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
+│   │   ├── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
+│   │   ├── facturas.js      ← de dónde sale cada factura de la Sección 3 (Storage, memoria o perdida)
+│   │   └── escrituraTardia.js ← cuándo se aplica un resultado que llega tarde (mismo expediente, editor abierto)
 │   ├── supabase/
 │   │   └── config.js        ← a qué base de datos se conecta cada despliegue (frontend y proxy)
 │   └── knowledge/           ← Knowledge Core (KP-01): unidades, registro, resolución,
@@ -48,7 +50,7 @@ peritia/
 │   ├── domain/              ← modelo de dominio y 28 fichas de entidad
 │   └── TECHNICAL_DEBT.md    ← deudas DT-01…DT-24 con prioridad y estado
 ├── knowledge/               ← Knowledge Library: ontología, taxonomía, plantillas, fichas
-├── tests/                   ← 455 tests con vitest, incluido un caso real cerrado
+├── tests/                   ← 493 tests con vitest, incluido un caso real cerrado
 ├── .github/workflows/ci.yml ← CI: tests + balance de llaves + build en cada push y PR
 ├── vitest.config.mjs
 ├── pages/

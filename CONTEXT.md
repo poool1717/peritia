@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 30 septiembre 2026 (sesión 28 — **DT-08 cerrada: la vista previa ya no contradice al informe**. La vista previa calculaba capitales e infraseguro por su cuenta y, con el expediente real 01, enseñaba capital 6,00 € e infraseguro 100 % mientras proponía 463,59 € y el PDF decía 6.000 € y 0 %. Ahora la vista previa y la Sección 1 usan el motor, como el resto. No cambia ninguna fórmula. 455 tests. Ver "Sesión 28" más abajo)
+**Última actualización:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
+
+**Anterior:** 30 septiembre 2026 (sesión 28 — **DT-08 cerrada: la vista previa ya no contradice al informe**. La vista previa calculaba capitales e infraseguro por su cuenta y, con el expediente real 01, enseñaba capital 6,00 € e infraseguro 100 % mientras proponía 463,59 € y el PDF decía 6.000 € y 0 %. Ahora la vista previa y la Sección 1 usan el motor, como el resto. No cambia ninguna fórmula. 455 tests. Ver "Sesión 28" más abajo)
 
 **Anterior:** 30 septiembre 2026 (sesión 27 — **la rama `test` se pone al día con `main`**. Otra sesión construyó hoy el panel de administración y el proxy de IA protegido directamente sobre `main`, sin pasar por `test`. Se traen a `test` y se corrige un fallo que habrían introducido: el proxy nuevo comprobaba las sesiones contra la base de producción aunque el frontend las hubiera abierto en la de test, así que toda llamada a la IA habría fallado en `test`. La regla "¿a qué base me conecto?" pasa a vivir en un único sitio, `lib/supabase/config.js`. 448 tests. Ver "Sesión 27" más abajo)
 
@@ -18,6 +20,51 @@
 ---
 
 ## Estado actual
+
+### Sesión 29 — Auditoría operativa de `test` y DT-13
+
+**Auditoría (pasos 1 a 5 de las instrucciones de desarrollo de la nueva versión).**
+
+| Comprobación | Resultado |
+|---|---|
+| Git: `test` frente a `main` | ✅ `test` 22 commits por delante, 0 por detrás. Sin PR abiertas |
+| `npm test` / `npm run build` | ✅ en verde |
+| Despliegue de `test` en Vercel | ✅ listo, en el último commit. URL fija: `https://peritia-git-test-pol-myprojects.vercel.app` |
+| Migración del admin en Supabase de test | ⛔ **No verificable desde Claude Code**: el conector de Supabase deniega incluso la lectura |
+| Variables `NEXT_PUBLIC_SUPABASE_*` en Vercel Preview | ⛔ **No verificable**: el conector de Vercel deniega listar variables (403) |
+| Recorrido completo en la app de test | ⛔ **No ejecutable**: la red del entorno bloquea `*.vercel.app`, y no hay clave de Anthropic ni acceso a la base de test para montarla en local |
+
+**Revisión del código del flujo (lo que sí se pudo hacer).**
+- ✅ Todas las llamadas a la IA pasan por `callClaude`, que envía el token de sesión. Las 9 llevan su etiqueta de sección para el registro de coste.
+- ✅ El token se fija al entrar y se renueva solo antes de caducar (`applySession`, `renew`). La mitad "refresco" de DT-03 está resuelta, aunque su ficha no se había actualizado.
+- ⚠️ **Recargar la página sigue cerrando la sesión** (DT-03, mitad "persistencia"). Lo guardado no se pierde; lo no guardado, sí.
+
+**DT-13 — facturas de la Sección 3 (corregido, R-07).** Las facturas se guardaban solo en memoria. Al guardar el expediente se convertían en `{}`; al reabrirlo y exportar, el código tomaba ese `{}` por un archivo e **impedía generar el PDF o el Word**. Es el flujo del expediente real 01 (valoración por factura).
+- Ahora se suben a Storage al adjuntarlas y guardan su dirección, como las de Anexos.
+- Las que se perdieron antes del arreglo ya no rompen la exportación: salen como "[Documento adjunto]" y la Sección 3 las marca en rojo.
+- "Extraer tabla" nombra las facturas que no puede leer, en vez de decir "No se encontraron líneas".
+- Una carrera casi anulaba el arreglo: adjuntar y pulsar "Extraer tabla" enseguida borraba la dirección recién guardada. Las escrituras tardías de la Sección 3 usan ahora el estado más reciente, y solo mientras el editor sigue abierto.
+- Tests: `tests/facturas.test.js` reproduce el fallo, simula la carrera y añade una guardia sobre el código (comprobado que falla con el código anterior).
+
+**Ajustes tras la revisión de Pol (misma PR, antes de probarla):**
+- Las facturas de la Sección 3 se guardan hasta 14 MB, lo mismo que puede leer la IA. Antes se guardaban solo hasta 10 MB: una factura de 12 MB se podía extraer, pero desaparecía al recargar. El límite de Anexos no cambia.
+- Un resultado que llega tarde solo se escribe en el expediente donde empezó (`lib/dominio/escrituraTardia.js`). Límite aceptado: en un expediente recién creado, lo que se lance en el primer segundo y termine después se descarta.
+- Si el perito quita una factura mientras se sube, no reaparece y su archivo se borra de Storage.
+- 493 tests en verde (antes 475).
+
+**Hallazgos nuevos, anotados y sin corregir en esta PR:**
+- **DT-25:** el mismo patrón de "escritura tardía con datos viejos" sigue en la Sección 1 (Catastro, "Mejorar"), la Sección 2 (Meteo, "Redactar con IA") y en la subida de Anexos. Pérdida silenciosa de lo que el perito escribe mientras espera.
+- **P-27 (decisión de producto):** ¿las facturas de la Sección 3 y las de la pestaña "Facturas" son lo mismo? Si se adjunta la misma en los dos sitios, sale dos veces en el informe. No se ha tocado nada.
+- **DT-11 se agrava un poco:** las facturas de la Sección 3 ya están en el bucket `anexos`, que es público.
+
+**No verificado en la app real:** este cambio no se ha probado en un navegador contra la base de test (ver auditoría). Probarlo antes de fusionar la PR: adjuntar una factura en la Sección 3, pulsar "Extraer tabla" enseguida, guardar, recargar, reabrir el expediente y exportar a PDF y Word. Además: una factura de entre 10 y 14 MB, y quitar una factura mientras pone "guardando…".
+
+**Acciones manuales pendientes de Pol:**
+1. Aplicar `supabase/migrations/20260930120000_admin_fase1.sql` en el proyecto de test (`yvconlqtetxvyzxkhxib`).
+2. Comprobar en Vercel que `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` están en el ámbito *Preview* apuntando al proyecto de test.
+3. Recorrer el flujo completo en `https://peritia-git-test-pol-myprojects.vercel.app` con un expediente real, y probar la PR de DT-13.
+
+---
 
 ### Sesión 28 — DT-08: la vista previa ya no contradice al informe
 

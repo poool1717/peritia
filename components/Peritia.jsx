@@ -18,6 +18,8 @@ import {
   matchBaremo,
 } from "../lib/dominio/calculo.js";
 import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/alertas.js";
+import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas, adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
+import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -2293,7 +2295,13 @@ const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
       fontVariantNumeric:type==="number"?"tabular-nums":"normal",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
 );
 
-const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave,scrollRef}) => {
+const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNext,onPrev,onSave,scrollRef}) => {
+  // Escrituras que llegan tarde, al volver de la IA o de una subida. Cambian
+  // solo sus campos, sobre el estado más reciente de la Sección 3: con
+  // onChange({...data,…}) se pisaba todo lo hecho mientras tanto —lo que el
+  // perito escribía durante la espera, o la `url` de una factura que
+  // terminaba de subirse (DT-13)—.
+  const setLate = patch => onPatch ? onPatch(s3=>({...s3,...patch})) : onChange({...data,...patch});
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
@@ -2394,7 +2402,7 @@ CAUSA: ${enc.causa||""} | GARANTÍA: ${enc.garantia||""}
 TEXTO: "${data.textoRaw}"`,
       onTokens, 1500, "sec3_texto"
     ).catch(()=>"Error al conectar.");
-    onChange({...data,textoAI:text});
+    setLate({textoAI:text});
     setImproving(false);
   };
 
@@ -2441,7 +2449,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
-      onChange({...data,partidas:rows.map(sanP)});
+      setLate({partidas:rows.map(sanP)});
       setGenMsg(sinPrecio>0
         ? {tipo:"aviso",texto:`Tabla generada. ${sinPrecio} ${sinPrecio===1?"partida no está":"partidas no están"} en el baremo: revisa su precio, se ${sinPrecio===1?"ha añadido":"han añadido"} a 0 €.`}
         : null);
@@ -2459,10 +2467,17 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     let all=[];
     let hadError=false;
     let tooBig=[];
-    for(const fac of facturas){
-      if(!fac.file) continue;
-      if(fac.file.size>PDF_IA_MAX_SIZE){ tooBig.push(fac.name); continue; }
-      const b64 = await toB64(fac.file);
+    // DT-13: cada factura se lee de donde esté (memoria o Storage), y las que
+    // se perdieron se dicen por su nombre en vez de saltarse en silencio.
+    const {disponibles, perdidas} = fuentesDeFacturas(facturas);
+    for(const {factura:fac, fuente} of disponibles){
+      let blob = fac.file;
+      if(fuente==="url"){
+        try{ blob = await (await fetch(fac.url)).blob(); }
+        catch(e){ console.error('No se pudo descargar la factura:', fac.name, e); hadError=true; continue; }
+      }
+      if(blob.size>PDF_IA_MAX_SIZE){ tooBig.push(fac.name); continue; }
+      const b64 = await toB64(blob);
       const raw = await callClaude(
         "Extractor de facturas/presupuestos. SOLO JSON válido.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
@@ -2476,22 +2491,67 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
     }
     const tooBigMsg = tooBig.length?`${tooBig.join(', ')}: ${tooBig.length===1?'supera':'superan'} el límite de 14 MB por archivo y no se ${tooBig.length===1?'ha':'han'} podido leer.`:'';
+    const perdidasMsg = perdidas.length?`${perdidas.map(f=>f.name).join(', ')}: ${perdidas.length===1?'se perdió':'se perdieron'} al guardar el expediente y no se ${perdidas.length===1?'ha':'han'} podido leer. Vuelve a adjuntar${perdidas.length===1?'la':'las'}.`:'';
+    const avisos = [tooBigMsg, perdidasMsg].filter(Boolean).join(' ');
     if(all.length>0) {
-      onChange({...data,partidas:all.map(sanP)});
-      if(tooBigMsg) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${tooBigMsg}`});
+      setLate({partidas:all.map(sanP)});
+      if(avisos) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${avisos}`});
     }
-    else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${tooBigMsg?' '+tooBigMsg:''}`});
-    else if(tooBigMsg) setGenMsg({tipo:"error",texto:tooBigMsg});
+    else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${avisos?' '+avisos:''}`});
+    else if(avisos) setGenMsg({tipo:"error",texto:avisos});
     else setGenMsg({tipo:"aviso",texto:"No se encontraron líneas en las facturas adjuntas."});
     setGenLoad(false);
   };
 
   // ── Adjuntar facturas ────────────────────────────────────────────────────
+  // DT-13: la factura se añade al momento (para poder extraer la tabla sin
+  // esperar) y se sube a Storage en paralelo. Al terminar la subida solo se le
+  // añade su `url`, sobre el estado más reciente del expediente (onPatch), sin
+  // tocar nada más. Si la subida falla se dice: quedaría solo en memoria y se
+  // perdería al recargar.
+  const [subiendoFac,setSubiendoFac] = useState([]); // ids en curso
+  const [errFac,setErrFac] = useState('');
   const addFactura = files => {
-    const news = Array.from(files).map(f=>({id:Date.now()+Math.random(),name:f.name,size:f.size,file:f}));
+    const list = Array.from(files);
+    if(!list.length) return;
+    setErrFac('');
+    const news = list.map(f=>({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type||"",file:f}));
     onChange({...data,facturas:[...facturas,...news]});
+    if(!token||!userId){
+      setErrFac('Adjuntada, pero NO guardada: sesión no disponible. Si recargas la página se perderá. Vuelve a iniciar sesión y adjúntala de nuevo.');
+      return;
+    }
+    // Mismo límite que la IA (14 MB), no el de Anexos (10 MB): toda factura que
+    // "Extraer tabla" puede leer tiene que poder guardarse, o quedaría en el
+    // estado "se lee ahora pero se pierde al recargar". El límite de 10 MB de
+    // Anexos no tiene ninguna razón documentada y el bucket no fija ninguno
+    // propio (hereda el general del proyecto Supabase), pero no se toca aquí.
+    const grandes = news.filter(n=>n.size>PDF_IA_MAX_SIZE);
+    const validas = news.filter(n=>n.size<=PDF_IA_MAX_SIZE);
+    if(grandes.length) setErrFac(`${grandes.map(n=>n.name).join(', ')}: supera el límite de 14 MB. La IA no puede leerla y no se guardará: se perderá al recargar.`);
+    if(!validas.length) return;
+    setSubiendoFac(s=>[...s,...validas.map(n=>n.id)]);
+    Promise.allSettled(validas.map(n=>
+      subirArchivoAnexo(n.file,{name:n.name,carpeta:'sec3-facturas',token,userId,informeId}).then(r=>({id:n.id,...r}))
+    )).then(res=>{
+      const ok = res.filter(r=>r.status==='fulfilled').map(r=>r.value);
+      const errs = res.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
+      // Se añade la `url` a cada factura que siga en la lista. Las que el perito
+      // borró mientras se subían, y todas si la escritura se descarta (editor
+      // cerrado u otro expediente), dejan un archivo en Storage que nadie
+      // referencia: se borra para no dejar documentos huérfanos.
+      let huerfanas = ok.map(o=>o.url);
+      if(ok.length) onPatch?.(s3=>{ const r = adjuntarUrlsSubidas(s3, ok); huerfanas = r.huerfanas; return r.s3; });
+      huerfanas.forEach(url=>borrarArchivoAnexo(url, token));
+      if(errs.length) setErrFac(prev=>[prev, `No se han guardado (se perderán al recargar): ${errs.join(' · ')}`].filter(Boolean).join(' '));
+      setSubiendoFac(s=>s.filter(id=>!validas.some(n=>n.id===id)));
+    });
   };
-  const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
+  const delFactura = id => {
+    const f = facturas.find(x=>x.id===id);
+    onChange({...data,facturas:facturas.filter(x=>x.id!==id)});
+    borrarArchivoAnexo(f?.url, token);
+  };
   const [facDrag,setFacDrag] = useState(false);
   const s3b = s3BlockStates(data);
 
@@ -2625,12 +2685,20 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           {facturas.map(f=>(
             <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
               background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:14}}>
-              <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
-              <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
+              <Receipt size={13} style={{color:facturaPerdida(f)?C.red:C.green,flexShrink:0}}/>
+              <span style={{flex:1,color:facturaPerdida(f)?C.red:C.green,fontWeight:600}}>
+                {f.name}
+                {subiendoFac.includes(f.id)&&<span style={{marginLeft:8,fontWeight:400,color:C.muted,fontSize:13}}>guardando…</span>}
+                {facturaPerdida(f)&&<span style={{display:"block",fontWeight:400,fontSize:12.5}}>Se perdió al guardar el expediente. Quítala y vuelve a adjuntarla.</span>}
+                {!f.url&&tieneArchivoEnMemoria(f)&&!subiendoFac.includes(f.id)&&<span style={{display:"block",fontWeight:400,fontSize:12.5,color:C.orange}}>Sin guardar: se perderá si recargas la página.</span>}
+              </span>
               <span style={{color:C.muted,fontSize:13}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
               <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
             </div>
           ))}
+          {errFac&&<div role="alert" style={{background:C.redBg,border:`1px solid ${C.red}`,color:C.red,borderRadius:6,padding:"8px 10px",fontSize:13,marginBottom:8,display:"flex",gap:6,alignItems:"flex-start"}}>
+            <AlertTriangle size={13} style={{flexShrink:0,marginTop:2}}/><span>{errFac}</span>
+          </div>}
           {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
             {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
           </Btn>}
@@ -3075,18 +3143,38 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
 const ANEXOS_MAX_SIZE = 10*1024*1024; // 10 MB
 const ANEXOS_PUBLIC_PREFIX = `${SB_URL}/storage/v1/object/public/anexos/`;
 const sanitizeAnexoName = n => (n||"archivo").normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
-// Sube una captura automática (Catastro/XEMA, imagen data-URI) al mismo bucket que los anexos manuales.
-const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeId}) => {
+// Sube un archivo al bucket `anexos` y devuelve su dirección. Única
+// implementación: la usan los anexos manuales, las capturas automáticas
+// (Catastro/XEMA) y las facturas de la Sección 3.
+const subirArchivoAnexo = async (blob, {name, carpeta, token, userId, informeId, tipo}) => {
   if(!token||!userId) throw new Error('Sesión no disponible.');
-  const blob = await (await fetch(dataUrl)).blob();
-  const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(name)}`;
+  const path = `${userId}/${informeId||'sin-informe'}/${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(name)}`;
+  const type = blob.type||tipo||'application/octet-stream';
   const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
     method:'POST',
-    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':blob.type||'image/png'},
+    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':type},
     body:blob
   });
-  if(!res.ok) throw new Error(`Fallo al subir ${name} (${res.status})`);
-  return {id:Date.now()+Math.random(), name, url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type:blob.type||'image/png', caption:'', cat:cat||'Documento'};
+  if(!res.ok) throw new Error(`${name}: fallo al subir (${res.status})`);
+  return {url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type};
+};
+// Borra de Storage un archivo del bucket `anexos`. Un fallo solo se registra:
+// el anexo ya se ha quitado del informe y no debe bloquear al perito.
+const borrarArchivoAnexo = (url, token) => {
+  if(!url?.startsWith(ANEXOS_PUBLIC_PREFIX) || !token) return;
+  const path = url.slice(ANEXOS_PUBLIC_PREFIX.length);
+  fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
+    method:'DELETE',
+    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY}
+  }).then(res=>{
+    if(!res.ok) console.error('No se pudo borrar el archivo de Storage:', res.status, path);
+  }).catch(err=>console.error('No se pudo borrar el archivo de Storage:', err));
+};
+// Sube una captura automática (Catastro/XEMA, imagen data-URI) al mismo bucket que los anexos manuales.
+const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeId}) => {
+  const blob = await (await fetch(dataUrl)).blob();
+  const {url, type} = await subirArchivoAnexo(blob, {name, carpeta:tab, token, userId, informeId, tipo:'image/png'});
+  return {id:Date.now()+Math.random(), name, url, type, caption:'', cat:cat||'Documento'};
 };
 
 const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId,scrollRef}) => {
@@ -3126,14 +3214,8 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
     }
     setUploading(u=>[...u,...valid.map(f=>f.name)]);
     Promise.allSettled(valid.map(async f=>{
-      const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(f.name)}`;
-      const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
-        method:'POST',
-        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':f.type||'application/octet-stream'},
-        body:f
-      });
-      if(!res.ok) throw new Error(`${f.name}: fallo al subir (${res.status})`);
-      return {id:Date.now()+Math.random(),name:f.name,url:`${ANEXOS_PUBLIC_PREFIX}${path}`,type:f.type||"",caption:"",cat:"Daño general"};
+      const {url} = await subirArchivoAnexo(f, {name:f.name, carpeta:tab, token, userId, informeId});
+      return {id:Date.now()+Math.random(),name:f.name,url,type:f.type||"",caption:"",cat:"Daño general"};
     })).then(results=>{
       const okItems = results.filter(r=>r.status==='fulfilled').map(r=>r.value);
       const errs = results.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
@@ -3146,15 +3228,7 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
   const delI = id => {
     const item = bucket.find(i=>i.id===id);
     onChange({...data,[tab]:bucket.filter(i=>i.id!==id)});
-    if(item?.url?.startsWith(ANEXOS_PUBLIC_PREFIX) && token){
-      const path = item.url.slice(ANEXOS_PUBLIC_PREFIX.length);
-      fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
-        method:'DELETE',
-        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY}
-      }).then(res=>{
-        if(!res.ok) console.error('No se pudo borrar el archivo de Storage:', res.status, path);
-      }).catch(err=>console.error('No se pudo borrar el archivo de Storage:', err));
-    }
+    borrarArchivoAnexo(item?.url, token);
   };
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
   const total = tabs.reduce((a,t)=>a+(data[t.id]||[]).length,0);
@@ -3241,17 +3315,18 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
 // ─── EXPORT HELPERS ──────────────────────────────────────────────────────────
 const fmtPDF = n => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
 const esPdfItem = f => !!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-// Todas las facturas/presupuestos del informe: los subidos en Anexos (URL real
-// en Storage) más los adjuntados en Sec3 para la extracción por IA (Blob local,
-// nunca subido). A los de Sec3 se les crea una URL de objeto para poder
-// incrustarlos igualmente como una hoja más del informe.
+// Todas las facturas/presupuestos del informe: los subidos en Anexos más los
+// adjuntados en la Sección 3. Desde la sesión 29 (DT-13) los de la Sección 3
+// también tienen URL en Storage; si solo están en memoria se crea una URL de
+// objeto, y si se perdieron (guardados antes de la corrección) salen como
+// "[Documento adjunto]" en vez de romper la exportación. Ver lib/dominio/facturas.js.
 const allFacturasOf = cData => {
   const anexos=cData.anexos||{}, s3=cData.s3||{};
   const tipoS3 = s3.modoValoracion==='presupuesto'?'Presupuesto':'Factura';
   return [
     ...(anexos.facturas||[]).map(f=>({...f,tipo:'Factura'})),
     ...(anexos.presupuestos||[]).map(f=>({...f,tipo:'Presupuesto'})),
-    ...(s3.facturas||[]).map(f=>({...f,tipo:tipoS3,type:f.type||f.file?.type||'',url:f.url||(f.file?URL.createObjectURL(f.file):null)})),
+    ...(s3.facturas||[]).map(f=>facturaSec3ParaExportar(f, tipoS3, b=>URL.createObjectURL(b))),
   ];
 };
 
@@ -3925,6 +4000,23 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
   const addTokens = (i,o) => onUpdate({...cData,tokenStats:{i:(tokens.i||0)+i,o:(tokens.o||0)+o}});
   const upd = (key,val) => onUpdate({...cData,[key]:val});
+  // Para cambios que llegan tarde (al terminar una subida a Storage): se
+  // aplican sobre el expediente MÁS RECIENTE, no sobre el del momento en que
+  // empezó la subida. Con `upd` se pisarían los cambios hechos mientras tanto
+  // (por ejemplo, las partidas extraídas por la IA durante la subida).
+  //
+  // Solo mientras el editor sigue abierto y solo sobre el MISMO expediente en
+  // el que empezó la operación (`idOrigen`, el de la pantalla en el momento de
+  // empezar). Si el perito ya ha salido o ha pasado a otro expediente, se
+  // descarta: la factura queda sin `url` y, al volver, muestra el aviso
+  // "Sin guardar". La regla vive en lib/dominio/escrituraTardia.js.
+  const cDataRef = useRef(cData); cDataRef.current = cData;
+  const editorAbiertoRef = useRef(true);
+  useEffect(()=>{ editorAbiertoRef.current = true; return ()=>{ editorAbiertoRef.current = false; }; },[]);
+  const updLatest = (key, fn, idOrigen) => {
+    const nuevo = aplicarEscrituraTardia({actual:cDataRef.current, idOrigen, editorAbierto:editorAbiertoRef.current, clave:key, fn});
+    if(nuevo) onUpdate(nuevo);
+  };
   // Sube una captura automática (Catastro/XEMA) y la añade a Anexos sin pasar por el editor de esa sección.
   const addAutoAnexo = async (tab,dataUrl,name,cat) => {
     const item = await uploadAutoAnexo(dataUrl,{name,tab,cat,token,userId:user?.id,informeId:cData._sbId||cData.id});
@@ -3959,7 +4051,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave} scrollRef={contentRef}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
-      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
+      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} onPatch={fn=>updLatest("s3",fn,cData.id)} enc={cData.encargo||{}} s1={cData.s1||{}} token={token} userId={user?.id} informeId={cData._sbId||cData.id} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onNext={goNext} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id} scrollRef={contentRef}/>;
       default: return null;
