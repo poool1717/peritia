@@ -21,6 +21,7 @@ import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/a
 import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas, adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
 import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
+import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -796,7 +797,7 @@ const LoginScreen = ({onAuth}) => {
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg]};
+const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg],"Sin guardar":[C.red,C.redBg]};
 const TIPO_LABEL = {PERITACION:"Peritación",INSTANT_PAYMENT:"Instant Payment"};
 const fmtUpdated = v => {
   if(!v) return "";
@@ -818,7 +819,8 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
   const rows = cases.map(cas=>{
     const e=cas.encargo||{};
     const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
-    const estado = cas.estado==="exportado"?"Finalizado":(done===4?"Pendiente revisión":"En curso");
+    // C-3: un expediente que aún no existe en la base de datos se ve como tal.
+    const estado = !cas._sbId?"Sin guardar":cas.estado==="exportado"?"Finalizado":(done===4?"Pendiente revisión":"En curso");
     return {cas,e,done,estado};
   });
   const compOptions = [...new Set(rows.map(r=>r.e.compania).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
@@ -4146,7 +4148,9 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         <div className="editor-actions" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
           {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:13,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
           {saveState==="saved" && <div style={{color:C.green,fontSize:13,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
-          {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:13,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
+          {saveState==="error" && <button onClick={()=>onFlushSave?.()} title="No se pudo guardar en la nube. Revisa tu conexión y pulsa para reintentar."
+            style={{background:"rgba(192,57,43,.35)",border:"none",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#FFD7CF",fontSize:13,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
+            <AlertTriangle size={12}/>Sin guardar · Reintentar</button>}
           <div style={{textAlign:"right"}}>
             <div style={{color:"rgba(255,255,255,.35)",fontSize:11,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:13,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
@@ -4166,6 +4170,20 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           </button>
         </div>
       </div>
+
+      {/* C-3. Expediente que todavía no existe en la base de datos: aviso fijo
+          hasta que se cree. Antes, si la primera creación fallaba, no había
+          ninguna señal y nada de lo que se hacía se guardaba. */}
+      {!cData._sbId&&<div role="alert" style={{background:C.redBg,borderBottom:`1px solid ${C.red}`,color:C.red,padding:"8px 16px",
+        display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",fontSize:14,flexShrink:0}}>
+        <AlertTriangle size={14} style={{flexShrink:0}}/>
+        <span style={{flex:1,minWidth:200}}>
+          {saveState==="saving"
+            ? "Guardando el expediente por primera vez…"
+            : <><b>Este expediente todavía NO está guardado.</b> Si recargas o cierras la página, se perderá. Tus datos siguen aquí mientras no salgas.</>}
+        </span>
+        {saveState!=="saving"&&<Btn sm danger onClick={()=>onFlushSave?.()}><RefreshCw size={11}/>Reintentar guardado</Btn>}
+      </div>}
 
       {/* ACCESOS RÁPIDOS — franja fija bajo la topbar, con semáforo por pantalla.
           Convive con el menú lateral (no lo sustituye): la pantalla activa se ve
@@ -4412,44 +4430,57 @@ export default function App(){
   };
   const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setCases([]); setActive(null); setView('dashboard'); };
 
+  // C-3. Guardado en Supabase: crea el expediente si todavía no existe en la
+  // base de datos y, si ya existe, lo actualiza. La regla vive en
+  // lib/dominio/guardado.js. Token y usuario se leen en el momento de guardar
+  // (refs), no los del render en que se programó el guardado.
+  const tokenRef = useRef(token); tokenRef.current = token;
+  const userRef  = useRef(user);  userRef.current  = user;
+  const guardadorRef = useRef(null);
+  if(!guardadorRef.current) guardadorRef.current = crearGuardador({
+    crear: async fila => {
+      const uid = userRef.current?.id; if(!uid) return null;
+      const saved = await sbDb('informes', 'POST', {user_id:uid, ...fila}, tokenRef.current);
+      const row = Array.isArray(saved)?saved[0]:saved;
+      return row?.id || null;
+    },
+    // Reintenta una vez ante un fallo transitorio (red/servidor).
+    actualizar: async (sbId, fila) => {
+      let res = await sbDb(`informes?id=eq.${sbId}`, 'PATCH', fila, tokenRef.current);
+      if(!res){
+        await new Promise(r=>setTimeout(r,2000));
+        res = await sbDb(`informes?id=eq.${sbId}`, 'PATCH', fila, tokenRef.current);
+      }
+      return !!res;
+    },
+  });
+
   const handleDone = async enc => {
-    // Always open editor immediately with extracted data
+    // El editor se abre al momento con los datos extraídos. El expediente
+    // conserva este id local toda la sesión (las subidas y respuestas de IA en
+    // curso se identifican por él) y gana `_sbId` cuando existe en la base de
+    // datos. Hasta entonces el editor muestra que NO está guardado.
     const localCase = {id:'local_'+Date.now(),encargo:enc,s1:{},s2:{},s3:{},s4:{},anexos:{},tokenStats:{i:0,o:0},estado:'borrador'};
     setActive(localCase); setView("editor");
-    // Then try to save to Supabase in background
-    if(token && user?.id) {
-      const newRow = {user_id:user.id, num_referencia:enc.numReferencia||'', compania:enc.compania||'', asegurado:enc.asegurado||'', estado:'borrador', encargo:enc, s1:{}, s2:{}, s3:{}, s4:{}, anexos:{}};
-      const saved = await sbDb('informes', 'POST', newRow, token);
-      const row = Array.isArray(saved)?saved[0]:saved;
-      if(row) {
-        const savedCase = {...localCase, id:row.id, _sbId:row.id};
-        setCases(p=>[savedCase,...p.filter(x=>x.id!==localCase.id)]);
-        setActive(savedCase);
-      } else {
-        setCases(p=>[localCase,...p]);
-      }
-    }
+    setCases(p=>[localCase,...p]);
+    dirtyRef.current = true;
+    if(tokenRef.current && userRef.current?.id) await saveToSb(localCase);
+    else setSaveState("error");
   };
 
   const openCase  = c => { setActive(c); setView("editor"); };
 
-  // Guarda en Supabase y confirma el resultado. Reintenta una vez ante un
-  // fallo transitorio (red/servidor). Devuelve true si se guardó de verdad.
+  // Guarda en Supabase y confirma el resultado. Devuelve true si se guardó de
+  // verdad. Si el expediente aún no existe en la base de datos, lo crea (o
+  // reintenta crearlo) y le añade su `_sbId` sobre el estado más reciente.
   const saveToSb = async (u) => {
-    if(!u._sbId||!token) return false;
-    const payload = {
-      encargo:u.encargo||{}, s1:u.s1||{}, s2:u.s2||{}, s3:u.s3||{}, s4:u.s4||{},
-      anexos:u.anexos||{}, estado:u.estado||'borrador',
-      num_referencia:u.encargo?.numReferencia||'',
-      compania:u.encargo?.compania||'', asegurado:u.encargo?.asegurado||''
-    };
+    if(!u||!tokenRef.current) { setSaveState("error"); return false; }
     setSaveState("saving");
-    let res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
-    if(!res){
-      await new Promise(r=>setTimeout(r,2000));
-      res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
+    const {ok, sbId} = await guardadorRef.current(u);
+    if(ok && !u._sbId){
+      setActive(a=>marcarPersistido(a,u.id,sbId));
+      setCases(p=>p.map(c=>marcarPersistido(c,u.id,sbId)));
     }
-    const ok = !!res;
     if(ok) dirtyRef.current = false;
     setSaveState(ok?"saved":"error");
     if(ok) setTimeout(()=>setSaveState(s=>s==="saved"?"idle":s),2500);
@@ -4458,8 +4489,9 @@ export default function App(){
 
   const updateCase = u => {
     setActive(u); setCases(p=>p.map(c=>c.id===u.id?u:c));
-    if(u._sbId&&token){
-      dirtyRef.current = true;
+    // También sin `_sbId`: el siguiente guardado reintenta crear el expediente.
+    dirtyRef.current = true;
+    if(tokenRef.current){
       clearTimeout(sbSaveTimer.current);
       sbSaveTimer.current = setTimeout(() => saveToSb(u), 5000);
     }
@@ -4482,7 +4514,7 @@ export default function App(){
     const updated = {...active, estado:'exportado'};
     setActive(updated);
     setCases(p=>p.map(c=>c.id===updated.id?updated:c));
-    if(updated._sbId&&token){
+    if(tokenRef.current){
       clearTimeout(sbSaveTimer.current);
       dirtyRef.current = true;
       await saveToSb(updated);
