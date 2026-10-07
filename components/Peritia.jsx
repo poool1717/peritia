@@ -3473,7 +3473,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
-<br/>
+${muestraCapitalesAsegurados(enc)?`<br/>
 <div class="no-split">
 <b>CONTINENTE / OBRAS DE REFORMA</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -3491,7 +3491,7 @@ ${catastroHTML}
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 </div>
-${s1.aiText?'<p>'+s1.aiText+'</p>':''}
+`:''}${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
@@ -3712,7 +3712,7 @@ export const buildPDFHTML = (cData, dniPerito='') => {
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
-<h3>Estudios de los capitales Asegurados:</h3>
+${muestraCapitalesAsegurados(enc)?`<h3>Estudios de los capitales Asegurados:</h3>
 <div class="no-split">
 <p style="font-weight:bold">CONTINENTE / OBRAS DE REFORMA</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -3724,7 +3724,7 @@ ${catastroHTML}
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 </div>
-${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
+`:''}${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
