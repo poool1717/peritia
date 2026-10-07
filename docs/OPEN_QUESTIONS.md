@@ -575,4 +575,12 @@ es de producto:
 - ¿Se añaden las partidas nuevas a las existentes en vez de sustituirlas?
 - ¿O basta con avisar antes de sustituir?
 
-No se ha tocado nada.
+**Protección mínima aplicada (sesión 30, a petición de Pol).** Al pulsar el
+botón se toma la huella de la tabla. Si al volver la IA la tabla ha cambiado,
+NO se sustituye: se conservan los cambios del perito, la propuesta de la IA
+queda en la trazabilidad (`s3.trazaIA`, `aplicada: false`) y se avisa de que
+puede volver a pulsar para sustituirla. `lib/dominio/tablaIA.js`.
+
+**Sigue abierto:** no se mezclan la tabla de la IA y la del perito, y una
+tabla existente sin cambios durante la espera se sigue sustituyendo entera
+(incluido el caso baremo + factura). Decisión de producto pendiente.

@@ -130,8 +130,8 @@ describe("guardia I-10 en Peritia.jsx", () => {
     expect(src).toMatch(/encargoIA: rawParsed, polizaIA: pol, propuesta, campos: CAMPOS_ENCARGO/);
   });
   it("las dos tablas de la IA de la Sección 3 se registran", () => {
-    expect(src).toMatch(/setLateTablaIA\(rows\.map\(sanP\), "baremo"\)/);
-    expect(src).toMatch(/setLateTablaIA\(all\.map\(sanP\), "facturas", leidas\)/);
+    expect(src).toMatch(/setLateTablaIA\(rows\.map\(sanP\), "baremo", \[\], huellaAntes\)/);
+    expect(src).toMatch(/setLateTablaIA\(all\.map\(sanP\), "facturas", leidas, huellaAntes\)/);
     expect(src).not.toMatch(/setLate\(\{partidas:(rows|all)\.map\(sanP\)\}\)/);
   });
 });

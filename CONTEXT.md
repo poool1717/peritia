@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 550 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
+**Última actualización:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 570 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
 
 **Anterior:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
 
@@ -41,6 +41,7 @@
 - **I-1 / DT-28:** el Instant ya no imprime el estudio de capitales.
 - **I-2 / DT-29:** perito desde `perfiles` (columnas existentes); Word también guarda los datos del perito.
 - **I-10 / DT-12 parcial:** `encargo.trazaIA` y `s3.trazaIA` con lo que propuso la IA. `lib/dominio/trazabilidadIA.js`.
+- **P-28 (protección mínima):** "Extraer tabla" / "Generar tabla" no sustituyen la tabla si el perito la cambió durante la espera; la propuesta queda en la trazabilidad como no aplicada y se avisa. `lib/dominio/tablaIA.js`.
 - `buildWordHTML` y `buildPDFHTML` se exportan para probar el informe generado; `exportPDF` solo imprime.
 
 **Base de datos:** ninguna migración. Todo en columnas existentes (`perfiles.nombre/telefono/dni`, `informes.encargo` y `informes.s3`).
@@ -615,7 +616,8 @@ Datos hardcodeados:
 - [x] **Sesión 30 — prioridad A de la validación con expedientes reales:** C-1, C-3, I-1, I-2, I-10 en `claude/prioridad-a-validacion` (encima de la PR #23).
 - [ ] **Prueba manual de la PR #23 y de la rama de prioridad A** en la app de test (lista en el informe de la sesión 30). Después, fusionar primero la #23 y luego esta rama.
 - [ ] Revisar la modalidad de intervención de los expedientes creados antes de la sesión 30 (llevan PRESENCIAL por defecto).
-- [ ] Decidir P-28: "Extraer tabla" sustituye las partidas editadas mientras la IA trabaja.
+- [x] P-28, protección mínima: si el perito edita la tabla mientras la IA trabaja, la tabla no se sustituye y se avisa (`lib/dominio/tablaIA.js`).
+- [ ] P-28, decisión de producto pendiente: mezclar tabla de la IA y del perito, y caso baremo + factura.
 - [ ] DT-25: escrituras tardías en Secciones 1–2 y Anexos (pendiente, fuera del alcance de la sesión 30).
 - [ ] Primera tanda de validación con expedientes reales: casos simples de Hogar; analizar `encargo.trazaIA` y `s3.trazaIA` con `resumenTrazabilidad`.
 

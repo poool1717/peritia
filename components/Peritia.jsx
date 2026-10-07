@@ -23,7 +23,8 @@ import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
 import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
 import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } from "../lib/dominio/perito.js";
-import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas, anadirExtraccion } from "../lib/dominio/trazabilidadIA.js";
+import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas } from "../lib/dominio/trazabilidadIA.js";
+import { huellaTabla, aplicarTablaIA, mensajeTrasTablaIA } from "../lib/dominio/tablaIA.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -2324,10 +2325,17 @@ const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNe
   const setLate = patch => onPatch ? onPatch(s3=>({...s3,...patch})) : onChange({...data,...patch});
   // I-10: tabla generada por la IA + registro de lo que propuso, en la misma
   // escritura tardía (sobre el estado más reciente de la Sección 3).
-  const setLateTablaIA = (partidas, tipo, documentos=[]) => {
+  // P-28: solo sustituye la tabla si no ha cambiado desde que se pulsó el
+  // botón (`huellaAntes`); si cambió, conserva la del perito y deja la
+  // propuesta de la IA en la trazabilidad como no aplicada.
+  // Devuelve true (aplicada), false (no sustituida) o undefined (descartada:
+  // otro expediente o editor cerrado).
+  const setLateTablaIA = (partidas, tipo, documentos=[], huellaAntes) => {
     const registro = registroExtraccionPartidas({tipo, fecha:new Date().toISOString(), modelo:MODELO_IA, documentos, partidas});
-    const fn = s3 => ({...s3, partidas, trazaIA:anadirExtraccion(s3.trazaIA, registro)});
-    return onPatch ? onPatch(fn) : onChange(fn(data));
+    let aplicada;
+    const fn = s3 => { const r = aplicarTablaIA({s3, huellaAntes, partidas, registro}); aplicada = r.aplicada; return r.s3; };
+    if(onPatch) onPatch(fn); else onChange(fn(data));
+    return aplicada;
   };
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
@@ -2438,6 +2446,7 @@ TEXTO: "${data.textoRaw}"`,
     const desc = data.textoAI||data.textoRaw;
     if(!desc){ setGenMsg({tipo:"aviso",texto:"Escribe primero la descripción de los daños: la tabla se genera a partir de ese texto."}); return; }
     setGenLoad(true); setGenMsg(null);
+    const huellaAntes = huellaTabla(data.partidas); // P-28
     const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
@@ -2476,10 +2485,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
-      setLateTablaIA(rows.map(sanP), "baremo");
-      setGenMsg(sinPrecio>0
+      const aplicada = setLateTablaIA(rows.map(sanP), "baremo", [], huellaAntes);
+      setGenMsg(mensajeTrasTablaIA({aplicada, tipo:"baremo", mensajeNormal: sinPrecio>0
         ? {tipo:"aviso",texto:`Tabla generada. ${sinPrecio} ${sinPrecio===1?"partida no está":"partidas no están"} en el baremo: revisa su precio, se ${sinPrecio===1?"ha añadido":"han añadido"} a 0 €.`}
-        : null);
+        : null}));
     } else {
       setGenMsg({tipo:"aviso",texto:"La IA no ha encontrado partidas del baremo que encajen con esta descripción. Detalla más los daños (material, superficie, estancia) y vuelve a intentarlo."});
     }
@@ -2495,6 +2504,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     let hadError=false;
     let tooBig=[];
     const leidas=[]; // I-10: facturas que la IA llegó a leer
+    const huellaAntes = huellaTabla(data.partidas); // P-28
     // DT-13: cada factura se lee de donde esté (memoria o Storage), y las que
     // se perdieron se dicen por su nombre en vez de saltarse en silencio.
     const {disponibles, perdidas} = fuentesDeFacturas(facturas);
@@ -2525,8 +2535,9 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     const perdidasMsg = perdidas.length?`${perdidas.map(f=>f.name).join(', ')}: ${perdidas.length===1?'se perdió':'se perdieron'} al guardar el expediente y no se ${perdidas.length===1?'ha':'han'} podido leer. Vuelve a adjuntar${perdidas.length===1?'la':'las'}.`:'';
     const avisos = [tooBigMsg, perdidasMsg].filter(Boolean).join(' ');
     if(all.length>0) {
-      setLateTablaIA(all.map(sanP), "facturas", leidas);
-      if(avisos) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${avisos}`});
+      const aplicada = setLateTablaIA(all.map(sanP), "facturas", leidas, huellaAntes);
+      setGenMsg(mensajeTrasTablaIA({aplicada, tipo:"facturas", extra:avisos,
+        mensajeNormal: avisos?{tipo:"aviso",texto:`Tabla generada. ${avisos}`}:null}));
     }
     else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${avisos?' '+avisos:''}`});
     else if(avisos) setGenMsg({tipo:"error",texto:avisos});
