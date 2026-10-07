@@ -23,6 +23,7 @@ import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
 import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
 import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } from "../lib/dominio/perito.js";
+import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas, anadirExtraccion } from "../lib/dominio/trazabilidadIA.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -93,10 +94,18 @@ const setAuthToken = tk => { AUTH_TOKEN = tk || ""; };
 
 // `seccion` identifica qué parte de la app hace la llamada; el proxy lo usa
 // para registrar el coste de IA por sección en el panel de administración.
+// Modelo de todas las llamadas. También se anota en la trazabilidad de la IA (I-10).
+const MODELO_IA = "claude-sonnet-4-6";
+// SHA-256 en hexadecimal de un documento, para identificar el original sin guardarlo (I-10).
+const sha256Hex = async buf => {
+  if(!globalThis.crypto?.subtle) return null;
+  const h = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("");
+};
 const callClaude = async (system, userContent, onTokens, maxTok=1500, seccion="otros") => {
   const res = await fetch("/api/claude",{
     method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${AUTH_TOKEN}`},
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTok,
+    body: JSON.stringify({ model:MODELO_IA, max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}], _seccion:seccion })
   });
   const d = await res.json();
@@ -1314,7 +1323,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     const capCPol = parseCap(pol.capitalContinente||enc.capitalContinente);
     const normD = r => { const m=(r||"").match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); return m?m[1].padStart(2,"0")+"/"+m[2].padStart(2,"0")+"/"+m[3]:r||""; };
     const bestCap2 = (a,b) => { const vb=parseCap(b); if(vb>0)return String(vb); const va=parseCap(a); if(va>0)return String(va); return ""; };
-    setData({...enc,
+    const propuesta = {...enc,
       compania:                 normCompania(enc.compania),
       capitalContinente:        esHogarEnc?(capCPol>0?String(capCPol):""):bestCap2(enc.capitalContinente,pol.capitalContinente),
       capitalContenido:         bestCap2(enc.capitalContenido, pol.capitalContenido),
@@ -1344,7 +1353,15 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       usoVivienda:              pol.usoVivienda||"",
       ubicacionVivienda:        pol.ubicacionVivienda||"",
       calidadPóliza:            pol.calidadPóliza||"",
-    });;
+    };
+    // I-10: se conserva lo que propuso la IA, antes de cualquier corrección,
+    // para poder compararlo después con lo que deja el perito.
+    const [huellaEnc, huellaPol] = await Promise.all([huellaDocumento(encFile, sha256Hex), huellaDocumento(polFile, sha256Hex)]);
+    setData({...propuesta, trazaIA: registroExtraccionEncargo({
+      fecha: new Date().toISOString(), modelo: MODELO_IA,
+      documentos: {encargo: huellaEnc, poliza: huellaPol},
+      encargoIA: rawParsed, polizaIA: pol, propuesta, campos: CAMPOS_ENCARGO,
+    })});
     setStep("review");
   };
 
@@ -2305,6 +2322,13 @@ const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNe
   // perito escribía durante la espera, o la `url` de una factura que
   // terminaba de subirse (DT-13)—.
   const setLate = patch => onPatch ? onPatch(s3=>({...s3,...patch})) : onChange({...data,...patch});
+  // I-10: tabla generada por la IA + registro de lo que propuso, en la misma
+  // escritura tardía (sobre el estado más reciente de la Sección 3).
+  const setLateTablaIA = (partidas, tipo, documentos=[]) => {
+    const registro = registroExtraccionPartidas({tipo, fecha:new Date().toISOString(), modelo:MODELO_IA, documentos, partidas});
+    const fn = s3 => ({...s3, partidas, trazaIA:anadirExtraccion(s3.trazaIA, registro)});
+    return onPatch ? onPatch(fn) : onChange(fn(data));
+  };
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
@@ -2452,7 +2476,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
-      setLate({partidas:rows.map(sanP)});
+      setLateTablaIA(rows.map(sanP), "baremo");
       setGenMsg(sinPrecio>0
         ? {tipo:"aviso",texto:`Tabla generada. ${sinPrecio} ${sinPrecio===1?"partida no está":"partidas no están"} en el baremo: revisa su precio, se ${sinPrecio===1?"ha añadido":"han añadido"} a 0 €.`}
         : null);
@@ -2470,6 +2494,7 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     let all=[];
     let hadError=false;
     let tooBig=[];
+    const leidas=[]; // I-10: facturas que la IA llegó a leer
     // DT-13: cada factura se lee de donde esté (memoria o Storage), y las que
     // se perdieron se dicen por su nombre en vez de saltarse en silencio.
     const {disponibles, perdidas} = fuentesDeFacturas(facturas);
@@ -2490,14 +2515,17 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
       if(iaError(j)) hadError=true;
-      // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
-      else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
+      else {
+        leidas.push(fac);
+        // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
+        if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
+      }
     }
     const tooBigMsg = tooBig.length?`${tooBig.join(', ')}: ${tooBig.length===1?'supera':'superan'} el límite de 14 MB por archivo y no se ${tooBig.length===1?'ha':'han'} podido leer.`:'';
     const perdidasMsg = perdidas.length?`${perdidas.map(f=>f.name).join(', ')}: ${perdidas.length===1?'se perdió':'se perdieron'} al guardar el expediente y no se ${perdidas.length===1?'ha':'han'} podido leer. Vuelve a adjuntar${perdidas.length===1?'la':'las'}.`:'';
     const avisos = [tooBigMsg, perdidasMsg].filter(Boolean).join(' ');
     if(all.length>0) {
-      setLate({partidas:all.map(sanP)});
+      setLateTablaIA(all.map(sanP), "facturas", leidas);
       if(avisos) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${avisos}`});
     }
     else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${avisos?' '+avisos:''}`});
