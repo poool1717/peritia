@@ -20,6 +20,7 @@ import {
 import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/alertas.js";
 import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas, adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
 import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
+import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -1222,7 +1223,6 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "franquicia": "franquicia general en euros solo el numero. Si no hay pon 0",
   "fechaEfecto": "fecha de efecto o inicio de la poliza en formato dd/mm/aaaa. En encargos AXA aparece como Fecha de efecto en la seccion Poliza al final del documento. Ejemplo: 30/06/2021",
   "tipoEncargo": "INSTANT_PAYMENT si el tipo contiene Instant Payment, PERITACION para cualquier otro tipo",
-  "modalidadVisita": "PRESENCIAL si el perito visita el riesgo fisicamente, DOCUMENTAL si se gestiona sin visita presencial",
   "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=Atmosféricos Agua/Filtracion=Daños por agua Incendio=Incendio Robo=Robo Electrico=Daños eléctricos sino vacio"
 }`;
     const raw = await callClaude(
@@ -1330,7 +1330,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       tipoContinentePoliza:     pol.tipoContinente||"",
       todosCapitalesContinente: esHogarEnc?"":(pol.todosCapitalesContinente||""),
       tipoEncargo:              enc.tipoEncargo||"PERITACION",
-      modalidadVisita:          enc.modalidadVisita||"PRESENCIAL",
+      // C-1: el encargo no dice cómo se va a intervenir; nunca se supone visita.
+      modalidadVisita:          modalidadInicial({tipoEncargo:enc.tipoEncargo||"PERITACION"}),
       esHogar:                  esHogarEnc,
       umbralLluvia:             pol.umbralLluvia||"",
       umbralViento:             pol.umbralViento||"",
@@ -3330,7 +3331,7 @@ const allFacturasOf = cData => {
   ];
 };
 
-const buildWordHTML = (cData) => {
+export const buildWordHTML = (cData) => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const catastroImg=(anexos.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
   const catastroHTML=catastroImg?`<p style='font-size:8.5pt;color:#666;margin:6pt 0 2pt'>Cartografía catastral:</p><img src='${catastroImg.url}' style='max-width:60%;max-height:240pt;border:1px solid #ccc'/>`:'';
@@ -3461,7 +3462,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <p><span class='field-label'>Asegurado</span><span class='field-value'>${enc.asegurado||'—'}</span></p>
 <table><tr><td><span class='field-label'>Perito:</span><span class='field-value'>${enc.perito||'—'}</span></td><td><span class='field-label'>Teléfono Perito:</span><span class='field-value'>${enc.telPerito||'—'}</span></td></tr></table>
 <p class='intro'>Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class='intro'>En cumplimiento de lo requerido, se ha procedido a la comparecencia pericial en el Riesgo Asegurado, realizando la función pericial iniciando los trabajos que nos son propios, tendentes a la determinación de las causas y circunstancias del siniestro y a la valoración de los daños consecuentes al mismo, para finalmente elevar propuesta de indemnización a las partes, a tenor de la información conocida hasta la fecha.</p>
+<p class='intro'>${fraseComparecencia(enc.modalidadVisita)}</p>
 <p class='intro'>El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class='intro'>La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class='page-break'></div>
@@ -3580,7 +3581,8 @@ const exportWord = async (cData) => {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 
-const exportPDF = (cData, dniPerito='') => {
+// HTML del informe en PDF, separado de la impresión para poder probarlo.
+export const buildPDFHTML = (cData, dniPerito='') => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
@@ -3699,7 +3701,7 @@ const exportPDF = (cData, dniPerito='') => {
 <div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${enc.asegurado||'—'}</span></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${enc.perito||'—'}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${enc.telPerito||'—'}</span></div></div></div>
 <p class="intro">Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class="intro">En cumplimiento de lo requerido, se ha procedido a la comparecencia pericial en el Riesgo Asegurado, realizando la función pericial iniciando los trabajos que nos son propios, tendentes a la determinación de las causas y circunstancias del siniestro y a la valoración de los daños consecuentes al mismo, para finalmente elevar propuesta de indemnización a las partes.</p>
+<p class="intro">${fraseComparecencia(enc.modalidadVisita)}</p>
 <p class="intro">El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class="intro">La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class="page-break"></div>
@@ -3774,6 +3776,11 @@ ${allFotos.length?`${facturasD.length?`<div class="page-break"></div>
 `:''}
 </body></html>`;
 
+  return html;
+};
+
+const exportPDF = (cData, dniPerito='') => {
+  const html = buildPDFHTML(cData, dniPerito);
   // Impresión en un iframe oculto en vez de abrir una pestaña nueva con una URL
   // blob: — el diálogo de impresión aparece sobre la propia app (sin pestañas ni
   // ventanas adicionales que el perito tenga que cerrar) y arranca en cuanto las
@@ -3975,12 +3982,16 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
             </select>
           </div>
           <div>
-            <Lbl c="Modalidad de visita"/>
-            <select value={enc.modalidadVisita||"PRESENCIAL"} onChange={e=>s("modalidadVisita")(e.target.value)}
+            <Lbl c="Modalidad de intervención"/>
+            <select value={normalizarModalidad(enc.modalidadVisita)} onChange={e=>s("modalidadVisita")(e.target.value)}
               style={{...inpStyle(false),cursor:"pointer"}}>
-              <option value="PRESENCIAL">Presencial</option>
-              <option value="DOCUMENTAL">Documental</option>
+              <option value="">Sin indicar</option>
+              <option value="PRESENCIAL">Presencial (visita al riesgo)</option>
+              <option value="VIDEO">Vídeo-peritación (remota)</option>
+              <option value="DOCUMENTAL">Documental (sin visita)</option>
             </select>
+            {!normalizarModalidad(enc.modalidadVisita)&&<div style={{fontSize:13,color:C.orange,marginTop:4}}>
+              Sin indicar: el informe no dirá si hubo visita al riesgo. Elige la modalidad real.</div>}
           </div>
         </div>
       </Block>
