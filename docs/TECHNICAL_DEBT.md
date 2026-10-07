@@ -33,7 +33,7 @@
 | DT-09 | Respuestas de IA sin validación de esquema | Media |
 | DT-10 | Sin pruebas ni integración continua | Alta |
 | DT-11 | Bucket de anexos público | **Crítica** |
-| DT-12 | La IA no deja rastro | Alta |
+| DT-12 | La IA no deja rastro | Alta · 🟡 PARCIAL (extracciones estructuradas, sesión 30) |
 | DT-13 | Facturas de Sección 3 no se suben nunca | ~~Media~~ → Alta · ✅ RESUELTO |
 | DT-14 | Errores de negocio devueltos como HTTP 200 | Media |
 | DT-15 | Contador de tokens y coste no persistido | Baja |
@@ -47,6 +47,10 @@
 | DT-23 | Sin política de tratamiento y retención de datos | Alta |
 | DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | ~~Media~~ → **Crítica** · ✅ RESUELTO |
 | DT-25 | Escrituras tardías con datos viejos (Sección 2 y Anexos) | Alta |
+| DT-26 | El informe afirma siempre una visita al riesgo | **Crítica** · ✅ RESUELTO |
+| DT-27 | El primer guardado de un expediente falla en silencio | **Crítica** · ✅ RESUELTO |
+| DT-28 | El informe Instant imprime capitales con preexistencia a cero | Alta · ✅ RESUELTO |
+| DT-29 | El perito del informe sale del encargo | Alta · ✅ RESUELTO |
 
 ---
 
@@ -445,6 +449,23 @@ Hoy no se guarda ninguno de los siete datos requeridos.
 
 Detalle completo en `AI_INVENTORY.md`, sección 7.
 
+**Avance (sesión 30, I-10 de la validación con expedientes reales) — 🟡 PARCIAL.**
+Se conserva lo que propusieron las tres extracciones estructuradas, para
+poder compararlo con lo que deja el perito (`lib/dominio/trazabilidadIA.js`):
+- Encargo + póliza: `encargo.trazaIA` con la respuesta de la IA para cada
+  documento, la propuesta revisable antes de cualquier corrección, fecha,
+  modelo y la huella de cada PDF (nombre, tamaño, SHA-256).
+- "Extraer tabla" y "Generar tabla" (Sección 3): `s3.trazaIA.extracciones`
+  con las partidas tal como entraron y las facturas leídas (por su `url`).
+- Funciones de comparación (campos cambiados, partidas modificadas,
+  eliminadas y añadidas). Sin pantalla de métricas.
+- En las columnas JSON existentes: sin migración.
+
+**Sigue pendiente:** los textos que la IA redacta o "mejora" (secciones 1–3,
+meteo) no dejan rastro; no hay versión de prompt; los PDF de encargo y póliza
+siguen sin conservarse (solo su huella, para localizar el original en la
+carpeta del expediente).
+
 ---
 
 ## DT-13 · Facturas de Sección 3 no se suben nunca — ✅ RESUELTO
@@ -515,7 +536,9 @@ const news = Array.from(files).map(f => ({id:…, name:f.name, size:f.size, file
   arreglo de un fallo observado. **Límite conocido:** un expediente nuevo
   cambia de id al guardarse por primera vez (~1 s después de abrirlo); lo
   que empiece antes y termine después se descarta (se prefiere perder un
-  resultado de la IA a escribirlo en el sitio equivocado).
+  resultado de la IA a escribirlo en el sitio equivocado). **Resuelto en la
+  sesión 30 (DT-27):** el expediente nuevo conserva su id local y solo gana
+  `_sbId`, así que ya no se descarta nada por esto.
 - **Subir y borrar a la vez.** Si el perito quita una factura mientras se
   sube, no reaparece, y el archivo que ya se había subido se borra de
   Storage (también cuando la escritura se descarta). Es un borrado de buena
@@ -849,3 +872,64 @@ Anexos es la misma y es pequeña; no se hizo en la misma PR para no mezclar
 temas.
 
 **Prioridad.** Alta: pérdida de trabajo del perito, silenciosa.
+
+---
+
+## DT-26 · El informe afirma siempre una visita al riesgo — ✅ RESUELTO
+
+**Detectada en la validación con 150 expedientes reales (C-1).** Word y PDF
+decían siempre "se ha procedido a la comparecencia pericial en el Riesgo
+Asegurado", y la extracción del encargo rellenaba `modalidadVisita` con
+PRESENCIAL por defecto. En los informes reales, 124 de 133 declaran que NO hubo
+comparecencia (gestión documental o vídeo-peritación).
+
+**Corregido (sesión 30).** La frase sale de la modalidad
+(`lib/dominio/informe.js`, `fraseComparecencia`): presencial, vídeo-peritación,
+documental o, sin dato, redacción neutra que no menciona la comparecencia. La IA
+ya no adivina la modalidad: Instant Payment nace documental; una peritación,
+sin indicar. Selector en Datos del Encargo con aviso si está sin indicar.
+
+**Pendiente:** los expedientes creados antes llevan PRESENCIAL por el valor por
+defecto antiguo; hay que revisarlos antes de exportarlos.
+
+---
+
+## DT-27 · El primer guardado de un expediente falla en silencio — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (C-3) y en la validación de
+la PR #23 (escenario F).** Si la creación del expediente en la base de datos
+fallaba, se quedaba sin `_sbId`, el autoguardado no volvía a intentarlo y no
+había aviso. Si salía bien, el expediente abierto se sustituía por la copia del
+momento de crearlo: se perdía lo hecho mientras tanto y, al cambiar de id, se
+descartaban las subidas y respuestas de IA en curso.
+
+**Corregido (sesión 30).** `lib/dominio/guardado.js`: cada guardado de un
+expediente sin `_sbId` reintenta crearlo, sin duplicados; el id local se
+conserva y `_sbId` se añade sobre el estado más reciente. Franja roja fija en el
+editor con "Reintentar guardado", botón de reintento en la barra superior y
+estado "Sin guardar" en el listado.
+
+**Pendiente:** si el perito borra un expediente mientras se está creando, la
+fila puede quedar creada en la base de datos (caso muy raro).
+
+---
+
+## DT-28 · El informe Instant imprime capitales con preexistencia a cero — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (I-1).** Los 63 informes
+Instant reales no llevan estudio de capitales; PERIT.IA lo imprimía con "valor
+preexistente 0,00 €" e "infraseguro 0,00 %". **Corregido (sesión 30):** Word y
+PDF lo omiten en Instant (`muestraCapitalesAsegurados`). El resumen por
+garantías de la Sección 4 se mantiene.
+
+---
+
+## DT-29 · El perito del informe sale del encargo — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (I-2).** En 114 de 118
+encargos legibles el campo "Perito" es el gabinete. **Corregido (sesión 30):** la
+extracción ya no lo pide; los datos salen del perfil (`perfiles.nombre`,
+`telefono`, `dni`, que ya existían) y se confirman al exportar. Word también los
+guarda (antes solo el PDF), y se guardan junto con el estado "exportado" en una
+sola actualización (antes el guardado tardío devolvía el expediente a
+"borrador"). Sin migración.

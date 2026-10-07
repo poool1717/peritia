@@ -43,6 +43,7 @@
 | P-25 | ¿Falta la garantía de Rotura de cristales en el catálogo? | `TAXONOMY.md` §4, catálogo de garantías | **Alta** |
 | P-26 | ¿El baremo debe cubrir parquet, cubierta e incendio? | Catálogo de métodos de reparación | **Alta** |
 | P-27 | ¿Las facturas de la Sección 3 y las de la pestaña "Facturas" de Anexos son lo mismo? | DT-13, R-07 | Media |
+| P-28 | ¿"Extraer tabla" debe respetar las partidas que el perito edita mientras la IA trabaja? | DT-13, validación PR #23 | Media |
 
 ---
 
@@ -558,3 +559,20 @@ es la decisión:
   cualquiera de los dos y verse en ambos?
 
 **No se ha tocado nada por esta decisión**: las dos vías siguen como estaban.
+
+---
+
+## P-28 · ¿"Extraer tabla" debe respetar las partidas que el perito edita mientras la IA trabaja? — sesión 30
+
+Al validar la PR #23 (escenario B): si el perito modifica una partida mientras
+"Extraer tabla" o "Generar tabla" está trabajando, al volver la IA **sustituye la
+tabla entera** y la modificación se pierde. El resto de la Sección 3 (textos,
+dirección de las facturas) sí se conserva.
+
+Es el comportamiento de siempre: el botón genera la tabla de nuevo. La pregunta
+es de producto:
+- ¿Se bloquea la edición de la tabla mientras la IA trabaja?
+- ¿Se añaden las partidas nuevas a las existentes en vez de sustituirlas?
+- ¿O basta con avisar antes de sustituir?
+
+No se ha tocado nada.

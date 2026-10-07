@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
+**Última actualización:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 550 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
+
+**Anterior:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
 
 **Anterior:** 30 septiembre 2026 (sesión 28 — **DT-08 cerrada: la vista previa ya no contradice al informe**. La vista previa calculaba capitales e infraseguro por su cuenta y, con el expediente real 01, enseñaba capital 6,00 € e infraseguro 100 % mientras proponía 463,59 € y el PDF decía 6.000 € y 0 %. Ahora la vista previa y la Sección 1 usan el motor, como el resto. No cambia ninguna fórmula. 455 tests. Ver "Sesión 28" más abajo)
 
@@ -20,6 +22,32 @@
 ---
 
 ## Estado actual
+
+### Sesión 30 — Prioridad A de la validación con expedientes reales
+
+**Contexto.** Análisis de 150 expedientes reales terminados (2.304 ficheros): la estructura de PERIT.IA encaja, pero había puntos que impedían empezar a validar. Esta sesión resuelve solo los de prioridad A.
+
+**Rama.** `claude/prioridad-a-validacion`, creada encima de `claude/dt13-facturas-sec3` (PR #23) y apuntando a `test`. No se podía trabajar sobre `test` sin fusionar DT-13, y C-3 e I-10 tocan el mismo código. Nada fusionado.
+
+**Validación técnica de la PR #23** (revisión de código y tests; la app no se ha podido recorrer):
+- ✅ Persistencia, exportación con factura disponible, en memoria o perdida, borrado durante la subida y "nunca en otro expediente": como está documentado.
+- ⚠️ Escenario B: si el perito edita partidas mientras "Extraer tabla" trabaja, la tabla nueva las sustituye. Es el comportamiento de siempre; anotado como P-28.
+- ❌→✅ Escenario F (expediente nuevo): al crearse en la base de datos, el expediente abierto se sustituía por la copia del momento de crearlo y se perdía lo hecho mientras tanto; además se descartaban las subidas en curso. Corregido dentro de C-3 (DT-27).
+- El recuento de tests de la PR decía "antes 475"; `test` tiene 455 (+38 de la PR = 493).
+
+**Cambios (cada uno con tests de comportamiento):**
+- **C-1 / DT-26:** la frase de comparecencia sale de la modalidad (presencial, vídeo, documental o neutra). `lib/dominio/informe.js`.
+- **C-3 / DT-27:** guardado inicial con reintento, sin duplicados, sin pisar lo hecho; aviso fijo y "Reintentar guardado". `lib/dominio/guardado.js`.
+- **I-1 / DT-28:** el Instant ya no imprime el estudio de capitales.
+- **I-2 / DT-29:** perito desde `perfiles` (columnas existentes); Word también guarda los datos del perito.
+- **I-10 / DT-12 parcial:** `encargo.trazaIA` y `s3.trazaIA` con lo que propuso la IA. `lib/dominio/trazabilidadIA.js`.
+- `buildWordHTML` y `buildPDFHTML` se exportan para probar el informe generado; `exportPDF` solo imprime.
+
+**Base de datos:** ninguna migración. Todo en columnas existentes (`perfiles.nombre/telefono/dni`, `informes.encargo` y `informes.s3`).
+
+**Prueba manual pendiente (Pol):** la de la PR #23 y la de esta rama, en la app de test.
+
+---
 
 ### Sesión 29 — Auditoría operativa de `test` y DT-13
 
@@ -428,6 +456,11 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 
 | Problema | Causa | Solución |
 |---|---|---|
+| El informe afirmaba siempre que el perito compareció en el riesgo (sesión 30, C-1) | Frase fija en Word y PDF; la extracción ponía PRESENCIAL por defecto | La frase sale de la modalidad (presencial, vídeo, documental o neutra); la IA ya no adivina la modalidad |
+| Un expediente cuya primera creación fallaba no se guardaba nunca y sin aviso; si salía bien, se perdía lo hecho mientras tanto (sesión 30, C-3) | Autoguardado solo con `_sbId`; `handleDone` sustituía el expediente por la copia inicial y le cambiaba el id | `crearGuardador` reintenta la creación sin duplicados; id local estable y `_sbId` sobre el estado más reciente; aviso y "Reintentar guardado" |
+| El informe Instant imprimía capitales con preexistencia e infraseguro a cero (sesión 30, I-1) | Bloque de capitales sin condición en Word y PDF | Se omite en Instant Payment |
+| El perito del informe salía del encargo ("GABINETE DE VALORACIONES…") (sesión 30, I-2) | La extracción del encargo pedía el perito | Datos desde `perfiles`; confirmados y guardados al exportar (también en Word) |
+| Exportar a PDF devolvía el expediente a "borrador" (sesión 30) | El guardado de los datos del perito terminaba después de marcar "exportado" y lo pisaba con la copia vieja | Datos del perito y estado en una sola actualización |
 | Login congelado | Sin try/catch + email confirmation activa | try/catch + desactivar email confirmation en Supabase |
 | CSP bloquea fetch a Supabase | Claude.ai artifact sandbox | Migrar a Vercel (fetch desde browser, sin restricciones) |
 | PDF export bloqueado | document.write bloqueado por CSP | Reemplazar con Blob URL + window.open |
@@ -578,6 +611,13 @@ Datos hardcodeados:
 - [ ] **Admin Fase 2 (con Stripe):** planes con precios y límites aplicados por la app, cobro con tarjeta, renovaciones y facturas automáticas, avisos de impago.
 - [ ] **Admin Fase 3:** Analíticas (prueba→pago, tiempo por sección, informes por garantía/compañía), control del registro (libre / con aprobación / solo invitación), baremos por compañía editables, avisos por correo.
 - [ ] Actualizar el skill `peritia-visual-style`: la app ya no usa Source Serif 4 ni IBM Plex Mono (solo DM Sans).
+
+- [x] **Sesión 30 — prioridad A de la validación con expedientes reales:** C-1, C-3, I-1, I-2, I-10 en `claude/prioridad-a-validacion` (encima de la PR #23).
+- [ ] **Prueba manual de la PR #23 y de la rama de prioridad A** en la app de test (lista en el informe de la sesión 30). Después, fusionar primero la #23 y luego esta rama.
+- [ ] Revisar la modalidad de intervención de los expedientes creados antes de la sesión 30 (llevan PRESENCIAL por defecto).
+- [ ] Decidir P-28: "Extraer tabla" sustituye las partidas editadas mientras la IA trabaja.
+- [ ] DT-25: escrituras tardías en Secciones 1–2 y Anexos (pendiente, fuera del alcance de la sesión 30).
+- [ ] Primera tanda de validación con expedientes reales: casos simples de Hogar; analizar `encargo.trazaIA` y `s3.trazaIA` con `resumenTrazabilidad`.
 
 ### Medio plazo (Fase 2)
 - [ ] Multi-compañía: baremos propios por aseguradora (no solo AXA)
