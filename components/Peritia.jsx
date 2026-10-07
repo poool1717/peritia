@@ -22,6 +22,7 @@ import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentes
 import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
 import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
 import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
+import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } from "../lib/dominio/perito.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -1218,8 +1219,6 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "causa": "causa del siniestro",
   "descripcionSiniestro": "descripcion completa del siniestro",
   "codigoPostal": "codigo postal del lugar de intervencion (5 digitos)",
-  "perito": "nombre completo del perito",
-  "telPerito": "telefono del perito",
   "capitalContinente": "capital asegurado del CONTINENTE EDIFICIO u OBRAS DE REFORMA en euros solo el numero. Busca en tabla de garantias o capitales asegurados. Si no aparece pon 0",
   "capitalContenido": "capital asegurado del CONTENIDO MOBILIARIO o MERCANCIAS en euros solo el numero. Si no aparece pon 0",
   "franquicia": "franquicia general en euros solo el numero. Si no hay pon 0",
@@ -1239,7 +1238,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setAlertMsg({tipo:"error", texto:"Error de la API ("+rawParsed._status+"): "+rawParsed._msg+". Revisa la configuración de la API key en Vercel."});
       return;
     }
-    const enc = rawParsed||{};
+    // I-2: el perito no es un dato del encargo (en AXA ese campo trae el gabinete).
+    const enc = sinDatosDePerito(rawParsed||{});
     if(!enc.numReferencia && !enc.asegurado && !enc.compania) {
       setStep("upload");
       setMsg("");
@@ -1511,7 +1511,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 };
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
-const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
+const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
   // DT-08. La vista previa calculaba capitales e infraseguro por su cuenta, y
   // mal: leía el capital con parseFloat ("6.000,00 euros" → 6), ignoraba la
   // corrección manual del perito y no contemplaba el primer riesgo. En el
@@ -1574,7 +1574,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(enc.provincia?`, ${enc.provincia}`:"")}/>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
           <InfoRow label="Asegurado" val={enc.asegurado}/>
-          <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
+          {(()=>{ const p = peritoDesdePerfil(perfil); return <InfoRow label="Perito" val={p.nombre?(p.nombre+(p.telefono?" · "+p.telefono:"")):"Se indica al exportar"}/>; })()}
         </div>
         <div style={{marginTop:14,padding:11,background:C.bg,borderRadius:7,fontSize:13,color:C.muted,lineHeight:1.7,fontStyle:"italic"}}>
           Este informe ha sido emitido a tenor del siniestro declarado en el riesgo asegurado. El que suscribe manifiesta bajo promesa de decir verdad que ha actuado con la mayor objetividad posible.
@@ -3811,10 +3811,13 @@ const exportPDF = (cData, dniPerito='') => {
 };
 
 
-const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
-  const [dni,setDni]         = useState(cData.encargo?.dniPerito||'');
-  const [perito,setPerito]   = useState(cData.encargo?.perito||'');
-  const [telPerito,setTel]   = useState(cData.encargo?.telPerito||'');
+// I-2: los datos del perito se proponen desde su perfil (nunca desde el
+// encargo) y, al exportar, se guardan en el perfil y en el expediente.
+const ExportModal = ({cData, perfil, onClose, onExported}) => {
+  const inicial = peritoDesdePerfil(perfil);
+  const [dni,setDni]         = useState(inicial.dni);
+  const [perito,setPerito]   = useState(inicial.nombre);
+  const [telPerito,setTel]   = useState(inicial.telefono);
   const [pdfLoad,setPdfLoad] = useState(false);
   const [wrdLoad,setWrdLoad] = useState(false);
   const [pdfOk,setPdfOk]   = useState(false);
@@ -3825,12 +3828,12 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
 
   const handlePDF = () => {
     setErr('');
-    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); onExported?.(); }
+    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onExported?.({nombre:perito,telefono:telPerito,dni}); }
     catch(e){ setErr('Error al generar PDF. Activa las ventanas emergentes del navegador.'); console.error(e); }
   };
   const handleWord = async () => {
     setWrdLoad(true); setErr('');
-    try{ await exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); onExported?.(); }
+    try{ await exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); onExported?.({nombre:perito,telefono:telPerito,dni}); }
     catch(e){ setErr('Error al generar Word.'); console.error(e); }
     setWrdLoad(false);
   };
@@ -3861,7 +3864,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
           <Lbl c="DNI del Perito (para la página de firma)"/>
           <input value={dni} onChange={e=>setDni(e.target.value)} placeholder="Ej: B13809660"
             style={{...inpStyle(false),marginBottom:4}}/>
-          <div style={{fontSize:13,color:C.muted}}>Datos del perito para el documento exportado</div>
+          <div style={{fontSize:13,color:C.muted}}>Datos de tu perfil de perito. Si los cambias, se guardan para los siguientes informes.</div>
         </div>
         {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:14,color:C.red,marginBottom:14}}>{err}</div>}
         <div style={{display:'flex',gap:10}}>
@@ -4003,7 +4006,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
+const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
   const [sec,setSec]         = useState("encargo");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
@@ -4060,7 +4063,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 
   const renderSec = () => {
     switch(sec){
-      case "informe": return <SecInforme enc={cData.encargo||{}} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
+      case "informe": return <SecInforme enc={cData.encargo||{}} perfil={perfil} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave} scrollRef={contentRef}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
@@ -4317,7 +4320,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         </div>}
       </div>
 
-      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }} onExported={onExported}/>}
+      {exportOpen&&<ExportModal cData={cData} perfil={perfil} onClose={()=>setExportOpen(false)} onExported={onExported}/>}
       <link rel="stylesheet" href={FONT}/>
       <style>{css}</style>
     </div>
@@ -4394,6 +4397,7 @@ export default function App(){
   // guardados fallaban en silencio; ahora que la IA también exige sesión, se
   // renueva solo con el refresh_token antes de que caduque.
   const [isAdmin,setIsAdmin] = useState(false);
+  const [perfil,setPerfil]   = useState({}); // I-2: nombre, teléfono y DNI del perito (tabla perfiles)
   const refreshRef = useRef({rt:null, exp:0});
 
   const applySession = (tk, s) => {
@@ -4424,11 +4428,14 @@ export default function App(){
     const cuenta = await sbDb('rpc/mi_cuenta','POST',{},tk);
     if(cuenta?.bloqueado) return 'Tu cuenta está desactivada. Contacta con PERIT.IA para reactivarla.';
     setIsAdmin(!!cuenta?.es_admin);
+    // I-2: datos del perito para el informe. Si no se pueden leer, se piden al exportar.
+    const pf = await sbDb(`perfiles?id=eq.${u.id}&select=nombre,dni,telefono`,'GET',null,tk);
+    setPerfil(Array.isArray(pf)&&pf[0]?pf[0]:{});
     applySession(tk, s);
     setUser(u); loadCases(tk);
     return null;
   };
-  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setCases([]); setActive(null); setView('dashboard'); };
+  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setPerfil({}); setCases([]); setActive(null); setView('dashboard'); };
 
   // C-3. Guardado en Supabase: crea el expediente si todavía no existe en la
   // base de datos y, si ya existe, lo actualiza. La regla vive en
@@ -4509,9 +4516,22 @@ export default function App(){
   // sobre informes.estado). Un fallo de red no interrumpe la exportación:
   // el documento ya se generó en el cliente antes de llamar a esta función;
   // aquí solo queda reflejado en saveState ("error"), igual que el autosave.
-  const markExported = async () => {
+  //
+  // I-2: `datosPerito` son los que el perito confirmó en la ventana de
+  // exportación. Se guardan en el expediente (quién firmó) en la MISMA
+  // actualización que el estado, para que una no pise a la otra, y en su
+  // perfil si han cambiado.
+  const markExported = async (datosPerito) => {
     if(!active) return;
-    const updated = {...active, estado:'exportado'};
+    const updated = {...active, estado:'exportado', ...(datosPerito?{encargo:firmarEncargo(active.encargo, datosPerito)}:{})};
+    if(datosPerito && user?.id && tokenRef.current){
+      const patch = cambiosPerfil(perfil, datosPerito);
+      if(Object.keys(patch).length){
+        setPerfil(p=>({...p, ...patch}));
+        sbDb(`perfiles?id=eq.${user.id}`,'PATCH',patch,tokenRef.current)
+          .then(r=>{ if(!r) console.error('No se pudo guardar el perfil del perito.'); });
+      }
+    }
     setActive(updated);
     setCases(p=>p.map(c=>c.id===updated.id?updated:c));
     if(tokenRef.current){
@@ -4532,7 +4552,7 @@ export default function App(){
   if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="admin"&&isAdmin) return <><AdminPanel token={token} user={user} onExit={()=>setView("dashboard")} theme={{C,FONT,Logo}} sb={{url:SB_URL,key:SB_KEY}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
-  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
+  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} perfil={perfil} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onAdmin={isAdmin?()=>setView("admin"):null}/>
     <TestBadge/>
