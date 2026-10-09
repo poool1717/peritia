@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 9 octubre 2026 (sesión 30, continuación — **la revisión antes de exportar ya no pide datos de peritación en un Instant Payment**. En un expediente Instant terminado, la revisión marcaba como pendientes "Datos del Riesgo Asegurado" y "Superficie y Arquitectura", que en la pantalla de Instant no existen. Ahora la Sección 1 en Instant solo pide su texto. Regla en `lib/dominio/bloquesSeccion1.js`. No cambia ninguna fórmula. 577 tests. Misma rama `claude/prioridad-a-validacion`)
+**Última actualización:** 9 octubre 2026 (sesión 30, revisión del primer informe de prueba — **el informe exportado ya no imprime errores de la IA ni se contradice**. Corregidos E1–E10 del informe de prueba 27603166: error de la API en 2.1, propuesta «0,00 €» frente a 2.470,00 €, inspección inventada en un expediente documental, «a la espera de presupuestos» con presupuestos adjuntos, «Don»/«La perita», asteriscos, anexos PDF en blanco, cabecera que tapaba títulos, DNI solo en el PDF. Nueva revisión antes de exportar con errores y avisos. Sin migraciones ni cambios de fórmulas. 639 tests. Rama `claude/prioridad-a-validacion-informe-prueba`, derivada de `claude/prioridad-a-validacion` (PR #24), sin PR. Ver «Sesión 30 — revisión del primer informe de prueba»)
+
+**Anterior:** 9 octubre 2026 (sesión 30, continuación — **la revisión antes de exportar ya no pide datos de peritación en un Instant Payment**. En un expediente Instant terminado, la revisión marcaba como pendientes "Datos del Riesgo Asegurado" y "Superficie y Arquitectura", que en la pantalla de Instant no existen. Ahora la Sección 1 en Instant solo pide su texto. Regla en `lib/dominio/bloquesSeccion1.js`. No cambia ninguna fórmula. 577 tests. Misma rama `claude/prioridad-a-validacion`)
 
 **Anterior:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 570 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
 
@@ -24,6 +26,30 @@
 ---
 
 ## Estado actual
+
+### Sesión 30 — revisión del primer informe de prueba (E1–E10)
+
+**Contexto.** Pol generó el primer informe de prueba (encargo 27603166, expediente 9705367688, Instant Payment documental) y adjuntó el Word y el PDF. Se reprodujo el informe con el mismo motor de impresión (Chromium) a partir de un expediente equivalente y se corrigió lo siguiente. Detalle técnico en DT-30.
+
+**Rama.** `claude/prioridad-a-validacion-informe-prueba`, derivada de `claude/prioridad-a-validacion` para no cambiar la PR #24 mientras se revisa. Sin PR, sin fusionar.
+
+**Corregido:**
+- ✅ **E1 · errores de la IA.** Un error ya no sustituye al texto. Se avisa en pantalla en lenguaje claro. Un error guardado no se exporta ni cuenta como sección completa.
+- ✅ **E2 · propuesta 0,00 € frente a 2.470,00 €.** El texto automático de la Sección 4 estaba guardado de cuando la tabla estaba vacía. Al exportar se recalcula (misma regla de siempre). Si el perito lo editó y no cuadra, error en la revisión y aviso en la Sección 4.
+- ✅ **E3 · modalidad.** La IA recibe la modalidad y no puede inventar actuaciones. La revisión detecta «inspección ocular», «se personó», etc. en un documental (error) y «gestionado documentalmente» en un presencial (error). El texto por defecto de Instant solo dice «documental» si lo es.
+- ✅ **E4 · «a la espera de presupuestos».** Con documentos aportados ya no lo dice; sin documentos no dice «aportado».
+- ✅ **E5 · perito.** «emitido por <nombre>, en calidad de perito», sin «Don». La IA escribe en impersonal.
+- ✅ **E6 · Markdown.** Se quitan `**`, `__`, `*`, `` ` `` y `#` de título; los textos se escapan.
+- ⚠️ **E7 · anexos PDF.** Ya no salen páginas en blanco: se citan en una lista con su estado. **Su contenido sigue sin reproducirse** (P-30).
+- ✅ **E8 · cabecera del PDF.** En el margen de la página; ya no tapa el primer título de cada página.
+- ✅ **E9 · Word = PDF.** Mismos datos (`datosInforme`); el Word lleva el DNI.
+- ✅ **E10 · formatos.** Millares siempre agrupados (2.470,00 €), consulta meteorológica en dd/mm/aaaa. La dirección no se transforma: el encargo no tiene calle y número por separado.
+
+**Revisión antes de exportar.** Errores confirmados (cuentan como pendientes, sección en rojo) y avisos (se enseñan aparte). Ninguno bloquea: «Exportar igualmente» sigue existiendo. Qué debería bloquear: P-29.
+
+**Pendiente de decisión (Pol):** P-29 (bloquear), P-30 (PDF anexos), P-31 (importe de portada).
+
+**Prueba manual pendiente:** repetir el informe 27603166 en la app de test (ver pasos en el resumen de la sesión).
 
 ### Sesión 30 — Prioridad A de la validación con expedientes reales
 
@@ -460,6 +486,13 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 
 | Problema | Causa | Solución |
 |---|---|---|
+| El informe de prueba imprimió el JSON de un error de la API de IA en 2.1 (sesión 30, E1) | `callClaude` devuelve el error como texto y «Mejorar» lo guardaba como redacción | Un error no sustituye al texto, se avisa en pantalla y nunca se exporta (`lib/dominio/textosInforme.js`) |
+| Propuesta «Asegurado: 0,00 €» con una tabla de garantías de 2.470,00 € (sesión 30, E2) | El texto automático de la Sección 4 solo se recalcula con la pantalla abierta; se guardó con la tabla vacía | Al exportar se recalcula si es automático; si se editó y no cuadra, error en la revisión |
+| «Inspección ocular directa» en un expediente documental (sesión 30, E3) | La petición a la IA no decía la modalidad | La petición lleva la modalidad y prohíbe inventar; la revisión detecta la contradicción (`lib/dominio/revisionInforme.js`) |
+| «A la espera de presupuestos» con dos presupuestos adjuntos (sesión 30, E4) | Texto guardado en modo baremo, antes de pasar a presupuesto | Texto según modo y documentos que constan; recalculado al exportar |
+| Presupuestos PDF como páginas en blanco en el PDF (sesión 30, E7) | Se metían en un `<iframe>`, que la impresión no pinta | Se citan en una lista con su estado (`lib/dominio/anexosInforme.js`) |
+| El título «4. ESTUDIO DE COBERTURA» y «Presupuesto 2» tapados en el PDF (sesión 30, E8) | Cabecera `position:fixed` encima del primer renglón de cada página | Cabecera en el margen de la página (`@page @top-left/@top-right`) |
+| El DNI del perito salía en el PDF y no en el Word (sesión 30, E9) | Cada plantilla sacaba los datos por su cuenta | Las dos usan `datosInforme` |
 | La revisión antes de exportar marcaba "Datos del Riesgo Asegurado" y "Superficie y Arquitectura" como pendientes en un Instant Payment terminado (sesión 30) | La comprobación de la Sección 1 era la de peritación para todos los encargos; la pantalla de Instant solo tiene el texto, así que no había dónde rellenarlos | En Instant la Sección 1 solo exige su texto (`lib/dominio/bloquesSeccion1.js`); peritación igual que antes |
 | El informe afirmaba siempre que el perito compareció en el riesgo (sesión 30, C-1) | Frase fija en Word y PDF; la extracción ponía PRESENCIAL por defecto | La frase sale de la modalidad (presencial, vídeo, documental o neutra); la IA ya no adivina la modalidad |
 | Un expediente cuya primera creación fallaba no se guardaba nunca y sin aviso; si salía bien, se perdía lo hecho mientras tanto (sesión 30, C-3) | Autoguardado solo con `_sbId`; `handleDone` sustituía el expediente por la copia inicial y le cambiaba el id | `crearGuardador` reintenta la creación sin duplicados; id local estable y `_sbId` sobre el estado más reciente; aviso y "Reintentar guardado" |
@@ -558,6 +591,9 @@ Datos hardcodeados:
 ## Próximos pasos pendientes (roadmap)
 
 ### Corto plazo (próxima sesión)
+- [ ] **Prueba manual del informe 27603166 en la app de test** (sesión 30): el panel de revisión debe marcar el texto de 1.1 («inspección ocular» en documental) y el aviso de los dos presupuestos con el mismo nombre; el informe ya no debe llevar el error de la API, ni «0,00 €», ni asteriscos.
+- [ ] **Decidir P-29, P-30 y P-31** (`docs/OPEN_QUESTIONS.md`): qué errores bloquean la exportación, cómo se incorporan los PDF anexos y qué importe va en la portada.
+- [ ] **DT-31:** comprobar en Microsoft Word real la cabecera duplicada del Word.
 - [x] Auto-relleno de concepto de garantía y franquicia en Sec3 desde encargo/póliza
 - [x] **Sección 4 renovada (sesión 5):**
   - Texto de valoración fijo según modo (baremo/presupuesto/factura), editable con botón Restaurar.

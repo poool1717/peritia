@@ -40,7 +40,10 @@ peritia/
 │   │   ├── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
 │   │   ├── facturas.js      ← de dónde sale cada factura de la Sección 3 (Storage, memoria o perdida)
 │   │   ├── escrituraTardia.js ← cuándo se aplica un resultado que llega tarde (mismo expediente, editor abierto)
-│   │   └── bloquesSeccion1.js ← qué pide la Sección 1 para darla por completa (peritación vs Instant Payment)
+│   │   ├── bloquesSeccion1.js ← qué pide la Sección 1 para darla por completa (peritación vs Instant Payment)
+│   │   ├── textosInforme.js ← textos del informe: errores de IA, Markdown, textos automáticos, formatos
+│   │   ├── anexosInforme.js ← cómo sale cada documento anexo (imagen, PDF citado o no disponible)
+│   │   └── revisionInforme.js ← revisión antes de exportar: errores confirmados y avisos
 │   ├── supabase/
 │   │   └── config.js        ← a qué base de datos se conecta cada despliegue (frontend y proxy)
 │   └── knowledge/           ← Knowledge Core (KP-01): unidades, registro, resolución,

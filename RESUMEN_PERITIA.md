@@ -1,6 +1,6 @@
 # PERIT.IA — Resumen del Proyecto
 
-**Archivo principal:** `components/Peritia.jsx` · 4590 líneas · React 18 · panel de administración aparte en `components/Admin.jsx` (762 líneas)
+**Archivo principal:** `components/Peritia.jsx` · 4740 líneas · React 18 · panel de administración aparte en `components/Admin.jsx` (762 líneas)
 **Versión desplegada:** Next.js 14 en Vercel · https://peritia-git-main-pol-myprojects.vercel.app
 
 ---
@@ -78,6 +78,8 @@ App (Root) — auth state (user, token, sidebarOpen)
 | 9 | Sec1 (`getRiesgoIA`) | Deduce tipo de riesgo/vivienda desde el encargo | 1500 |
 
 > **Coste registrado (sesión 22):** cada llamada envía una etiqueta de sección (`encargo`, `poliza`, `sec1_riesgo`, `sec1_texto`, `sec2_meteo`, `sec2_texto`, `sec3_texto`, `sec3_baremo`, `sec3_facturas`) y el proxy guarda tokens y coste en `public.uso_ia`. El proxy solo atiende a usuarios con sesión iniciada y no bloqueados.
+
+> **Reglas de redacción (sesión 30, DT-30).** Las llamadas 3, 4, 5 y 6 añaden `reglasRedaccionIA` (`lib/dominio/textosInforme.js`): modalidad de la intervención, no inventar actuaciones ni documentos, forma impersonal sin nombrar al perito, dirección literal y texto plano sin Markdown. Si la IA falla, el texto existente se conserva y se avisa en pantalla.
 
 > **Sec4 ya no usa IA.** Los textos (valoración, descripción de cobertura, propuesta de indemnización) se generan de forma determinista a partir del modo de valoración, el perceptor, la cobertura y los datos de la póliza. Todos editables.
 > **El bloque "Redacción IA — Sección 1" se ha eliminado.** Ya no hay generación de texto por IA en Sec1 (fuera del flujo Instant Payment); el resto de textos generados por IA (viñetas, ✨, "con IA") se han retirado de los textos visibles de la interfaz — la funcionalidad de fondo se mantiene donde sigue siendo necesaria (extracción de PDFs, mejora de texto, generación de tabla).

@@ -51,6 +51,8 @@
 | DT-27 | El primer guardado de un expediente falla en silencio | **Crítica** · ✅ RESUELTO |
 | DT-28 | El informe Instant imprime capitales con preexistencia a cero | Alta · ✅ RESUELTO |
 | DT-29 | El perito del informe sale del encargo | Alta · ✅ RESUELTO |
+| DT-30 | Errores de la IA, textos desfasados y anexos en blanco en el informe exportado | Crítica · ✅ RESUELTO (salvo el contenido de los PDF anexos, ver P-30) |
+| DT-31 | La cabecera del Word se duplica (cabecera de Word + bloque en el cuerpo) | Baja · abierta |
 
 ---
 
@@ -933,3 +935,39 @@ extracción ya no lo pide; los datos salen del perfil (`perfiles.nombre`,
 guarda (antes solo el PDF), y se guardan junto con el estado "exportado" en una
 sola actualización (antes el guardado tardío devolvía el expediente a
 "borrador"). Sin migración.
+
+---
+
+## DT-30 · El informe exportado imprime errores de la IA, textos desfasados y anexos en blanco — ✅ RESUELTO
+
+**Detectada en el primer informe de prueba** (encargo 27603166, expediente
+9705367688, sesión 30). Corregido en `claude/prioridad-a-validacion-informe-prueba`:
+
+- **E1.** `callClaude` devuelve los errores de la API como texto JSON; las
+  peticiones de redacción lo guardaban como si fuera el texto. Ahora un error no
+  sustituye al texto (`respuestaTextoIA`), se avisa en pantalla en lenguaje claro,
+  y un error ya guardado nunca se exporta (`textoParaInforme`) ni cuenta como
+  sección completa.
+- **E2 / E4.** Los textos automáticos de la Sección 4 (introducción y propuesta)
+  solo se recalculaban con la pantalla abierta: el informe imprimía los de cuando
+  la tabla estaba vacía ("Asegurado: 0,00 €", "a la espera de presupuestos"). Al
+  exportar se aplica la misma regla de siempre (automático mientras no se edite).
+  Si el perito editó la propuesta y su importe no cuadra con la tabla, se avisa.
+- **E3 / E5 / E6 / E10.** Las peticiones de redacción llevan la modalidad y
+  prohíben inventar actuaciones, nombrar al perito con tratamiento o género,
+  reformatear la dirección y usar Markdown. Lo ya guardado se detecta en la
+  revisión (inspección incompatible con la modalidad) y se limpia al exportar
+  (Markdown, HTML).
+- **E7.** Los PDF anexos iban en `<iframe>`, que la impresión no pinta: páginas
+  en blanco. Ahora se citan en una lista con su estado. **El contenido del PDF
+  sigue sin reproducirse** (P-30).
+- **E8.** La cabecera del PDF era un bloque fijo que tapaba el primer título de
+  cada página; ahora va en el margen de la página (`@page`).
+- **E9.** Word y PDF toman los datos de `datosInforme`; el Word ya lleva el DNI.
+
+## DT-31 · La cabecera del Word se duplica — abierta
+
+El Word lleva la cabecera de Word (`mso-element:header`) y, además, un bloque
+`header-gvp` en el cuerpo tras cada salto de página. No se ha tocado en DT-30
+para no cambiar el diseño del Word; hay que verlo en Microsoft Word real (en
+LibreOffice la cabecera de Word no se interpreta).
