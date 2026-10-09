@@ -25,6 +25,7 @@ import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
 import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } from "../lib/dominio/perito.js";
 import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas } from "../lib/dominio/trazabilidadIA.js";
 import { huellaTabla, aplicarTablaIA, mensajeTrasTablaIA } from "../lib/dominio/tablaIA.js";
+import { estadosSeccion1, etiquetasSeccion1 } from "../lib/dominio/bloquesSeccion1.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -577,20 +578,9 @@ const encargoBlockStates = enc => [
   !!(enc.asegurado&&enc.lugarIntervencion),
   parseCap(enc.capitalContinente)>0,
 ];
-const s1BlockStates = (data,enc) => {
-  const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
-  // El bloque de capitales puede estar en tres estados, no en dos: relleno,
-  // vacío, o relleno CON UN DATO QUE NO CUADRA. El tercero se marca "error"
-  // (rojo, "Revisar") en vez de verde, porque un infraseguro absurdo con el
-  // semáforo en verde es la peor combinación posible: el informe sale mal y
-  // nada lo indica. Ver lib/dominio/alertas.js.
-  const hayAviso = avisosDelRiesgo(enc, data).length > 0;
-  return [
-    !!data.estado,
-    !!(data.superficieConstruida&&data.tipoArqKey),
-    capCont>0 ? (hayAviso ? "error" : true) : false,
-  ];
-};
+// Sección 1: depende del tipo de encargo (Instant Payment solo tiene el texto).
+// Ver lib/dominio/bloquesSeccion1.js.
+const s1BlockStates = (data,enc) => estadosSeccion1(data,enc);
 const s2BlockStates = (data,enc) => {
   const states = [!!(data.textoRaw||data.textoAI)];
   if(esSiniestroAtmosferico(enc)) states.push(!!data.meteo);
@@ -4143,7 +4133,6 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   // lo que muestra cada <Block> o el semáforo de arriba.
   const BLOCK_LABELS = {
     encargo: ["Compañía y Siniestro","Asegurado y Localización","Capitales Asegurados"],
-    s1: ["Datos del Riesgo Asegurado","Superficie y Arquitectura","Capitales Asegurados"],
     s3: ["Descripción de los Daños","Cómo se valora"],
     s4: ["Texto de Valoración","Descripción de la Cobertura"],
   };
@@ -4154,7 +4143,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   const pendingList = [];
   [
     ["encargo",encargoBlockStates(cData.encargo||{}),BLOCK_LABELS.encargo],
-    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),BLOCK_LABELS.s1],
+    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),etiquetasSeccion1(cData.encargo||{})],
     ["s2",s2BlockStates(cData.s2||{},cData.encargo||{}),s2Labels],
     ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
     ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],

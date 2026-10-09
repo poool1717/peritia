@@ -39,7 +39,8 @@ peritia/
 │   │   ├── calculo.js       ← motor de cálculo: baremo, valoración, reglas, indemnización
 │   │   ├── alertas.js       ← avisos cuando un número calculado no cuadra (infraseguro)
 │   │   ├── facturas.js      ← de dónde sale cada factura de la Sección 3 (Storage, memoria o perdida)
-│   │   └── escrituraTardia.js ← cuándo se aplica un resultado que llega tarde (mismo expediente, editor abierto)
+│   │   ├── escrituraTardia.js ← cuándo se aplica un resultado que llega tarde (mismo expediente, editor abierto)
+│   │   └── bloquesSeccion1.js ← qué pide la Sección 1 para darla por completa (peritación vs Instant Payment)
 │   ├── supabase/
 │   │   └── config.js        ← a qué base de datos se conecta cada despliegue (frontend y proxy)
 │   └── knowledge/           ← Knowledge Core (KP-01): unidades, registro, resolución,

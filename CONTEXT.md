@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 570 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
+**Última actualización:** 9 octubre 2026 (sesión 30, continuación — **la revisión antes de exportar ya no pide datos de peritación en un Instant Payment**. En un expediente Instant terminado, la revisión marcaba como pendientes "Datos del Riesgo Asegurado" y "Superficie y Arquitectura", que en la pantalla de Instant no existen. Ahora la Sección 1 en Instant solo pide su texto. Regla en `lib/dominio/bloquesSeccion1.js`. No cambia ninguna fórmula. 577 tests. Misma rama `claude/prioridad-a-validacion`)
+
+**Anterior:** 7 octubre 2026 (sesión 30 — **prioridad A de la validación con 150 expedientes reales**. Validación técnica de la PR #23 (DT-13) y cinco correcciones necesarias para empezar a probar con expedientes reales: el informe ya no afirma una visita al riesgo que no consta (C-1), un expediente que no se ha podido guardar ya no lo parece (C-3), el Instant no imprime capitales (I-1), el perito sale de su perfil (I-2) y se conserva lo que propuso la IA (I-10). Sin migraciones. 570 tests. En rama `claude/prioridad-a-validacion`, encima de la PR #23, sin fusionar. Ver "Sesión 30" más abajo)
 
 **Anterior:** 2 octubre 2026 (sesión 29 — **auditoría operativa de `test` y DT-13**. La auditoría confirma git limpio y 475 tests en verde (493 tras los ajustes de la PR), pero **no se ha podido recorrer la app de test de principio a fin**: el entorno de Claude Code no puede abrir `*.vercel.app` ni leer los proyectos de Supabase o las variables de Vercel. Esas comprobaciones quedan como tarea manual de Pol. Corregido DT-13: las facturas de la Sección 3 se perdían al guardar y la exportación fallaba entera al reabrir el expediente. En rama `claude/dt13-facturas-sec3`, con PR hacia `test`, sin fusionar. Ver "Sesión 29" más abajo)
 
@@ -43,6 +45,7 @@
 - **I-10 / DT-12 parcial:** `encargo.trazaIA` y `s3.trazaIA` con lo que propuso la IA. `lib/dominio/trazabilidadIA.js`.
 - **P-28 (protección mínima):** "Extraer tabla" / "Generar tabla" no sustituyen la tabla si el perito la cambió durante la espera; la propuesta queda en la trazabilidad como no aplicada y se avisa. `lib/dominio/tablaIA.js`.
 - `buildWordHTML` y `buildPDFHTML` se exportan para probar el informe generado; `exportPDF` solo imprime.
+- **Revisión antes de exportar en Instant Payment (9 oct):** la Sección 1 de un Instant solo tiene el texto, pero la revisión, el semáforo y el contador "Pendientes" le exigían estado, superficie y tipo de construcción, como a una peritación. Ahora en Instant el único bloque de la Sección 1 es "Texto de la Sección 1"; peritación sin cambios. `lib/dominio/bloquesSeccion1.js`, `tests/bloques-seccion1.test.js`.
 
 **Base de datos:** ninguna migración. Todo en columnas existentes (`perfiles.nombre/telefono/dni`, `informes.encargo` y `informes.s3`).
 
@@ -457,6 +460,7 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 
 | Problema | Causa | Solución |
 |---|---|---|
+| La revisión antes de exportar marcaba "Datos del Riesgo Asegurado" y "Superficie y Arquitectura" como pendientes en un Instant Payment terminado (sesión 30) | La comprobación de la Sección 1 era la de peritación para todos los encargos; la pantalla de Instant solo tiene el texto, así que no había dónde rellenarlos | En Instant la Sección 1 solo exige su texto (`lib/dominio/bloquesSeccion1.js`); peritación igual que antes |
 | El informe afirmaba siempre que el perito compareció en el riesgo (sesión 30, C-1) | Frase fija en Word y PDF; la extracción ponía PRESENCIAL por defecto | La frase sale de la modalidad (presencial, vídeo, documental o neutra); la IA ya no adivina la modalidad |
 | Un expediente cuya primera creación fallaba no se guardaba nunca y sin aviso; si salía bien, se perdía lo hecho mientras tanto (sesión 30, C-3) | Autoguardado solo con `_sbId`; `handleDone` sustituía el expediente por la copia inicial y le cambiaba el id | `crearGuardador` reintenta la creación sin duplicados; id local estable y `_sbId` sobre el estado más reciente; aviso y "Reintentar guardado" |
 | El informe Instant imprimía capitales con preexistencia e infraseguro a cero (sesión 30, I-1) | Bloque de capitales sin condición en Word y PDF | Se omite en Instant Payment |
