@@ -8,13 +8,13 @@ import { estadosSeccion1, etiquetasSeccion1 } from "../lib/dominio/bloquesSeccio
 
 const encInstant = {
   tipoEncargo: "INSTANT_PAYMENT", compania: "AXA Seguros", numReferencia: "9705367688",
-  lugarIntervencion: "Rei Jaume II, 106, 17800 Olot (Girona)", capitalContinente: "230000",
+  lugarIntervencion: "Calle Mayor, 1, 17800 Olot (Girona)", capitalContinente: "230000",
 };
 const encPeritacion = { ...encInstant, tipoEncargo: "PERITACION" };
 
 describe("Sección 1 en Instant Payment", () => {
   it("con el texto escrito, no queda nada pendiente aunque no haya superficie ni estado", () => {
-    const s1 = { textoInstant: "La perita actuante procedió a la verificación del riesgo sito en Rei Jaume II, 106." };
+    const s1 = { textoInstant: "La perita actuante procedió a la verificación del riesgo sito en Calle Mayor, 1." };
     expect(estadosSeccion1(s1, encInstant)).toEqual([true]);
     expect(etiquetasSeccion1(encInstant)).toEqual(["Texto de la Sección 1"]);
   });

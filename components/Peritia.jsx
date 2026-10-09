@@ -26,6 +26,12 @@ import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } fro
 import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas } from "../lib/dominio/trazabilidadIA.js";
 import { huellaTabla, aplicarTablaIA, mensajeTrasTablaIA } from "../lib/dominio/tablaIA.js";
 import { estadosSeccion1, etiquetasSeccion1 } from "../lib/dominio/bloquesSeccion1.js";
+import {
+  esErrorIA, mensajeErrorIA, respuestaTextoIA, textoParaInforme, limpiarMarkdown, escaparHTML, textoInstantPorDefecto, fraseEmision,
+  fechaInforme, importeInforme, reglasRedaccionIA, SEC4_INTROS, sec4IntroAuto, sec4IndemnAuto, textoIntroVigente, textoIndemnVigente,
+} from "../lib/dominio/textosInforme.js";
+import { clasificarDocumentos, ESTADO_DOC, notaDocumento, hayDocumentosAportados } from "../lib/dominio/anexosInforme.js";
+import { revisarInforme, textoSeccion2, textoSeccion3, discrepanciaIndemnizacion } from "../lib/dominio/revisionInforme.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -260,11 +266,11 @@ const meteoHTML = (m, enc, cls="") => {
   const sup = meteoSupera(m, enc);
   const td = (v,al="left") => `<td style="text-align:${al}">${v}</td>`;
   return `<h3>2.2. Verificación meteorológica (estación automática):</h3>
-${m.texto?`<p>${String(m.texto).replace(/\n/g,'<br/>')}</p>`:''}
+${textoParaInforme(m.texto)?`<p>${textoParaInforme(m.texto)}</p>`:''}
 <table${cls?` class="${cls}"`:''}><thead><tr><th>Estación</th><th>Dist.</th><th>Temperatura</th><th>Humedad rel.</th><th>Racha máx. diaria</th><th>Int. máx. precip.</th><th>¿Supera umbral?</th></tr></thead><tbody>
-<tr>${td(m.estacio||'—')}${td(m.distanciaKm+' km','right')}${td(((m.tempMax??'—'))+' ºC','right')}${td(((m.humitatMax??'—'))+' %','right')}${td(m.rachaMax+' km/h','right')}${td(m.precipMaxHoraria+' l/m²·h','right')}${td(sup.label,'center')}</tr>
+<tr>${td(escaparHTML(m.estacio||'—'))}${td(m.distanciaKm+' km','right')}${td(((m.tempMax??'—'))+' ºC','right')}${td(((m.humitatMax??'—'))+' %','right')}${td(m.rachaMax+' km/h','right')}${td(m.precipMaxHoraria+' l/m²·h','right')}${td(sup.label,'center')}</tr>
 </tbody></table>
-<p style="font-style:italic;font-size:8pt;color:#666">Fuente: Servei Meteorològic de Catalunya — Xarxa d'Estacions Meteorològiques Automàtiques. Datos abiertos de la Generalitat de Catalunya${m.consultadoEl?`. Consulta: ${m.consultadoEl}`:''}.</p>`;
+<p style="font-style:italic;font-size:8pt;color:#666">Fuente: Servei Meteorològic de Catalunya — Xarxa d'Estacions Meteorològiques Automàtiques. Datos abiertos de la Generalitat de Catalunya${m.consultadoEl?`. Consulta: ${fechaInforme(m.consultadoEl)}`:''}.</p>`;
 };
 
 const getRiesgoIA = async (enc, onTokens) => {
@@ -581,8 +587,9 @@ const encargoBlockStates = enc => [
 // Sección 1: depende del tipo de encargo (Instant Payment solo tiene el texto).
 // Ver lib/dominio/bloquesSeccion1.js.
 const s1BlockStates = (data,enc) => estadosSeccion1(data,enc);
+// E1: un texto que es un error técnico de la IA cuenta como vacío.
 const s2BlockStates = (data,enc) => {
-  const states = [!!(data.textoRaw||data.textoAI)];
+  const states = [!!textoSeccion2(data)];
   if(esSiniestroAtmosferico(enc)) states.push(!!data.meteo);
   return states;
 };
@@ -590,7 +597,7 @@ const s3BlockStates = data => {
   const modoVal = data.modoValoracion||"baremo";
   const docMode = modoVal==="presupuesto"||modoVal==="factura";
   return [
-    !!(data.textoRaw||data.textoAI),
+    !!(data.textoRaw||textoSeccion3(data)),
     modoVal==="baremo" ? (data.partidas?.length>0) : (docMode&&!!data.perceptorTipo),
   ];
 };
@@ -619,6 +626,14 @@ const semaforoFromStates = states => {
   if(doneCount===0) return "red";
   return "orange";
 };
+
+// Aviso en pantalla cuando la IA falla (E1): en lenguaje claro, nunca el
+// mensaje técnico de la API, y diciendo que el texto del perito no se ha tocado.
+const AvisoIA = ({texto}) => (
+  <div role="alert" style={{marginTop:8,background:C.redBg,border:"1px solid #FECACA",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.red,display:"flex",gap:7,alignItems:"flex-start"}}>
+    <AlertTriangle size={14} style={{flexShrink:0,marginTop:2}}/><span>{texto}</span>
+  </div>
+);
 
 // ─── AI VOICE INPUT ───────────────────────────────────────────────────────────
 const VoiceBox = ({value,onChange,onImprove,improving,onApply,applied,placeholder,rows=5}) => {
@@ -1541,7 +1556,9 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
   const rowsCont2P = getPartidas(s3).filter(p=>p.garantia==="contenido");
   const totNuevoContP  = sumRepos(rowsContP),  totRealContP  = sumReal(rowsContP);
   const totNuevoCont2P = sumRepos(rowsCont2P), totRealCont2P = sumReal(rowsCont2P);
-  const s3Intro = s4?.textoIntro||sec4IntroAuto(s3?.modoValoracion||"baremo");
+  // Mismos textos que el informe exportado (E2/E4): un texto automático
+  // guardado se recalcula con los datos actuales.
+  const s3Intro = textoIntroVigente(s4, s3?.modoValoracion||"baremo", hayDocumentosAportados(anexos, s3));
 
   const Section = ({n,title,children,id,done}) => (
     <div style={{marginBottom:22,paddingBottom:22,borderBottom:`1px solid ${C.border}`}}>
@@ -1592,7 +1609,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* PROGRESO */}
       <div style={{display:"flex",gap:7,marginBottom:18,flexWrap:"wrap"}}>
         {[["Encargo",!!(enc.asegurado&&enc.numReferencia)],["Sec.1",!!(s1?.superficieConstruida)],
-          ["Sec.2",!!(s2?.textoAI)],["Sec.3",partidas.length>0],["Sec.4",!!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||partidas.length>0]
+          ["Sec.2",!!textoSeccion2(s2)],["Sec.3",partidas.length>0],["Sec.4",!!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||partidas.length>0]
         ].map(([l,done])=>(
           <div key={l} style={{background:done?C.greenBg:C.tag,border:`1px solid ${done?"#A7F3D0":C.border}`,
             borderRadius:20,padding:"3px 11px",fontSize:13,fontWeight:600,color:done?C.green:C.muted,
@@ -1609,7 +1626,8 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
       <Section n="1" title="Verificación del Riesgo y Póliza" id="s1" done={!!(s1?.superficieConstruida||s1?.textoInstant)}>
         {enc.tipoEncargo==="INSTANT_PAYMENT"
           ? <div style={{fontSize:15,color:C.ink,lineHeight:1.8}}>
-              {s1?.textoInstant||(`Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||"—"}. Este siniestro se ha gestionado documentalmente.`)}
+              {/* Lo mismo que el informe exportado: sin errores de la IA ni Markdown. */}
+              {(s1?.textoInstant&&!esErrorIA(s1.textoInstant)) ? limpiarMarkdown(s1.textoInstant) : textoInstantPorDefecto(enc)}
             </div>
           : s1?.superficieConstruida
           ?<>
@@ -1640,18 +1658,18 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
                 </div>
               ))}
             </div>
-            {s1.aiText&&<div style={{marginTop:12,fontSize:14,color:C.ink,lineHeight:1.8,background:C.bg,borderRadius:7,padding:12,whiteSpace:"pre-wrap"}}>{s1.aiText}</div>}
+            {s1.aiText&&!esErrorIA(s1.aiText)&&<div style={{marginTop:12,fontSize:14,color:C.ink,lineHeight:1.8,background:C.bg,borderRadius:7,padding:12,whiteSpace:"pre-wrap"}}>{limpiarMarkdown(s1.aiText)}</div>}
           </>
           :<Empty msg="Completa la Sección 1 para ver los datos del riesgo"/>
         }
       </Section>
 
       {/* SECCIÓN 2 */}
-      <Section n="2" title="Causas y Circunstancias" id="s2" done={!!(s2?.textoAI||s2?.textoRaw||s2?.meteo)}>
-        {(s2?.textoAI||s2?.textoRaw||s2?.meteo)
+      <Section n="2" title="Causas y Circunstancias" id="s2" done={!!(textoSeccion2(s2)||s2?.meteo)}>
+        {(textoSeccion2(s2)||s2?.meteo)
           ?<>
-            {(s2?.textoAI||s2?.textoRaw)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s2.textoAI||s2.textoRaw}</div>}
-            {s2?.meteo&&<div style={{marginTop:(s2?.textoAI||s2?.textoRaw)?14:0}}>
+            {textoSeccion2(s2)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{limpiarMarkdown(textoSeccion2(s2))}</div>}
+            {s2?.meteo&&<div style={{marginTop:textoSeccion2(s2)?14:0}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:15,color:C.ink,marginBottom:6}}>Verificación meteorológica</div>
               {s2.meteo.texto&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
               <MeteoTabla m={s2.meteo} enc={enc}/>
@@ -1666,7 +1684,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
           ?<>
             <div style={{fontSize:15,color:C.ink,lineHeight:1.8,marginBottom:14}}>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños.</div>
             {s3Intro&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3Intro}</div>}
-            {s3?.textoAI&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3.textoAI}</div>}
+            {textoSeccion3(s3)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{limpiarMarkdown(textoSeccion3(s3))}</div>}
             {[["Daños en Continente",rowsContP],["Daños en Contenido",rowsCont2P]].filter(([,rows])=>rows.length>0).map(([titulo,rows])=>(
               <div key={titulo} style={{marginBottom:16}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.accent,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>{titulo}</div>
@@ -1739,7 +1757,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
       {/* SECCIÓN 4 */}
       {(()=>{
         const s4Desc   = s4?.descripcionCobertura||"";
-        const s4Indemn = s4?.textoIndemn||sec4IndemnAuto(s3,indemn);
+        const s4Indemn = textoIndemnVigente(s4,s3,indemn);
         const s4Done   = !!(s4?.textoIntro||s4?.descripcionCobertura||s4?.textoIndemn)||totalDano>0;
         return (
         <Section n="4" title="Estudio de Cobertura-Indemnización" id="s4" done={s4Done}>
@@ -1831,6 +1849,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
 const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) => {
   const [calSug,setCalSug]     = useState("");
   const [aiLoad,setAiLoad]     = useState(false);
+  const [aiErr,setAiErr]       = useState("");
   const [catLoad,setCatLoad]   = useState(false);
   const [catErr,setCatErr]     = useState("");
   const [catOk,setCatOk]       = useState(false);
@@ -1892,8 +1911,8 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
   // Auto-init instant text
   useEffect(()=>{
     if(esInstant && !data.textoInstant){
-      const loc = enc.lugarIntervencion||enc.municipio||"";
-      onChange({...data, textoInstant: `Localización del riesgo: el riesgo está situado en ${loc}. Este siniestro se ha gestionado documentalmente.`});
+      // E3: solo dice "gestionado documentalmente" si la modalidad es documental.
+      onChange({...data, textoInstant: textoInstantPorDefecto(enc)});
     }
     // Incluye la localización de origen: si llega tras el primer render, el
     // texto se inicializa igualmente (la guarda !data.textoInstant evita repetir).
@@ -1931,19 +1950,26 @@ const Sec1 = ({data,onChange,enc,onTokens,onNext,onSave,onAutoAnexo,scrollRef}) 
         <AutoTextarea value={data.textoInstant} onChange={v=>onChange({...data,textoInstant:v})}
           minRows={3} style={{lineHeight:1.7,fontSize:15,marginBottom:8}}/>
         <Btn sm primary onClick={async ()=>{
-          setAiLoad(true);
+          setAiLoad(true); setAiErr("");
           const t = await callClaude(
-            "Perito de seguros. Redacta en tercera persona, estilo pericial, conciso. Sin título de apartado.",
-            `Mejora este texto para la sección de verificación del riesgo de un informe Instant Payment. Debe incluir la localización del riesgo y que se ha gestionado documentalmente:
+            "Perito de seguros. Redacta en estilo pericial, conciso. Sin título de apartado.",
+            `Mejora este texto para la sección de verificación del riesgo de un informe Instant Payment. Debe incluir la localización del riesgo. No añadas hechos que no estén en el texto.
 TEXTO: "${data.textoInstant||""}"
-DIRECCIÓN: ${enc.lugarIntervencion||""}, ${enc.municipio||""}`,
+DIRECCIÓN: ${enc.lugarIntervencion||""}
+
+${reglasRedaccionIA(enc)}`,
             onTokens, 1500, "sec1_texto"
-          ).catch(()=>data.textoInstant||"");
-          onChange({...data,textoInstant:t});
+          ).catch(()=>null);
+          // E1: si la IA falla, el texto del perito se queda como estaba.
+          const r = respuestaTextoIA(t, data.textoInstant);
+          if(r.error) setAiErr(r.error);
+          else onChange({...data,textoInstant:r.texto});
           setAiLoad(false);
         }} disabled={aiLoad}>
           {aiLoad?<><Spin/>Mejorando…</>:<><Sparkles size={12}/>Mejorar</>}
         </Btn>
+        {aiErr&&<AvisoIA texto={aiErr}/>}
+        {esErrorIA(data.textoInstant)&&<AvisoIA texto="Este texto es un error técnico de la IA, no una redacción. No se exportará: escribe el texto o vuelve a pulsar «Mejorar»."/>}
       </Card>
 
       {(enc.umbralViento||enc.umbralLluvia)&&<Card s={{marginBottom:14}}>
@@ -2171,6 +2197,7 @@ const Sec2 = ({data,onChange,enc,onTokens,onNext,onPrev,onSave,onAutoAnexo,scrol
   const [saved,setSaved]         = useState(false);
   const [meteoLoad,setMeteoLoad] = useState(false);
   const [meteoErr,setMeteoErr]   = useState("");
+  const [iaErr,setIaErr]         = useState("");
   const s = f => v => onChange({...data,[f]:v});
   const esAtmosferico = esSiniestroAtmosferico(enc);
 
@@ -2194,11 +2221,15 @@ PRECIPITACIÓN MÁXIMA EN UNA HORA: ${d.precipMaxHoraria} l/m²
 PRECIPITACIÓN TOTAL DEL DÍA: ${d.precipTotal} l/m²
 UMBRAL VIENTO PÓLIZA: ${enc.umbralViento||"no especificado"} km/h · UMBRAL LLUVIA PÓLIZA: ${enc.umbralLluvia||"no especificado"} l/m²/h
 CONCLUSIÓN UMBRALES: ${sup.hayUmbral?sup.label:"la póliza no fija umbrales"}
-Fuente: Servei Meteorològic de Catalunya, datos abiertos. Menciona la fuente al final sin usar siglas ni acrónimos técnicos.`,
+Fuente: Servei Meteorològic de Catalunya, datos abiertos. Menciona la fuente al final sin usar siglas ni acrónimos técnicos.
+
+${reglasRedaccionIA(enc)}`,
       onTokens, 1500, "sec2_meteo"
-    ).catch(()=>"");
-    const textoLimpio = (texto&&!texto.includes('"_apiError"'))?texto:"";
-    onChange({...data, meteo:{...d, texto:textoLimpio}});
+    ).catch(()=>null);
+    // E1: los datos medidos se guardan igualmente; el párrafo, solo si la IA respondió bien.
+    const errTexto = mensajeErrorIA(texto);
+    onChange({...data, meteo:{...d, texto:errTexto?"":texto}});
+    if(errTexto) setMeteoErr("Datos meteorológicos obtenidos, pero no se ha podido redactar el párrafo: "+errTexto);
     setMeteoLoad(false);
     if(d.imagen && onAutoAnexo){
       onAutoAnexo("meteosim", d.imagen, `xema-${d.codiEstacio||'estacio'}-${(enc.fechaSiniestro||'').replace(/\//g,'-')}.png`, "Documento")
@@ -2208,15 +2239,20 @@ Fuente: Servei Meteorològic de Catalunya, datos abiertos. Menciona la fuente al
 
   const improve = async () => {
     if(!data.textoRaw) return;
-    setImproving(true);
+    setImproving(true); setIaErr("");
     const text = await callClaude(
-      "Perito de seguros. Redacta en tercera persona, estilo pericial, conciso. Sin título de apartado.",
-      `Mejora este texto para causas y circunstancias del siniestro. Tercera persona, técnico, conciso:
+      "Perito de seguros. Redacta en estilo pericial, conciso. Sin título de apartado.",
+      `Mejora este texto para causas y circunstancias del siniestro. Técnico, conciso:
 CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
-"${data.textoRaw}"`,
+"${data.textoRaw}"
+
+${reglasRedaccionIA(enc)}`,
       onTokens, 1500, "sec2_texto"
-    ).catch(()=>"Error de conexión.");
-    onChange({...data,textoAI:text,aiApplied:false});
+    ).catch(()=>null);
+    // E1: un error de la IA no sustituye al texto que ya había.
+    const r = respuestaTextoIA(text, data.textoAI);
+    if(r.error) setIaErr(r.error);
+    else onChange({...data,textoAI:r.texto,aiApplied:false});
     setImproving(false);
   };
 
@@ -2242,6 +2278,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
           onImprove={improve} improving={improving}
           onApply={()=>onChange({...data,aiApplied:true})} applied={data.aiApplied}
           placeholder="Describe el siniestro: cómo ocurrió, qué daños encontraste, qué te dijeron los afectados…" rows={5}/>
+        {iaErr&&<AvisoIA texto={iaErr}/>}
       </Block>
 
       {/* CONSULTA METEOROLÓGICA — solo si el siniestro es atmosférico */}
@@ -2283,6 +2320,7 @@ CONTEXTO: ${enc.causa||""} — ${enc.lugarIntervencion||""}
             <Btn sm ghost onClick={improve} disabled={improving}><RefreshCw size={10}/>Regenerar</Btn>
             <Btn sm outline onClick={()=>onChange({...data,aiApplied:true})}>{data.aiApplied?<><Check size={10}/>Aplicado</>:<><Check size={10}/>Aplicar al informe</>}</Btn>
           </div>
+          {esErrorIA(data.textoAI)&&<AvisoIA texto="Este texto es un error técnico de la IA, no una redacción. No se exportará: el informe usará tu descripción. Pulsa «Regenerar» o bórralo."/>}
           <AutoTextarea value={data.textoAI} onChange={v=>onChange({...data,textoAI:v,aiEdited:true})}
             minRows={6} style={{fontSize:15}}/>
           {data.aiEdited&&<div style={{fontSize:13,color:C.orange,marginTop:3}}>Texto editado manualmente</div>}
@@ -2328,6 +2366,7 @@ const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNe
     return aplicada;
   };
   const [improving,setImproving] = useState(false);
+  const [iaErr,setIaErr]         = useState("");
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
   const [editParams,setEditParams] = useState(false); // despliega Parámetros de Garantía bajo el contexto
@@ -2419,15 +2458,20 @@ const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNe
   // ── AI: mejorar texto descripción ────────────────────────────────────────
   const improveText = async () => {
     if(!data.textoRaw) return;
-    setImproving(true);
+    setImproving(true); setIaErr("");
     const text = await callClaude(
-      "Perito de seguros. Redacta en tercera persona, estilo pericial, conciso. Sin título de apartado.",
+      "Perito de seguros. Redacta en estilo pericial, conciso. Sin título de apartado.",
       `Mejora este texto para el apartado de valoración de daños. Directo, técnico, sin redundancias:
 CAUSA: ${enc.causa||""} | GARANTÍA: ${enc.garantia||""}
-TEXTO: "${data.textoRaw}"`,
+TEXTO: "${data.textoRaw}"
+
+${reglasRedaccionIA(enc)}`,
       onTokens, 1500, "sec3_texto"
-    ).catch(()=>"Error al conectar.");
-    setLate({textoAI:text});
+    ).catch(()=>null);
+    // E1: un error de la IA no sustituye al texto que ya había.
+    const r = respuestaTextoIA(text, data.textoAI);
+    if(r.error) setIaErr(r.error);
+    else setLate({textoAI:r.texto});
     setImproving(false);
   };
 
@@ -2636,6 +2680,8 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
         <VoiceBox value={data.textoRaw||""} onChange={s("textoRaw")}
           onImprove={improveText} improving={improving}
           placeholder="Describe los daños encontrados en la visita pericial…" rows={4}/>
+        {iaErr&&<AvisoIA texto={iaErr}/>}
+        {esErrorIA(data.textoAI)&&<AvisoIA texto="Este texto es un error técnico de la IA, no una redacción. No se exportará. Pulsa «Regenerar» o bórralo."/>}
         {data.textoAI&&(
           <div style={{marginTop:10}}>
             <div style={{display:"flex",gap:6,marginBottom:6}}>
@@ -2945,35 +2991,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
 };
 
 // ─── SECCIÓN 4 ────────────────────────────────────────────────────────────────
-const SEC4_INTROS = [
-  "Procedemos a realizar valoración correspondiente, en base al presupuesto aportado por el asegurado.",
-  "Procedemos a realizar valoración correspondiente, en base a la factura aportada por el asegurado.",
-  "A la espera de aportación de presupuestos o facturas procedemos a realizar valoración unilateral a modo informativo.",
-];
+// SEC4_INTROS, sec4IntroAuto y sec4IndemnAuto viven en lib/dominio/textosInforme.js:
+// las usan también las exportaciones, que aplican la misma regla al exportar.
 
-const sec4IntroAuto = modo =>
-  modo==="presupuesto" ? SEC4_INTROS[0]
-  : modo==="factura"  ? SEC4_INTROS[1]
-  : SEC4_INTROS[2];
-
-const sec4IndemnAuto = (s3, indemn) => {
-  const todaSinCob = (s3?.partidas?.length>0) && getPartidas(s3).length===0;
-  if(todaSinCob) return "NO se propone indemnización.";
-  const modo = s3?.modoValoracion||"baremo";
-  const reparador = s3?.perceptorTipo==="reparador";
-  const perceptor = {reparador:"Reparador",perjudicado:"Perjudicado"}[s3?.perceptorTipo]||"Asegurado";
-  const eur = fmt(indemn)+" €";
-  if(modo==="presupuesto")
-    return `A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur}`;
-  if(modo==="factura"&&reparador)
-    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nReparador: ${eur}`;
-  if(modo==="factura")
-    return `Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur} (IVA incl.)`;
-  // Modo "a modo informativo" (baremo): también se eleva propuesta
-  return `Se propone indemnización a modo informativo de la siguiente manera:\n\nINDEMNIZACIÓN:\n${perceptor}: ${eur}`;
-};
-
-const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef}) => {
+const Sec4 = ({data,onChange,enc,s1,s3,anexos,onTokens,onNext,onPrev,onSave,scrollRef}) => {
   const [saved,setSaved] = useState(false);
   const s = f => v => onChange({...data,[f]:v});
 
@@ -2990,6 +3011,8 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
   const franq      = parseCap(s3?.franquiciaVal||enc.franquicia);
   const indemn     = Math.max(0,ajustado-franq);
   const modoVal    = s3?.modoValoracion||"baremo";
+  // E4: el texto de valoración cambia si ya constan presupuestos/facturas.
+  const hayDocs    = hayDocumentosAportados(anexos, s3);
 
   // Los tres auto-rellenos de Sección 4 (cobertura, texto intro, propuesta de
   // indemnización) van en un ÚNICO useEffect que junta todo en un solo patch.
@@ -3027,16 +3050,21 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
     }
 
     // Texto intro: se actualiza mientras el perito no lo haya personalizado.
-    if(!data.textoIntro||SEC4_INTROS.includes(data.textoIntro))
-      patch.textoIntro = sec4IntroAuto(modoVal);
+    if(!data.textoIntro||SEC4_INTROS.includes(data.textoIntro)){
+      const intro = sec4IntroAuto(modoVal, hayDocs);
+      if(intro!==data.textoIntro) patch.textoIntro = intro;
+    }
 
     // Propuesta de indemnización: se mantiene actualizada mientras el perito
     // no la edite a mano (textoIndemnEdited).
-    if(!data.textoIndemnEdited) patch.textoIndemn = sec4IndemnAuto(s3,indemn);
+    if(!data.textoIndemnEdited){
+      const propuesta = sec4IndemnAuto(s3,indemn);
+      if(propuesta!==data.textoIndemn) patch.textoIndemn = propuesta;
+    }
 
     if(Object.keys(patch).length) onChange({...data,...patch});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[enc?.garantia,enc?.causa,enc?.descripciones,modoVal,indemn,s3?.perceptorTipo,s3?.partidas]);
+  },[enc?.garantia,enc?.causa,enc?.descripciones,modoVal,indemn,s3?.perceptorTipo,s3?.partidas,hayDocs]);
 
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
 
@@ -3064,10 +3092,10 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
       <Block title="Texto de Valoración" badge="Automático" done={s4b[0]}
         summary={data.textoIntro?data.textoIntro.slice(0,140)+(data.textoIntro.length>140?"…":""):"Sin generar todavía"}>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:6}}>
-          <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal)})}/>
+          <RestoreBtn onClick={()=>onChange({...data,textoIntro:sec4IntroAuto(modoVal,hayDocs)})}/>
         </div>
         <div style={{fontSize:13,color:C.muted,marginBottom:8}}>Auto-generado según el modo de valoración (Baremo · Presupuesto · Factura). Editable.</div>
-        <Txt value={data.textoIntro||sec4IntroAuto(modoVal)} onChange={s("textoIntro")} rows={2}/>
+        <Txt value={data.textoIntro||sec4IntroAuto(modoVal,hayDocs)} onChange={s("textoIntro")} rows={2}/>
       </Block>
 
       {/* DESCRIPCIÓN COBERTURA */}
@@ -3163,6 +3191,16 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
         <Txt value={data.textoIndemn||sec4IndemnAuto(s3,indemn)} onChange={v=>onChange({...data,textoIndemn:v,textoIndemnEdited:true})}
           rows={sec4IndemnAuto(s3,indemn)==="NO se propone indemnización."?2:5}
           placeholder="Completar la Sección 3 para generar la propuesta automáticamente…"/>
+        {/* E2: si el perito editó la propuesta y su importe ya no cuadra con la tabla, se dice. */}
+        {(()=>{
+          const d = data.textoIndemnEdited ? discrepanciaIndemnizacion(data.textoIndemn, indemn) : null;
+          return d&&<div style={{marginTop:8,background:C.redBg,border:"1px solid #FECACA",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.red,display:"flex",gap:7,alignItems:"flex-start"}}>
+            <AlertTriangle size={14} style={{flexShrink:0,marginTop:2}}/>
+            <span>{d.motivo==="no_propone"
+              ? <>La propuesta dice que no se propone indemnización, pero la tabla de garantías da <b>{importeInforme(d.calculo)} €</b>.</>
+              : <>La propuesta dice <b>{importeInforme(d.texto)} €</b>, pero la tabla de garantías da <b>{importeInforme(d.calculo)} €</b>.</>} Revísala o pulsa «Restaurar».</span>
+          </div>;
+        })()}
       </Card>
 
       <NavBottom onPrev={onPrev} onSave={handleSave} onNext={onNext} saved={saved}
@@ -3345,8 +3383,12 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
 
 // ─── REPORT EDITOR ────────────────────────────────────────────────────────────
 // ─── EXPORT HELPERS ──────────────────────────────────────────────────────────
-const fmtPDF = n => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
-const esPdfItem = f => !!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
+// E10: en el informe los millares se agrupan siempre ("2.470,00", no "2470,00"
+// junto a "560.400,00"). Ver importeInforme en lib/dominio/textosInforme.js.
+const fmtPDF = importeInforme;
+// Si una imagen de los anexos no se puede cargar al imprimir, se sustituye por
+// una nota en vez de dejar la página en blanco (E7).
+const IMG_ONERROR = `onerror="this.replaceWith(Object.assign(document.createElement('p'),{textContent:'Imagen no disponible: no se ha podido cargar el archivo.'}))"`;
 // Todas las facturas/presupuestos del informe: los subidos en Anexos más los
 // adjuntados en la Sección 3. Desde la sesión 29 (DT-13) los de la Sección 3
 // también tienen URL en Storage; si solo están en memoria se crea una URL de
@@ -3362,8 +3404,70 @@ const allFacturasOf = cData => {
   ];
 };
 
-export const buildWordHTML = (cData) => {
+// Documentos tal como los verá la exportación, para la revisión previa. No
+// crea URLs de objeto (se calcula en cada render): un archivo en memoria
+// cuenta como disponible.
+const documentosParaRevision = cData => {
+  const s3=cData.s3||{}, anexos=cData.anexos||{};
+  const tipoS3 = s3.modoValoracion==='presupuesto'?'Presupuesto':'Factura';
+  return [
+    ...(anexos.facturas||[]).map(f=>({...f,tipo:'Factura'})),
+    ...(anexos.presupuestos||[]).map(f=>({...f,tipo:'Presupuesto'})),
+    ...(s3.facturas||[]).map(f=>facturaSec3ParaExportar(f, tipoS3, ()=>'memoria:')),
+  ];
+};
+
+// E9. Datos sustanciales del informe, los mismos para Word y PDF: quién firma,
+// textos, propuesta, fecha y anexos. Antes cada plantilla los sacaba por su
+// cuenta y el Word, por ejemplo, no llevaba el DNI del perito.
+// Todo texto libre pasa por textoParaInforme (E1 y E6): nunca un error
+// técnico de la IA, sin Markdown y escapado.
+export const datosInforme = (cData, dniPerito='') => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
+  const modo=s3.modoValoracion||'baremo';
+  const indemn=calcIndemnizacion(enc,s1,s3);
+  const esc=v=>escaparHTML(String(v??'').trim());
+  const textoInstant=textoParaInforme(s1.textoInstant)||escaparHTML(textoInstantPorDefecto(enc));
+  const riesgo=enc.tipoEncargo==='INSTANT_PAYMENT'
+    ?[textoInstant]
+    :[`El riesgo asegurado se corresponde con: ${esc(s1.tipoRiesgo)||'—'}.`,
+      `La fecha de construcción es del año ${esc(s1.anoConstruccion)||'—'}.`,
+      `Cuenta con una superficie construida de ${esc(s1.superficieConstruida)||'—'} M2 en total`,
+      `Acabados son de calidad: ${esc(s1.calidad)||'—'}`,
+      `El estado general del riesgo asegurado se encuentra según nuestro criterio: ${esc(s1.estado)||'—'}`,
+      `Localización del riesgo: el riesgo está situado en ${esc(enc.lugarIntervencion)||'—'}`,
+      `Referencia catastral del inmueble: ${esc(s1.refCatastral)}`];
+  const documentos=clasificarDocumentos(cData._facturasResueltas||allFacturasOf(cData));
+  return {
+    perito: esc(enc.perito)||'—',
+    telPerito: esc(enc.telPerito)||'—',
+    dni: esc(enc.dniPerito||dniPerito)||'—',
+    emision: fraseEmision(enc.perito),
+    comparecencia: fraseComparecencia(enc.modalidadVisita),
+    riesgo,
+    s1Extra: textoParaInforme(s1.aiText),
+    s2Texto: textoParaInforme(textoSeccion2(s2)),
+    intro3: textoParaInforme(textoIntroVigente(s4, modo, hayDocumentosAportados(anexos, s3))),
+    s3Texto: textoParaInforme(textoSeccion3(s3)),
+    desc4: textoParaInforme(s4.descripcionCobertura),
+    indemnTexto: textoParaInforme(textoIndemnVigente(s4, s3, indemn)),
+    indemn,
+    lugarFirma: esc(enc.municipio||enc.lugarIntervencion)||'—',
+    fechaFirma: new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}),
+    // E7: imágenes, que se reproducen; PDF y documentos sin archivo, que se citan.
+    docsImagen: documentos.filter(d=>d.estado===ESTADO_DOC.IMAGEN),
+    docsCitados: documentos.filter(d=>d.estado!==ESTADO_DOC.IMAGEN),
+    documentos,
+  };
+};
+
+// Lista de documentos que no se pueden reproducir dentro del informe (E7).
+const docsCitadosHTML = docs => docs.length ? `<h3>Documentos aportados</h3>
+<ul class='docs-citados'>${docs.map(d=>`<li><b>${escaparHTML(d.tipo||'Documento')} ${d.numero}:</b> ${escaparHTML(d.name||'(sin nombre)')} — ${notaDocumento(d)}.</li>`).join('')}</ul>` : '';
+
+export const buildWordHTML = (cData, dniPerito='') => {
+  const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, anexos=cData.anexos||{};
+  const D=datosInforme(cData, dniPerito);
   const catastroImg=(anexos.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
   const catastroHTML=catastroImg?`<p style='font-size:8.5pt;color:#666;margin:6pt 0 2pt'>Cartografía catastral:</p><img src='${catastroImg.url}' style='max-width:60%;max-height:240pt;border:1px solid #ccc'/>`:'';
   const partidas=getPartidas(s3);
@@ -3382,15 +3486,7 @@ export const buildWordHTML = (cData) => {
   const dCont2=partidas.filter(p=>p.garantia==='contenido').reduce((a,p)=>a+calcPartida(p).vReal,0);
   const aCont=dCont*(s3.reglaContinente?reglas.continente:1);
   const aCont2=dCont2*(s3.reglaContenido?reglas.contenido:1);
-  const riesgoLines=enc.tipoEncargo==='INSTANT_PAYMENT'
-    ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
-    :[`El riesgo asegurado se corresponde con: ${s1.tipoRiesgo||'—'}.`,
-      `La fecha de construcción es del año ${s1.anoConstruccion||'—'}.`,
-      `Cuenta con una superficie construida de ${s1.superficieConstruida||'—'} M2 en total`,
-      `Acabados son de calidad: ${s1.calidad||'—'}`,
-      `El estado general del riesgo asegurado se encuentra según nuestro criterio: ${s1.estado||'—'}`,
-      `Localización del riesgo: el riesgo está situado en ${enc.lugarIntervencion||'—'}`,
-      `Referencia catastral del inmueble: ${s1.refCatastral||''}`];
+  const riesgoLines=D.riesgo;
   const partidasContW  = partidas.filter(p=>(p.garantia||'continente')!=='contenido');
   const partidasCont2W = partidas.filter(p=>p.garantia==='contenido');
   const totNuevoContW=sumRepos(partidasContW),   totRealContW=sumReal(partidasContW);
@@ -3413,10 +3509,10 @@ export const buildWordHTML = (cData) => {
     {tit:'Continente',dano:dCont,lim:capCont,on:s3.reglaContinente,regla:reglas.continente,ajust:aCont},
     {tit:'Contenido', dano:dCont2,lim:capCont2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aCont2},
   ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}.<br/>${enc.garantia||''}<br/>${enc.causa||''}</td><td>${fmtPDF(b.dano)} €</td><td>${fmtPDF(b.lim)} €</td><td>${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td>${fmtPDF(b.ajust)} €</td><td>—</td><td>${fmtPDF(b.ajust)} €</td></tr>`).join('');
-  const w3Intro=s4.textoIntro||sec4IntroAuto(modo);
-  const w4Desc=s4.descripcionCobertura||'';
-  const w4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,indemn);
-  const facturasW=cData._facturasResueltas||allFacturasOf(cData);
+  const w3Intro=D.intro3;
+  const w4Desc=D.desc4;
+  const w4Indemn=D.indemnTexto;
+  const facturasW=D.docsImagen;
   // Word (el "filtro HTML" que usa para abrir un .doc que en realidad es
   // HTML) ignora flexbox y calc(), y además no siempre respeta el ancho
   // puesto por CSS en <td>/<img>: hay que usar también el atributo HTML
@@ -3425,19 +3521,20 @@ export const buildWordHTML = (cData) => {
   // se vea igual de bien.
   const wFotos=anexos.fotos||[];
   const wFotoRow = (f,i) => {
-    const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-    return `<tr><td width="100%" valign="top" class='foto-cell'>${isPdfItem?`<p style='font-size:8pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`:`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`}<div style='font-size:9pt;font-weight:bold;color:#333;margin-top:4pt'>Foto ${i+1}</div>${f.caption?`<div style='font-size:8pt;color:#666;margin-top:1pt'>${f.caption}</div>`:''}</td></tr>`;
+    const est=clasificarDocumentos([f])[0];
+    return `<tr><td width="100%" valign="top" class='foto-cell'>${est.estado!==ESTADO_DOC.IMAGEN?`<p style='font-size:8pt;color:#666'>${escaparHTML(f.name||'Documento')} — ${notaDocumento(est)}.</p>`:`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`}<div style='font-size:9pt;font-weight:bold;color:#333;margin-top:4pt'>Foto ${i+1}</div>${f.caption?`<div style='font-size:8pt;color:#666;margin-top:1pt'>${escaparHTML(f.caption)}</div>`:''}</td></tr>`;
   };
-  const wFotosHTML=wFotos.length?`${facturasW.length?`<div class='page-break'></div>
+  const wFotosHTML=wFotos.length?`${(facturasW.length||D.docsCitados.length)?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
 <table class='foto-table' width="100%" cellpadding="4" cellspacing="0">${wFotos.map(wFotoRow).join('')}</table>`:'';
-  const wFacturasHTML=facturasW.map((f,i)=>{
-    const isPdfItem=!!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-    return `${i>0?`<div class='page-break'></div>
+  // E7: los PDF y los documentos sin archivo se citan en una lista; solo las
+  // imágenes ocupan página propia.
+  const wFacturasHTML=docsCitadosHTML(D.docsCitados)+facturasW.map((f,i)=>{
+    return `${(i>0||D.docsCitados.length)?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
-<h3>${f.tipo} ${i+1}${f.name?': '+f.name:''}</h3>
-${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`:`<p style='font-size:9pt;color:#666'>[Documento adjunto: ${f.name||''}]</p>`}`;
+<h3>${escaparHTML(f.tipo)} ${f.numero}${f.name?': '+escaparHTML(f.name):''}</h3>
+<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`;
   }).join('');
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
@@ -3469,6 +3566,8 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
   .foto-table{table-layout:fixed}
   .foto-table tr{page-break-inside:avoid}
   .foto-table td.foto-cell{width:100%;border:none;background:none;padding:4pt;vertical-align:top}
+  .docs-citados{margin:4pt 0 4pt 14pt;padding:0}
+  .docs-citados li{margin-bottom:4pt}
 </style></head>
 <body>
 <div style='mso-element:header' id=h1><p style='margin:0;font-size:7.5pt;color:#666'>GABINETE DE VALORACIONES PERICIALES · expediente ${enc.numReferencia||''}</p></div>
@@ -3491,9 +3590,9 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 </tr></table>
 <p><span class='field-label'>Lugar intervención (Provincia)</span><span class='field-value'>${enc.lugarIntervencion||'—'}</span></p>
 <p><span class='field-label'>Asegurado</span><span class='field-value'>${enc.asegurado||'—'}</span></p>
-<table><tr><td><span class='field-label'>Perito:</span><span class='field-value'>${enc.perito||'—'}</span></td><td><span class='field-label'>Teléfono Perito:</span><span class='field-value'>${enc.telPerito||'—'}</span></td></tr></table>
-<p class='intro'>Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class='intro'>${fraseComparecencia(enc.modalidadVisita)}</p>
+<table><tr><td><span class='field-label'>Perito:</span><span class='field-value'>${D.perito}</span></td><td><span class='field-label'>Teléfono Perito:</span><span class='field-value'>${D.telPerito}</span></td></tr></table>
+<p class='intro'>${D.emision}</p>
+<p class='intro'>${D.comparecencia}</p>
 <p class='intro'>El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class='intro'>La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class='page-break'></div>
@@ -3502,7 +3601,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
-${muestraCapitalesAsegurados(enc)?`<br/>
+${muestraCapitalesAsegurados(enc)?`<h3>Estudios de los capitales Asegurados:</h3>
 <div class="no-split">
 <b>CONTINENTE / OBRAS DE REFORMA</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -3520,15 +3619,15 @@ ${muestraCapitalesAsegurados(enc)?`<br/>
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 </div>
-`:''}${s1.aiText?'<p>'+s1.aiText+'</p>':''}
+`:''}${D.s1Extra?'<p>'+D.s1Extra+'</p>':''}
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
-<p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
+${D.s2Texto?`<p>${D.s2Texto}</p>`:''}
 ${meteoHTML(s2.meteo, enc, '')}
 <h2>3. VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
-${w3Intro?`<p>${w3Intro.replace(/\n/g,'<br/>')}</p>`:''}
-${s3.textoAI?'<p>'+s3.textoAI+'</p>':''}
+${w3Intro?`<p>${w3Intro}</p>`:''}
+${D.s3Texto?'<p>'+D.s3Texto+'</p>':''}
 ${partidas.length>0?`
 ${partidasContW.length>0?`<div class="no-split"><h3 style='text-align:left'>Daños en Continente</h3><table><tr>${wTh}</tr>${rowPartCont}${subCont}</table></div>`:''}
 ${partidasCont2W.length>0?`<div class="no-split"><h3 style='text-align:left'>Daños en Contenido</h3><table><tr>${wTh}</tr>${rowPartCont2}${subCont2}</table></div>`:''}
@@ -3540,7 +3639,7 @@ ${partidasCont2W.length>0?`<div class="no-split"><h3 style='text-align:left'>Da�
 <tr class='subtotal'><td><b>Total estimación de daños</b></td><td><b>${fmtPDF(totNuevoContW+totNuevoCont2W)} €</b></td><td><b>${fmtPDF(totalDano)} €</b></td></tr></table>
 </div>`:''}
 <h2>4. ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
-${w4Desc?`<h3 style='text-align:left'>4.1 Cobertura</h3><p style='white-space:pre-wrap'>${w4Desc.replace(/\n/g,'<br/>')}</p>`:''}
+${w4Desc?`<h3 style='text-align:left'>4.1 Cobertura</h3><p style='white-space:pre-wrap'>${w4Desc}</p>`:''}
 ${partidas.length>0?`<div class="no-split">
 <h3 style='text-align:left'>4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr>
@@ -3548,21 +3647,22 @@ ${wGarRows}
 <tr class='subtotal'><td>Total</td><td>${fmtPDF(totalDano)} €</td><td></td><td></td><td>${fmtPDF(ajustado)} €</td><td>${fmtPDF(franq)} €</td><td>${fmtPDF(indemn)} €</td></tr>
 <tr><td>Franquicia</td><td></td><td></td><td></td><td></td><td></td><td>${fmtPDF(franq)} €</td></tr></table>
 </div>`:''}
-${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
+${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn}</p>`:''}
 <br/><br/>
 <div class="no-split">
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
-<p style='margin-top:16pt'>En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
+<p style='margin-top:16pt'>En ${D.lugarFirma}, a ${D.fechaFirma}</p>
 <table style='margin-top:20pt;width:100%'><tr>
 <td style='width:50%;vertical-align:top'><p style='font-style:italic'>VºBº técnico GVP</p><div class='firma-box'>&nbsp;</div></td>
 <td style='width:50%;text-align:right;vertical-align:top'>
-<p style='font-style:italic'>Perito: ${enc.perito||'—'}</p>
-<p style='font-style:italic'>Telef: ${enc.telPerito||'—'}</p>
+<p style='font-style:italic'>Perito: ${D.perito}</p>
+<p style='font-style:italic'>Telef: ${D.telPerito}</p>
+<p style='font-style:italic'>DNI: ${D.dni}</p>
 <p style='font-style:italic'>Firma perito:</p>
 <div class='firma-box'>&nbsp;</div></td>
 </tr></table>
 </div>
-${(facturasW.length||wFotos.length)?`<div class='page-break'></div>
+${(D.documentos.length||wFotos.length)?`<div class='page-break'></div>
 <div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
 <h2>Anexos.</h2>`:''}
 ${wFacturasHTML}
@@ -3600,8 +3700,9 @@ const resolveAnexosImgs = async anexos => {
 const exportWord = async (cData) => {
   const enc=cData.encargo||{};
   const anexosResueltos = await resolveAnexosImgs(cData.anexos||{});
+  // Solo las imágenes se incrustan; los PDF se citan (E7) y no hace falta descargarlos.
   const facturasResueltas = await Promise.all(allFacturasOf(cData).map(async f=>
-    f.url ? {...f, url: await urlToDataURI(f.url)} : f
+    (f.url && clasificarDocumentos([f])[0].estado===ESTADO_DOC.IMAGEN) ? {...f, url: await urlToDataURI(f.url)} : f
   ));
   const html=buildWordHTML({...cData, anexos:anexosResueltos, _facturasResueltas:facturasResueltas});
   const blob=new Blob(['﻿'+html],{type:'application/msword'});
@@ -3614,7 +3715,8 @@ const exportWord = async (cData) => {
 
 // HTML del informe en PDF, separado de la impresión para poder probarlo.
 export const buildPDFHTML = (cData, dniPerito='') => {
-  const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
+  const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, anexos=cData.anexos||{};
+  const D=datosInforme(cData, dniPerito);
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
   const prov = findProvincia(enc.provincia);
@@ -3628,7 +3730,7 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   const modo=s3.modoValoracion||'baremo';
   const showIVAd=modo!=='presupuesto';
   const showDeprd=!((modo==='presupuesto'||modo==='factura')&&s3.perceptorTipo==='reparador');
-  const today=new Date().toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'});
+  const today=D.fechaFirma;
   const allFotos=anexos?.fotos||[];
   const catastroImg=(anexos?.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
   const catastroHTML=catastroImg?`<p style="font-size:8.5pt;color:#666;margin:6pt 0 2pt">Cartografía catastral:</p><img src="${catastroImg.url}" style="max-width:60%;max-height:240pt;border:0.3pt solid #ccc;display:block" onerror="this.style.display='none'"/>`:'';
@@ -3660,20 +3762,31 @@ export const buildPDFHTML = (cData, dniPerito='') => {
     {tit:'Continente',dano:dC,lim:capC,on:s3.reglaContinente,regla:reglas.continente,ajust:aC},
     {tit:'Contenido', dano:dC2,lim:capC2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aC2},
   ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}. ${enc.garantia||''}. ${enc.causa||''}</td><td style="text-align:right">${fmtPDF(b.dano)} €</td><td style="text-align:right">${fmtPDF(b.lim)} €</td><td style="text-align:right">${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td><td style="text-align:right">—</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td></tr>`).join('');
-  const d3Intro=s4.textoIntro||sec4IntroAuto(modo);
-  const d4Desc=s4.descripcionCobertura||'';
-  const d4Indemn=s4.textoIndemn||sec4IndemnAuto(s3,ind);
-  const facturasD=allFacturasOf(cData);
-
-  const rLines=enc.tipoEncargo==='INSTANT_PAYMENT'
-    ?[s1.textoInstant||('Localización del riesgo: el riesgo está situado en '+enc.lugarIntervencion+'. Este siniestro se ha gestionado documentalmente.')]
-    :['El riesgo asegurado se corresponde con: '+(s1.tipoRiesgo||'—')+'.','La fecha de construcción es del año '+(s1.anoConstruccion||'—')+'.','Cuenta con una superficie construida de '+(s1.superficieConstruida||'—')+' M2 en total','Acabados son de calidad: '+(s1.calidad||'—'),'El estado general del riesgo asegurado se encuentra según nuestro criterio: '+(s1.estado||'—'),'Localización del riesgo: el riesgo está situado en '+(enc.lugarIntervencion||'—'),'Referencia catastral del inmueble: '+(s1.refCatastral||'')];
+  const d3Intro=D.intro3;
+  const d4Desc=D.desc4;
+  const d4Indemn=D.indemnTexto;
+  const facturasD=D.docsImagen;
+  const rLines=D.riesgo;
+  // E8: la cabecera va en el margen superior de cada página (@page), no en un
+  // bloque "position:fixed" que tapaba el primer título de las páginas 3 y
+  // siguientes. El texto se escapa para la cadena CSS.
+  const refCSS=String(enc.numReferencia||'').replace(/[\\"\n\r]/g,' ');
 
   const html=`<!DOCTYPE html><html>
 <head><meta charset="utf-8"/><title>Informe Pericial ${enc.numReferencia||''}</title>
 <style>
   @page{
-    size:A4;margin:12mm 15mm 18mm 15mm;
+    size:A4;margin:24mm 15mm 18mm 15mm;
+    @top-left{
+      content:"GABINETE DE VALORACIONES PERICIALES";
+      font-family:Arial,sans-serif;font-size:8pt;font-weight:bold;color:#555;
+      vertical-align:bottom;padding-bottom:3pt;border-bottom:0.4pt solid #888;margin-bottom:6mm;
+    }
+    @top-right{
+      content:"expediente ${refCSS}";
+      font-family:Arial,sans-serif;font-size:8pt;color:#666;
+      vertical-align:bottom;padding-bottom:3pt;border-bottom:0.4pt solid #888;margin-bottom:6mm;
+    }
     @bottom-center{
       content:"Avda. Josep Tarradellas, 38 · 08029 Barcelona · Tel: 93.118.51.38 — Página " counter(page) " de " counter(pages);
       font-family:Arial,sans-serif;font-size:7.5pt;color:#666;
@@ -3705,7 +3818,7 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   table.cap{border-collapse:collapse;width:180pt;margin-left:20pt;font-size:9pt}
   table.cap th{background:#555;color:#fff;padding:3pt;text-align:center}
   table.cap td{border:0.5pt solid #ccc;padding:3pt 5pt}
-  .subtotal td{background:#f2f2f2!important;font-weight:bold;color:#333;border-color:#999!important}
+  .subtotal td{background:#f2f2f2!important;font-weight:bold;color:#333;border-color:#999!important;white-space:nowrap}
   .page-break{page-break-before:always;margin-top:0}
   .firma-box{border:0.5pt solid #bbb;width:140pt;height:45pt;display:inline-block;margin-top:4pt}
   .firma-table{width:100%;margin-top:20pt}
@@ -3716,9 +3829,10 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   .anex-foto-item iframe{width:100%;height:300pt;border:none;display:block}
   .anex-foto-item .cap{font-size:8pt;color:#666;margin-top:3pt}
   .anex-foto-item .num{font-size:9pt;font-weight:bold;color:#333;margin-top:5pt}
+  ul.docs-citados{margin:4pt 0 4pt 14pt;padding:0}
+  ul.docs-citados li{margin-bottom:4pt;font-size:9.5pt}
   @media print{
-    .hdr{position:fixed;top:0;left:0;right:0;background:white;padding:3mm 15mm 2mm}
-    body{padding-top:14mm}
+    .hdr{display:none}
     .no-print{display:none}
   }
 </style></head>
@@ -3730,9 +3844,9 @@ export const buildPDFHTML = (cData, dniPerito='') => {
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Fecha Encargo</span><span class="fv">${enc.fechaEncargo||'—'}</span></div><div class="grid3-cell"><span class="fl">Fecha Siniestro</span><span class="fv">${enc.fechaSiniestro||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº de Encargo</span><span class="fv">${enc.numExpInterno||'—'}</span></div></div></div>
 <div style="margin-bottom:6pt"><span class="fl">Lugar intervención (Provincia)</span><span class="fv">${enc.lugarIntervencion||'—'}</span></div>
 <div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${enc.asegurado||'—'}</span></div>
-<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${enc.perito||'—'}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${enc.telPerito||'—'}</span></div></div></div>
-<p class="intro">Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class="intro">${fraseComparecencia(enc.modalidadVisita)}</p>
+<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${D.perito}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${D.telPerito}</span></div></div></div>
+<p class="intro">${D.emision}</p>
+<p class="intro">${D.comparecencia}</p>
 <p class="intro">El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class="intro">La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class="page-break"></div>
@@ -3750,18 +3864,18 @@ ${muestraCapitalesAsegurados(enc)?`<h3>Estudios de los capitales Asegurados:</h3
 <br/>
 <div class="no-split">
 <p style="font-weight:bold">CONTENIDO:</p>
-<p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
+<p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial.</p>
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 </div>
-`:''}${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
+`:''}${D.s1Extra?`<p style="margin-top:10pt">${D.s1Extra}</p>`:''}
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
-<p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
+${D.s2Texto?`<p>${D.s2Texto}</p>`:''}
 ${meteoHTML(s2.meteo, enc, 'data')}
 <h2>3.&nbsp;&nbsp;&nbsp;VALORACIÓN DE DAÑOS.</h2>
 <p>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños:</p>
-${d3Intro?`<p>${d3Intro.replace(/\n/g,'<br/>')}</p>`:''}
-${s3.textoAI?`<p>${s3.textoAI.replace(/\n/g,'<br/>')}</p>`:''}
+${d3Intro?`<p>${d3Intro}</p>`:''}
+${D.s3Texto?`<p>${D.s3Texto}</p>`:''}
 ${partidas.length>0?`
 ${partidasContD.length>0?`<div class="no-split"><h3 style="text-align:left">Daños en Continente</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartContD}${subContD}</tbody></table></div>`:''}
 ${partidasCont2D.length>0?`<div class="no-split"><h3 style="text-align:left">Daños en Contenido</h3><table class="data"><thead><tr>${dTh}</tr></thead><tbody>${rowPartCont2D}${subCont2D}</tbody></table></div>`:''}
@@ -3774,7 +3888,7 @@ ${partidasCont2D.length>0?`<div class="no-split"><h3 style="text-align:left">Da�
 </tbody></table>
 </div>`:''}
 <h2>4.&nbsp;&nbsp;&nbsp;ESTUDIO DE COBERTURA-INDEMNIZACIÓN.</h2>
-${d4Desc?`<h3 style="text-align:left">4.1 Cobertura</h3><p style="white-space:pre-wrap">${d4Desc.replace(/\n/g,'<br/>')}</p>`:''}
+${d4Desc?`<h3 style="text-align:left">4.1 Cobertura</h3><p style="white-space:pre-wrap">${d4Desc}</p>`:''}
 ${partidas.length>0?`<div class="no-split">
 <h3 style="text-align:left">4.2 Resumen por garantías. Propuesta de indemnización</h3>
 <table class="data"><thead><tr><th>Garantía Afectada</th><th>D. con cobertura</th><th>Límite aseg.</th><th>Regla proporcional</th><th>Valor ajustado</th><th>Franquicia</th><th>Indemnización</th></tr></thead><tbody>
@@ -3782,28 +3896,32 @@ ${dGarRows}
 <tr class="subtotal"><td>Total</td><td style="text-align:right">${fmtPDF(totalDano)} €</td><td></td><td></td><td style="text-align:right">${fmtPDF(ajustado)} €</td><td style="text-align:right">${fmtPDF(fr)} €</td><td style="text-align:right">${fmtPDF(ind)} €</td></tr>
 <tr><td colspan="6">Franquicia</td><td style="text-align:right">${fmtPDF(fr)} €</td></tr></tbody></table>
 </div>`:''}
-${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn.replace(/\n/g,'<br/>')}</p>`:''}
+${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn}</p>`:''}
 <br/><br/>
 <div class="no-split">
 <p>Por nuestra parte damos por finalizada la intervención en el siniestro, quedando a su disposición ante cualquier aclaración que estimen oportuna.</p>
-<p style="margin-top:12pt">En ${enc.municipio||enc.lugarIntervencion||'—'}, a ${today}</p>
+<p style="margin-top:12pt">En ${D.lugarFirma}, a ${today}</p>
 <table class="firma-table"><tr>
 <td style="width:50%"><p>VºBº técnico GVP</p><div class="firma-box"></div></td>
-<td style="width:50%;text-align:right"><p>Perito: ${enc.perito||'—'}</p><p>Telef: ${enc.telPerito||'—'}</p><p>DNI: ${dniPerito||'—'}</p><p>Firma perito:</p><div class="firma-box"></div></td>
+<td style="width:50%;text-align:right"><p>Perito: ${D.perito}</p><p>Telef: ${D.telPerito}</p><p>DNI: ${D.dni}</p><p>Firma perito:</p><div class="firma-box"></div></td>
 </tr></table>
 </div>
-${(facturasD.length||allFotos.length)?`
+${(D.documentos.length||allFotos.length)?`
 <div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
 <h2 style="text-align:left">Anexos.</h2>
-${facturasD.map((f,i)=>`${i>0?`<div class="page-break"></div>
+${docsCitadosHTML(D.docsCitados)}
+${facturasD.map((f,i)=>`${(i>0||D.docsCitados.length)?`<div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
-<h3>${f.tipo} ${i+1}${f.name?': '+f.name:''}</h3>
-${f.url?(esPdfItem(f)?`<iframe src="${f.url}" style="width:100%;height:230mm;border:none"></iframe>`:`<img src="${f.url}" style="width:100%;height:auto" onerror="this.style.display='none'"/>`):`<p>[Documento adjunto: ${f.name||''}]</p>`}`).join('')}
-${allFotos.length?`${facturasD.length?`<div class="page-break"></div>
+<h3>${escaparHTML(f.tipo)} ${f.numero}${f.name?': '+escaparHTML(f.name):''}</h3>
+<img src="${f.url}" style="width:100%;height:auto" alt="${escaparHTML(f.name||'')}" ${IMG_ONERROR}/>`).join('')}
+${allFotos.length?`${(facturasD.length||D.docsCitados.length)?`<div class="page-break"></div>
 <div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
-<div class="anex-foto">${allFotos.map((f,i)=>`<div class="anex-foto-item">${esPdfItem(f)?`<iframe src="${f.url}" style="width:100%;height:420pt;border:none;display:block"></iframe>`:`<img src="${f.url}" onerror="this.style.display='none'"/>`}<div class="num">Foto ${i+1}</div>${f.caption?`<div class="cap">${f.caption}</div>`:''}</div>`).join('')}</div>`:''}
+<div class="anex-foto">${allFotos.map((f,i)=>{
+  const est=clasificarDocumentos([f])[0];
+  return `<div class="anex-foto-item">${est.estado!==ESTADO_DOC.IMAGEN?`<p style="font-size:8.5pt;color:#666">${escaparHTML(f.name||'Documento')} — ${notaDocumento(est)}.</p>`:`<img src="${f.url}" alt="Foto ${i+1}" ${IMG_ONERROR}/>`}<div class="num">Foto ${i+1}</div>${f.caption?`<div class="cap">${escaparHTML(f.caption)}</div>`:''}</div>`;
+}).join('')}</div>`:''}
 `:''}
 </body></html>`;
 
@@ -4097,7 +4215,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} onPatch={fn=>updLatest("s3",fn,cData.id)} enc={cData.encargo||{}} s1={cData.s1||{}} token={token} userId={user?.id} informeId={cData._sbId||cData.id} {...commonProps}/>;
-      case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
+      case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} anexos={cData.anexos||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onNext={goNext} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id} scrollRef={contentRef}/>;
       default: return null;
     }
@@ -4108,7 +4226,12 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   // en estado "error", cuando exista esa validación), naranja = mezcla.
   // Reutiliza las mismas funciones de estado que alimentan el prop `done` de
   // cada <Block>, para que topbar y bloques nunca puedan contar cosas distintas.
+  // Revisión del informe (errores confirmados y avisos), ver lib/dominio/revisionInforme.js.
+  const revision = revisarInforme(cData, {documentos:documentosParaRevision(cData), perito:peritoDesdePerfil(perfil)});
+  const revErrores = revision.filter(r=>r.nivel==="error");
+  const revAvisos  = revision.filter(r=>r.nivel==="aviso");
   const secSemaforo = id => {
+    if(revErrores.some(r=>r.secId===id)) return "red";
     if(id==="encargo") return semaforoFromStates(encargoBlockStates(cData.encargo||{}));
     if(id==="s1") return semaforoFromStates(s1BlockStates(cData.s1||{},cData.encargo||{}));
     if(id==="s2") return semaforoFromStates(s2BlockStates(cData.s2||{},cData.encargo||{}));
@@ -4139,7 +4262,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   const s2Labels = esSiniestroAtmosferico(cData.encargo||{})
     ? ["Descripción del Siniestro","Verificación Meteorológica"]
     : ["Descripción del Siniestro"];
-  const SECTION_TITLES = {encargo:"Datos del Encargo",s1:"Verificación del Riesgo",s2:"Causas y Circunstancias",s3:"Valoración de Daños",s4:"Cobertura-Indemnización"};
+  const SECTION_TITLES = {encargo:"Datos del Encargo",s1:"Verificación del Riesgo",s2:"Causas y Circunstancias",s3:"Valoración de Daños",s4:"Cobertura-Indemnización",anexos:"Anexos",informe:"Informe"};
+  const REV_LABELS = {error_ia:"Error técnico de la IA",modalidad:"Texto incompatible con la modalidad",indemnizacion:"La propuesta de indemnización no cuadra",
+    anexo_no_disponible:"Anexo no disponible",anexo_pdf:"Anexo en PDF",anexo_duplicado:"Posible anexo duplicado",
+    partida_sin_importe:"Partidas sin importe",sin_documento:"Valoración sin documento adjunto",perito:"Datos del perito"};
+  const revItem = r => ({secId:r.secId,secTitle:SECTION_TITLES[r.secId]||"Informe",label:REV_LABELS[r.codigo]||r.codigo,detalle:r.mensaje,esError:r.nivel==="error"});
   const pendingList = [];
   [
     ["encargo",encargoBlockStates(cData.encargo||{}),BLOCK_LABELS.encargo],
@@ -4154,9 +4281,13 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
     // número esté mal.
     states.forEach((st,i)=>{ if(st!==true) pendingList.push({secId:id,secTitle:SECTION_TITLES[id],label:labels[i],esError:st==="error"}); });
   });
+  // Los errores de la revisión cuentan como pendientes; los avisos se enseñan
+  // aparte y no impiden que el informe salga como "Todo listo".
+  revErrores.forEach(r=>pendingList.push(revItem(r)));
+  const avisoList = revAvisos.map(revItem);
   const goToPending = secId => { setSec(secId); setPendingOpen(false); };
   const handleExportClick = () => {
-    if(pendingList.length>0){ setPendingBanner(true); setPendingOpen(true); }
+    if(pendingList.length>0||avisoList.length>0){ setPendingBanner(true); setPendingOpen(true); }
     else setExportOpen(true);
   };
 
@@ -4312,12 +4443,12 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
         </div>
         <div style={{flex:1,overflowY:"auto",padding:"16px 18px"}}>
           {pendingList.length===0
-            ? <div style={{textAlign:"center",padding:"50px 20px"}}>
+            ? <div style={{textAlign:"center",padding:avisoList.length?"24px 20px 18px":"50px 20px"}}>
                 <div style={{width:52,height:52,borderRadius:"50%",background:C.greenBg,color:C.green,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
                   <Check size={24}/>
                 </div>
                 <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:18,color:C.ink,marginBottom:6}}>Todo completo</div>
-                <div style={{fontSize:13.5,color:C.muted}}>Los 5 apartados con formulario están rellenados. Listo para exportar.</div>
+                <div style={{fontSize:13.5,color:C.muted}}>Los 5 apartados con formulario están rellenados{avisoList.length?". Revisa los avisos de abajo antes de exportar.":". Listo para exportar."}</div>
               </div>
             : <>
                 {pendingBanner&&<div style={{background:C.orangeBg,border:"1px solid #FDE68A",borderRadius:8,padding:"10px 12px",fontSize:13,color:C.orange,marginBottom:14,display:"flex",gap:8,alignItems:"flex-start"}}>
@@ -4333,18 +4464,37 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
                       : <span style={{width:8,height:8,borderRadius:"50%",background:C.orange,marginTop:5,flexShrink:0}}/>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13.5,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
-                      {it.esError&&<div style={{fontSize:12.5,color:C.red,marginTop:2}}>Hay un dato que no cuadra, no es que falte rellenarlo</div>}
+                      {it.esError&&<div style={{fontSize:12.5,color:C.red,marginTop:2}}>{it.detalle||"Hay un dato que no cuadra, no es que falte rellenarlo"}</div>}
                     </div>
                     <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
                   </div>
                 ))}
               </>}
+          {avisoList.length>0&&<>
+            <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:"uppercase",letterSpacing:".06em",margin:"14px 0 6px"}}>{avisoList.length} {avisoList.length===1?"aviso":"avisos"} para revisar</div>
+            {avisoList.map((it,i)=>(
+              <div key={"av"+it.secId+i} onClick={()=>goToPending(it.secId)} style={{display:"flex",alignItems:"flex-start",gap:10,
+                background:C.white,border:`1px dashed ${C.border}`,borderRadius:9,padding:"10px 13px",marginBottom:7,cursor:"pointer"}}>
+                <AlertTriangle size={13} style={{color:C.orange,marginTop:2,flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:C.ink}}>{it.secTitle} — {it.label}</div>
+                  <div style={{fontSize:12.5,color:C.muted,marginTop:2}}>{it.detalle}</div>
+                </div>
+                <ChevronRight size={14} style={{color:C.muted,flexShrink:0,marginTop:3}}/>
+              </div>
+            ))}
+          </>}
         </div>
         {pendingBanner&&pendingList.length>0&&<div style={{borderTop:`1px solid ${C.border}`,padding:"14px 18px",flexShrink:0}}>
           <button onClick={()=>{setPendingOpen(false);setExportOpen(true);}}
             style={{width:"100%",background:"none",border:"none",color:C.muted,fontSize:12.5,fontFamily:"inherit",cursor:"pointer",textDecoration:"underline"}}>
             Exportar igualmente, sin revisar
           </button>
+        </div>}
+        {pendingBanner&&pendingList.length===0&&avisoList.length>0&&<div style={{borderTop:`1px solid ${C.border}`,padding:"14px 18px",flexShrink:0}}>
+          <Btn primary full onClick={()=>{setPendingOpen(false);setExportOpen(true);}}>
+            Continuar a exportar<ChevronRight size={14}/>
+          </Btn>
         </div>}
       </div>
 

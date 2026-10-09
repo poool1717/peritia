@@ -31,11 +31,16 @@ describe("informe exportado con los datos del perfil", () => {
     const encargoExtraido = sinDatosDePerito({ numReferencia: "9705000001", tipoEncargo: "PERITACION", perito: GABINETE });
     const c = { encargo: firmarEncargo(encargoExtraido, perfil), s1: {}, s2: {}, s3: {}, s4: {}, anexos: {} };
     for (const h of [buildWordHTML(c), buildPDFHTML(c, c.encargo.dniPerito)]) {
-      expect(h).toContain("emitido por el perito Don Agustí Oliver Queralt");
+      // E5 (revisión del informe de prueba 27603166): una sola forma de
+      // nombrar al perito, sin tratamiento ("Don") ni género.
+      expect(h).toContain("emitido por Agustí Oliver Queralt, en calidad de perito");
+      expect(h).not.toContain("perito Don");
       expect(h).toContain("684 000 000");
+      // E9: el DNI está en los dos formatos (antes solo en el PDF).
+      expect(h).toContain("DNI: B00000000");
       // La cabecera del gabinete ("GABINETE DE VALORACIONES PERICIALES") es
       // correcta; lo que no puede ser el gabinete es el perito.
-      expect(h).not.toMatch(/perito Don GABINETE/);
+      expect(h).not.toMatch(/emitido por GABINETE/);
       expect(h).not.toMatch(/Perito:\s*(<[^>]+>\s*)*GABINETE/);
     }
   });
