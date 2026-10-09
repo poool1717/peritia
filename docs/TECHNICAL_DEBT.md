@@ -24,7 +24,7 @@
 |---|---|---|
 | DT-01 | Aplicación completa en un único archivo | Alta |
 | DT-02 | Credenciales de producción como respaldo silencioso | **Crítica** · ✅ RESUELTO |
-| DT-03 | Sesión sin persistencia ni refresco de token | **Crítica** |
+| DT-03 | Sesión sin persistencia ni refresco de token | **Crítica** · 🟡 refresco resuelto, persistencia no |
 | DT-04 | `/api/claude` abierto y sin límite de uso | **Crítica** |
 | DT-05 | Lógica específica de AXA incrustada | Alta |
 | DT-06 | Conocimiento del dominio incrustado como código | Alta |
@@ -33,8 +33,8 @@
 | DT-09 | Respuestas de IA sin validación de esquema | Media |
 | DT-10 | Sin pruebas ni integración continua | Alta |
 | DT-11 | Bucket de anexos público | **Crítica** |
-| DT-12 | La IA no deja rastro | Alta |
-| DT-13 | Facturas de Sección 3 no se suben nunca | Media |
+| DT-12 | La IA no deja rastro | Alta · 🟡 PARCIAL (extracciones estructuradas, sesión 30) |
+| DT-13 | Facturas de Sección 3 no se suben nunca | ~~Media~~ → Alta · ✅ RESUELTO |
 | DT-14 | Errores de negocio devueltos como HTTP 200 | Media |
 | DT-15 | Contador de tokens y coste no persistido | Baja |
 | DT-16 | Precios del modelo incrustados en la interfaz | Baja |
@@ -46,6 +46,11 @@
 | DT-22 | Sin límite de tamaño en los PDFs de entrada | Baja |
 | DT-23 | Sin política de tratamiento y retención de datos | Alta |
 | DT-24 | `parseCap` da un resultado incorrecto con símbolo de euro y espacio final | ~~Media~~ → **Crítica** · ✅ RESUELTO |
+| DT-25 | Escrituras tardías con datos viejos (Sección 2 y Anexos) | Alta |
+| DT-26 | El informe afirma siempre una visita al riesgo | **Crítica** · ✅ RESUELTO |
+| DT-27 | El primer guardado de un expediente falla en silencio | **Crítica** · ✅ RESUELTO |
+| DT-28 | El informe Instant imprime capitales con preexistencia a cero | Alta · ✅ RESUELTO |
+| DT-29 | El perito del informe sale del encargo | Alta · ✅ RESUELTO |
 
 ---
 
@@ -132,7 +137,7 @@ credenciales del código.
 
 ---
 
-## DT-03 · Sesión sin persistencia ni refresco de token
+## DT-03 · Sesión sin persistencia ni refresco de token — 🟡 PARCIAL
 
 **Problema.** El token de sesión vive únicamente en el estado de React. No se
 guarda en ningún sitio y no se renueva nunca.
@@ -155,6 +160,17 @@ guarda en ningún sitio y no se renueva nunca.
 - Las subidas a Storage fallan igual, con el mensaje "sesión no disponible".
 
 **Prioridad.** Crítica.
+
+**Estado (revisado en la sesión 29, sobre el código real de `test`).**
+- **Refresco: resuelto.** La sesión del panel de administración (30 de
+  septiembre, entrada en `test` en la sesión 27) guarda el `refresh_token` y
+  renueva la sesión sola cuando le quedan menos de 10 minutos, cada minuto y
+  al volver a la pestaña (`applySession`, `renew`). Esta ficha no se había
+  actualizado.
+- **Persistencia: sigue abierta.** Sigue sin haber `localStorage` ni
+  `sessionStorage` en `Peritia.jsx`: **recargar la página cierra la sesión**
+  y el perito vuelve al login. El trabajo guardado no se pierde (está en la
+  base de datos), pero lo que no se haya guardado sí.
 
 ---
 
@@ -433,9 +449,26 @@ Hoy no se guarda ninguno de los siete datos requeridos.
 
 Detalle completo en `AI_INVENTORY.md`, sección 7.
 
+**Avance (sesión 30, I-10 de la validación con expedientes reales) — 🟡 PARCIAL.**
+Se conserva lo que propusieron las tres extracciones estructuradas, para
+poder compararlo con lo que deja el perito (`lib/dominio/trazabilidadIA.js`):
+- Encargo + póliza: `encargo.trazaIA` con la respuesta de la IA para cada
+  documento, la propuesta revisable antes de cualquier corrección, fecha,
+  modelo y la huella de cada PDF (nombre, tamaño, SHA-256).
+- "Extraer tabla" y "Generar tabla" (Sección 3): `s3.trazaIA.extracciones`
+  con las partidas tal como entraron y las facturas leídas (por su `url`).
+- Funciones de comparación (campos cambiados, partidas modificadas,
+  eliminadas y añadidas). Sin pantalla de métricas.
+- En las columnas JSON existentes: sin migración.
+
+**Sigue pendiente:** los textos que la IA redacta o "mejora" (secciones 1–3,
+meteo) no dejan rastro; no hay versión de prompt; los PDF de encargo y póliza
+siguen sin conservarse (solo su huella, para localizar el original en la
+carpeta del expediente).
+
 ---
 
-## DT-13 · Facturas de Sección 3 no se suben nunca
+## DT-13 · Facturas de Sección 3 no se suben nunca — ✅ RESUELTO
 
 **Problema.** Las facturas adjuntadas en la Sección 3 para que la IA las lea se
 guardan como objetos `File` del navegador dentro de `s3.facturas`, y **nunca se
@@ -459,6 +492,72 @@ const news = Array.from(files).map(f => ({id:…, name:f.name, size:f.size, file
   correctamente: la incoherencia está solo en la vía de la Sección 3.
 
 **Prioridad.** Media.
+
+**Corregido (sesión 29, R-07).**
+- Las facturas de la Sección 3 se suben a Storage al adjuntarlas, igual que
+  las de la pestaña Anexos, y guardan su `url`. Sobreviven a guardar,
+  recargar, reabrir y exportar.
+- Una sola implementación de subida y otra de borrado (`subirArchivoAnexo`,
+  `borrarArchivoAnexo`), que usan los anexos manuales, las capturas
+  automáticas y la Sección 3. Antes el código de subida estaba copiado dos
+  veces; habría sido la tercera.
+- La exportación ya no confunde el `{}` de un archivo guardado con un archivo
+  (`lib/dominio/facturas.js`). Las facturas que se perdieron antes de este
+  arreglo salen como "[Documento adjunto]" en vez de romper el PDF/Word, y la
+  Sección 3 las marca en rojo para volver a adjuntarlas.
+- "Extraer tabla" lee cada factura de donde esté (memoria o Storage) y nombra
+  las que no puede leer, en vez de saltárselas y decir "No se encontraron
+  líneas".
+- **La carrera que casi anula el arreglo:** al adjuntar y pulsar enseguida
+  "Extraer tabla", la IA terminaba después de la subida y guardaba con los
+  datos del momento del clic, sin la `url`. Las tres escrituras que llegan
+  tarde en la Sección 3 (redactar texto, tabla desde baremo, tabla desde
+  facturas) cambian ahora solo su campo, sobre el estado más reciente, y solo
+  mientras el editor sigue abierto. De paso deja de perderse lo que el perito
+  escribía en la Sección 3 mientras esperaba a la IA.
+- Tests: `tests/facturas.test.js` reproduce el fallo (guardar y recargar
+  convierte el archivo en `{}`, y el código antiguo reventaba), simula la
+  carrera y añade una guardia sobre el código. Se comprobó que la guardia
+  falla con el código anterior y señala las cinco líneas culpables.
+
+**Ajustes de revisión de la PR (sesión 29, antes de la prueba manual).**
+- **Límite de tamaño.** Las facturas de la Sección 3 se guardaban con el
+  límite de Anexos (10 MB) pero la IA las lee hasta 14 MB: una factura de
+  10–14 MB se podía extraer y luego se perdía al recargar. Ahora se guardan
+  con el mismo límite que lee la IA (`PDF_IA_MAX_SIZE`, 14 MB). El de 10 MB
+  venía de la sesión 11 sin motivo documentado; el bucket no fija límite
+  propio, así que manda el límite global del proyecto de Supabase (50 MB por
+  defecto, **no verificable desde Claude Code**). El límite de la pestaña
+  Anexos no se ha tocado.
+- **Nunca en otro expediente.** Las escrituras tardías llevan el id del
+  expediente en el que empezaron y se descartan si el abierto es otro
+  (`lib/dominio/escrituraTardia.js`). Hoy no hay forma de cambiar de
+  expediente sin cerrar el editor, así que es una defensa adicional, no un
+  arreglo de un fallo observado. **Límite conocido:** un expediente nuevo
+  cambia de id al guardarse por primera vez (~1 s después de abrirlo); lo
+  que empiece antes y termine después se descarta (se prefiere perder un
+  resultado de la IA a escribirlo en el sitio equivocado). **Resuelto en la
+  sesión 30 (DT-27):** el expediente nuevo conserva su id local y solo gana
+  `_sbId`, así que ya no se descarta nada por esto.
+- **Subir y borrar a la vez.** Si el perito quita una factura mientras se
+  sube, no reaparece, y el archivo que ya se había subido se borra de
+  Storage (también cuando la escritura se descarta). Es un borrado de buena
+  fe: si falla la red en ese momento, el archivo queda huérfano en el bucket.
+- Tests: `tests/escrituraTardia.test.js` (la operación de A nunca llega a B)
+  y ampliación de `tests/facturas.test.js` (carrera subida → borrado y
+  guardias de los tres ajustes).
+
+**Prioridad corregida:** ~~Media~~ → Alta. La exportación fallaba entera en un
+flujo normal (valorar por factura, guardar, volver otro día y exportar), que
+es justo el del expediente real 01.
+
+**Sin decidir, a propósito:** si las facturas de la Sección 3 y las de la
+pestaña "Facturas" de Anexos son el mismo concepto. Se mantienen las dos vías
+como estaban. Ver `OPEN_QUESTIONS.md`, P-27.
+
+**Efecto sobre DT-11:** estas facturas pasan a estar en el bucket `anexos`,
+que hoy es público. Es el mismo sitio y la misma exposición que ya tenían las
+facturas de la pestaña Anexos, pero son documentos con datos personales.
 
 ---
 
@@ -745,3 +844,92 @@ dando 6000— y solo después decide si el formato es español o anglosajón.
 El test de caracterización de `tests/utilidades.test.js` pasa a fijar el
 comportamiento correcto, y `tests/caso-real-01.test.js` fija el expediente
 completo.
+
+---
+
+## DT-25 · Escrituras tardías con datos viejos (Sección 2 y Anexos)
+
+**Detectada en la sesión 29**, al corregir DT-13.
+
+**Problema.** Varias acciones guardan su resultado cuando termina una espera
+(una llamada a la IA, una subida a Storage) usando los datos del momento en
+que empezaron: `onChange({...data, campo})`. Todo lo que el perito cambió
+mientras tanto se pisa con la versión vieja.
+
+**Dónde sigue pasando:**
+- **Sección 2, "Redactar con IA":** `onChange({...data,textoAI:text,aiApplied:false})`.
+  Lo que el perito escriba en la Sección 2 durante la espera se pierde.
+- **Anexos, subida de archivos:** al terminar la subida,
+  `onChange({...data,[tab]:[...]})`. Si durante la subida el perito cambia un
+  pie de foto o sube otro lote, uno de los dos cambios se pierde.
+- En ambos casos, si el perito sale del editor y abre otro expediente antes de
+  que termine la espera, la pantalla puede saltar al expediente anterior.
+
+**Ya resuelto en la Sección 3** (sesión 29): las escrituras tardías usan
+`onPatch`/`updLatest`, que aplica el cambio sobre el estado más reciente y
+solo mientras el editor sigue abierto. La corrección para la Sección 2 y
+Anexos es la misma y es pequeña; no se hizo en la misma PR para no mezclar
+temas.
+
+**Prioridad.** Alta: pérdida de trabajo del perito, silenciosa.
+
+---
+
+## DT-26 · El informe afirma siempre una visita al riesgo — ✅ RESUELTO
+
+**Detectada en la validación con 150 expedientes reales (C-1).** Word y PDF
+decían siempre "se ha procedido a la comparecencia pericial en el Riesgo
+Asegurado", y la extracción del encargo rellenaba `modalidadVisita` con
+PRESENCIAL por defecto. En los informes reales, 124 de 133 declaran que NO hubo
+comparecencia (gestión documental o vídeo-peritación).
+
+**Corregido (sesión 30).** La frase sale de la modalidad
+(`lib/dominio/informe.js`, `fraseComparecencia`): presencial, vídeo-peritación,
+documental o, sin dato, redacción neutra que no menciona la comparecencia. La IA
+ya no adivina la modalidad: Instant Payment nace documental; una peritación,
+sin indicar. Selector en Datos del Encargo con aviso si está sin indicar.
+
+**Pendiente:** los expedientes creados antes llevan PRESENCIAL por el valor por
+defecto antiguo; hay que revisarlos antes de exportarlos.
+
+---
+
+## DT-27 · El primer guardado de un expediente falla en silencio — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (C-3) y en la validación de
+la PR #23 (escenario F).** Si la creación del expediente en la base de datos
+fallaba, se quedaba sin `_sbId`, el autoguardado no volvía a intentarlo y no
+había aviso. Si salía bien, el expediente abierto se sustituía por la copia del
+momento de crearlo: se perdía lo hecho mientras tanto y, al cambiar de id, se
+descartaban las subidas y respuestas de IA en curso.
+
+**Corregido (sesión 30).** `lib/dominio/guardado.js`: cada guardado de un
+expediente sin `_sbId` reintenta crearlo, sin duplicados; el id local se
+conserva y `_sbId` se añade sobre el estado más reciente. Franja roja fija en el
+editor con "Reintentar guardado", botón de reintento en la barra superior y
+estado "Sin guardar" en el listado.
+
+**Pendiente:** si el perito borra un expediente mientras se está creando, la
+fila puede quedar creada en la base de datos (caso muy raro).
+
+---
+
+## DT-28 · El informe Instant imprime capitales con preexistencia a cero — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (I-1).** Los 63 informes
+Instant reales no llevan estudio de capitales; PERIT.IA lo imprimía con "valor
+preexistente 0,00 €" e "infraseguro 0,00 %". **Corregido (sesión 30):** Word y
+PDF lo omiten en Instant (`muestraCapitalesAsegurados`). El resumen por
+garantías de la Sección 4 se mantiene.
+
+---
+
+## DT-29 · El perito del informe sale del encargo — ✅ RESUELTO
+
+**Detectada en la validación con expedientes reales (I-2).** En 114 de 118
+encargos legibles el campo "Perito" es el gabinete. **Corregido (sesión 30):** la
+extracción ya no lo pide; los datos salen del perfil (`perfiles.nombre`,
+`telefono`, `dni`, que ya existían) y se confirman al exportar. Word también los
+guarda (antes solo el PDF), y se guardan junto con el estado "exportado" en una
+sola actualización (antes el guardado tardío devolvía el expediente a
+"borrador"). Sin migración.

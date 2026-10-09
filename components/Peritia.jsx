@@ -18,6 +18,14 @@ import {
   matchBaremo,
 } from "../lib/dominio/calculo.js";
 import { avisosDelRiesgo, UMBRAL_INFRASEGURO_SOSPECHOSO } from "../lib/dominio/alertas.js";
+import { facturaPerdida, tieneArchivoEnMemoria, facturaSec3ParaExportar, fuentesDeFacturas, adjuntarUrlsSubidas } from "../lib/dominio/facturas.js";
+import { aplicarEscrituraTardia } from "../lib/dominio/escrituraTardia.js";
+import { fraseComparecencia, normalizarModalidad, modalidadInicial, muestraCapitalesAsegurados } from "../lib/dominio/informe.js";
+import { crearGuardador, marcarPersistido } from "../lib/dominio/guardado.js";
+import { peritoDesdePerfil, cambiosPerfil, firmarEncargo, sinDatosDePerito } from "../lib/dominio/perito.js";
+import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas } from "../lib/dominio/trazabilidadIA.js";
+import { huellaTabla, aplicarTablaIA, mensajeTrasTablaIA } from "../lib/dominio/tablaIA.js";
+import { estadosSeccion1, etiquetasSeccion1 } from "../lib/dominio/bloquesSeccion1.js";
 
 // ─── PALETTE ─────────────────────────────────────────────────────────────────
 const C = {
@@ -88,10 +96,18 @@ const setAuthToken = tk => { AUTH_TOKEN = tk || ""; };
 
 // `seccion` identifica qué parte de la app hace la llamada; el proxy lo usa
 // para registrar el coste de IA por sección en el panel de administración.
+// Modelo de todas las llamadas. También se anota en la trazabilidad de la IA (I-10).
+const MODELO_IA = "claude-sonnet-4-6";
+// SHA-256 en hexadecimal de un documento, para identificar el original sin guardarlo (I-10).
+const sha256Hex = async buf => {
+  if(!globalThis.crypto?.subtle) return null;
+  const h = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("");
+};
 const callClaude = async (system, userContent, onTokens, maxTok=1500, seccion="otros") => {
   const res = await fetch("/api/claude",{
     method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${AUTH_TOKEN}`},
-    body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTok,
+    body: JSON.stringify({ model:MODELO_IA, max_tokens:maxTok,
       system, messages:[{role:"user",content:userContent}], _seccion:seccion })
   });
   const d = await res.json();
@@ -562,20 +578,9 @@ const encargoBlockStates = enc => [
   !!(enc.asegurado&&enc.lugarIntervencion),
   parseCap(enc.capitalContinente)>0,
 ];
-const s1BlockStates = (data,enc) => {
-  const capCont = data.capContOverride!=null ? parseCap(data.capContOverride) : parseCap(enc.capitalContinente);
-  // El bloque de capitales puede estar en tres estados, no en dos: relleno,
-  // vacío, o relleno CON UN DATO QUE NO CUADRA. El tercero se marca "error"
-  // (rojo, "Revisar") en vez de verde, porque un infraseguro absurdo con el
-  // semáforo en verde es la peor combinación posible: el informe sale mal y
-  // nada lo indica. Ver lib/dominio/alertas.js.
-  const hayAviso = avisosDelRiesgo(enc, data).length > 0;
-  return [
-    !!data.estado,
-    !!(data.superficieConstruida&&data.tipoArqKey),
-    capCont>0 ? (hayAviso ? "error" : true) : false,
-  ];
-};
+// Sección 1: depende del tipo de encargo (Instant Payment solo tiene el texto).
+// Ver lib/dominio/bloquesSeccion1.js.
+const s1BlockStates = (data,enc) => estadosSeccion1(data,enc);
 const s2BlockStates = (data,enc) => {
   const states = [!!(data.textoRaw||data.textoAI)];
   if(esSiniestroAtmosferico(enc)) states.push(!!data.meteo);
@@ -793,7 +798,7 @@ const LoginScreen = ({onAuth}) => {
 };
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg]};
+const ESTADO_COLOR = {"En curso":[C.plano,C.planoLight],"Pendiente revisión":[C.orange,C.orangeBg],"Finalizado":[C.green,C.greenBg],"Sin guardar":[C.red,C.redBg]};
 const TIPO_LABEL = {PERITACION:"Peritación",INSTANT_PAYMENT:"Instant Payment"};
 const fmtUpdated = v => {
   if(!v) return "";
@@ -815,7 +820,8 @@ const Dashboard = ({cases,onNew,onOpen,onDelete,user,onSignOut,loading,sidebarOp
   const rows = cases.map(cas=>{
     const e=cas.encargo||{};
     const done=[cas.s1,cas.s2,cas.s3,cas.s4].filter(s=>s&&Object.keys(s).length>2).length;
-    const estado = cas.estado==="exportado"?"Finalizado":(done===4?"Pendiente revisión":"En curso");
+    // C-3: un expediente que aún no existe en la base de datos se ve como tal.
+    const estado = !cas._sbId?"Sin guardar":cas.estado==="exportado"?"Finalizado":(done===4?"Pendiente revisión":"En curso");
     return {cas,e,done,estado};
   });
   const compOptions = [...new Set(rows.map(r=>r.e.compania).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
@@ -1213,14 +1219,11 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
   "causa": "causa del siniestro",
   "descripcionSiniestro": "descripcion completa del siniestro",
   "codigoPostal": "codigo postal del lugar de intervencion (5 digitos)",
-  "perito": "nombre completo del perito",
-  "telPerito": "telefono del perito",
   "capitalContinente": "capital asegurado del CONTINENTE EDIFICIO u OBRAS DE REFORMA en euros solo el numero. Busca en tabla de garantias o capitales asegurados. Si no aparece pon 0",
   "capitalContenido": "capital asegurado del CONTENIDO MOBILIARIO o MERCANCIAS en euros solo el numero. Si no aparece pon 0",
   "franquicia": "franquicia general en euros solo el numero. Si no hay pon 0",
   "fechaEfecto": "fecha de efecto o inicio de la poliza en formato dd/mm/aaaa. En encargos AXA aparece como Fecha de efecto en la seccion Poliza al final del documento. Ejemplo: 30/06/2021",
   "tipoEncargo": "INSTANT_PAYMENT si el tipo contiene Instant Payment, PERITACION para cualquier otro tipo",
-  "modalidadVisita": "PRESENCIAL si el perito visita el riesgo fisicamente, DOCUMENTAL si se gestiona sin visita presencial",
   "coberturaInferida": "si cobertura afectada vacia deduce de causa: Viento/Pedrisco/Lluvia/Nieve=Atmosféricos Agua/Filtracion=Daños por agua Incendio=Incendio Robo=Robo Electrico=Daños eléctricos sino vacio"
 }`;
     const raw = await callClaude(
@@ -1235,7 +1238,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       setAlertMsg({tipo:"error", texto:"Error de la API ("+rawParsed._status+"): "+rawParsed._msg+". Revisa la configuración de la API key en Vercel."});
       return;
     }
-    const enc = rawParsed||{};
+    // I-2: el perito no es un dato del encargo (en AXA ese campo trae el gabinete).
+    const enc = sinDatosDePerito(rawParsed||{});
     if(!enc.numReferencia && !enc.asegurado && !enc.compania) {
       setStep("upload");
       setMsg("");
@@ -1310,7 +1314,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
     const capCPol = parseCap(pol.capitalContinente||enc.capitalContinente);
     const normD = r => { const m=(r||"").match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); return m?m[1].padStart(2,"0")+"/"+m[2].padStart(2,"0")+"/"+m[3]:r||""; };
     const bestCap2 = (a,b) => { const vb=parseCap(b); if(vb>0)return String(vb); const va=parseCap(a); if(va>0)return String(va); return ""; };
-    setData({...enc,
+    const propuesta = {...enc,
       compania:                 normCompania(enc.compania),
       capitalContinente:        esHogarEnc?(capCPol>0?String(capCPol):""):bestCap2(enc.capitalContinente,pol.capitalContinente),
       capitalContenido:         bestCap2(enc.capitalContenido, pol.capitalContenido),
@@ -1328,7 +1332,8 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       tipoContinentePoliza:     pol.tipoContinente||"",
       todosCapitalesContinente: esHogarEnc?"":(pol.todosCapitalesContinente||""),
       tipoEncargo:              enc.tipoEncargo||"PERITACION",
-      modalidadVisita:          enc.modalidadVisita||"PRESENCIAL",
+      // C-1: el encargo no dice cómo se va a intervenir; nunca se supone visita.
+      modalidadVisita:          modalidadInicial({tipoEncargo:enc.tipoEncargo||"PERITACION"}),
       esHogar:                  esHogarEnc,
       umbralLluvia:             pol.umbralLluvia||"",
       umbralViento:             pol.umbralViento||"",
@@ -1339,7 +1344,15 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
       usoVivienda:              pol.usoVivienda||"",
       ubicacionVivienda:        pol.ubicacionVivienda||"",
       calidadPóliza:            pol.calidadPóliza||"",
-    });;
+    };
+    // I-10: se conserva lo que propuso la IA, antes de cualquier corrección,
+    // para poder compararlo después con lo que deja el perito.
+    const [huellaEnc, huellaPol] = await Promise.all([huellaDocumento(encFile, sha256Hex), huellaDocumento(polFile, sha256Hex)]);
+    setData({...propuesta, trazaIA: registroExtraccionEncargo({
+      fecha: new Date().toISOString(), modelo: MODELO_IA,
+      documentos: {encargo: huellaEnc, poliza: huellaPol},
+      encargoIA: rawParsed, polizaIA: pol, propuesta, campos: CAMPOS_ENCARGO,
+    })});
     setStep("review");
   };
 
@@ -1506,7 +1519,7 @@ const UploadEncargo = ({onDone,onCancel,onTokens}) => {
 };
 
 // ─── SEC INFORME (live preview) ───────────────────────────────────────────────
-const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
+const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
   // DT-08. La vista previa calculaba capitales e infraseguro por su cuenta, y
   // mal: leía el capital con parseFloat ("6.000,00 euros" → 6), ignoraba la
   // corrección manual del perito y no contemplaba el primer riesgo. En el
@@ -1569,7 +1582,7 @@ const SecInforme = ({enc,s1,s2,s3,s4,anexos,onGoTo}) => {
         <InfoRow label="Lugar de intervención" val={enc.lugarIntervencion+(enc.provincia?`, ${enc.provincia}`:"")}/>
         <div className="grid2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:10}}>
           <InfoRow label="Asegurado" val={enc.asegurado}/>
-          <InfoRow label="Perito" val={enc.perito?(enc.perito+(enc.telPerito?" · "+enc.telPerito:"")):null}/>
+          {(()=>{ const p = peritoDesdePerfil(perfil); return <InfoRow label="Perito" val={p.nombre?(p.nombre+(p.telefono?" · "+p.telefono:"")):"Se indica al exportar"}/>; })()}
         </div>
         <div style={{marginTop:14,padding:11,background:C.bg,borderRadius:7,fontSize:13,color:C.muted,lineHeight:1.7,fontStyle:"italic"}}>
           Este informe ha sido emitido a tenor del siniestro declarado en el riesgo asegurado. El que suscribe manifiesta bajo promesa de decir verdad que ha actuado con la mayor objetividad posible.
@@ -2293,7 +2306,27 @@ const InpCell = ({val,onChange:oc,type="text",w=60,min,max}) => (
       fontVariantNumeric:type==="number"?"tabular-nums":"normal",fontWeight:type==="number"?600:400,textAlign:type==="number"?"right":"left"}}/>
 );
 
-const Sec3 = ({data,onChange,enc,s1,onTokens,onNext,onPrev,onSave,scrollRef}) => {
+const Sec3 = ({data,onChange,onPatch,enc,s1,token,userId,informeId,onTokens,onNext,onPrev,onSave,scrollRef}) => {
+  // Escrituras que llegan tarde, al volver de la IA o de una subida. Cambian
+  // solo sus campos, sobre el estado más reciente de la Sección 3: con
+  // onChange({...data,…}) se pisaba todo lo hecho mientras tanto —lo que el
+  // perito escribía durante la espera, o la `url` de una factura que
+  // terminaba de subirse (DT-13)—.
+  const setLate = patch => onPatch ? onPatch(s3=>({...s3,...patch})) : onChange({...data,...patch});
+  // I-10: tabla generada por la IA + registro de lo que propuso, en la misma
+  // escritura tardía (sobre el estado más reciente de la Sección 3).
+  // P-28: solo sustituye la tabla si no ha cambiado desde que se pulsó el
+  // botón (`huellaAntes`); si cambió, conserva la del perito y deja la
+  // propuesta de la IA en la trazabilidad como no aplicada.
+  // Devuelve true (aplicada), false (no sustituida) o undefined (descartada:
+  // otro expediente o editor cerrado).
+  const setLateTablaIA = (partidas, tipo, documentos=[], huellaAntes) => {
+    const registro = registroExtraccionPartidas({tipo, fecha:new Date().toISOString(), modelo:MODELO_IA, documentos, partidas});
+    let aplicada;
+    const fn = s3 => { const r = aplicarTablaIA({s3, huellaAntes, partidas, registro}); aplicada = r.aplicada; return r.s3; };
+    if(onPatch) onPatch(fn); else onChange(fn(data));
+    return aplicada;
+  };
   const [improving,setImproving] = useState(false);
   const [genLoad,setGenLoad]     = useState(false);
   const [genMsg,setGenMsg]       = useState(null); // {tipo:"error"|"aviso", texto}
@@ -2394,7 +2427,7 @@ CAUSA: ${enc.causa||""} | GARANTÍA: ${enc.garantia||""}
 TEXTO: "${data.textoRaw}"`,
       onTokens, 1500, "sec3_texto"
     ).catch(()=>"Error al conectar.");
-    onChange({...data,textoAI:text});
+    setLate({textoAI:text});
     setImproving(false);
   };
 
@@ -2403,6 +2436,7 @@ TEXTO: "${data.textoRaw}"`,
     const desc = data.textoAI||data.textoRaw;
     if(!desc){ setGenMsg({tipo:"aviso",texto:"Escribe primero la descripción de los daños: la tabla se genera a partir de ese texto."}); return; }
     setGenLoad(true); setGenMsg(null);
+    const huellaAntes = huellaTabla(data.partidas); // P-28
     const baremoCtx = BAREMO.map(b=>`${b.oficio}|${b.desc}|${b.u}|${b.indirecto?'8% del total':fmt(b.p)+'€'}|daño:${b.dano}|cond:${b.cond}`).join('\n');
     const raw = await callClaude(
       "Perito de seguros. SOLO JSON válido, sin markdown.",
@@ -2441,10 +2475,10 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           perceptor:"Asegurado", garantia, cobertura:true,
         };
       });
-      onChange({...data,partidas:rows.map(sanP)});
-      setGenMsg(sinPrecio>0
+      const aplicada = setLateTablaIA(rows.map(sanP), "baremo", [], huellaAntes);
+      setGenMsg(mensajeTrasTablaIA({aplicada, tipo:"baremo", mensajeNormal: sinPrecio>0
         ? {tipo:"aviso",texto:`Tabla generada. ${sinPrecio} ${sinPrecio===1?"partida no está":"partidas no están"} en el baremo: revisa su precio, se ${sinPrecio===1?"ha añadido":"han añadido"} a 0 €.`}
-        : null);
+        : null}));
     } else {
       setGenMsg({tipo:"aviso",texto:"La IA no ha encontrado partidas del baremo que encajen con esta descripción. Detalla más los daños (material, superficie, estancia) y vuelve a intentarlo."});
     }
@@ -2459,10 +2493,19 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
     let all=[];
     let hadError=false;
     let tooBig=[];
-    for(const fac of facturas){
-      if(!fac.file) continue;
-      if(fac.file.size>PDF_IA_MAX_SIZE){ tooBig.push(fac.name); continue; }
-      const b64 = await toB64(fac.file);
+    const leidas=[]; // I-10: facturas que la IA llegó a leer
+    const huellaAntes = huellaTabla(data.partidas); // P-28
+    // DT-13: cada factura se lee de donde esté (memoria o Storage), y las que
+    // se perdieron se dicen por su nombre en vez de saltarse en silencio.
+    const {disponibles, perdidas} = fuentesDeFacturas(facturas);
+    for(const {factura:fac, fuente} of disponibles){
+      let blob = fac.file;
+      if(fuente==="url"){
+        try{ blob = await (await fetch(fac.url)).blob(); }
+        catch(e){ console.error('No se pudo descargar la factura:', fac.name, e); hadError=true; continue; }
+      }
+      if(blob.size>PDF_IA_MAX_SIZE){ tooBig.push(fac.name); continue; }
+      const b64 = await toB64(blob);
       const raw = await callClaude(
         "Extractor de facturas/presupuestos. SOLO JSON válido.",
         [{type:"document",source:{type:"base64",media_type:"application/pdf",data:b64}},
@@ -2472,26 +2515,75 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
       ).catch(()=>'{"partidas":[]}');
       const j = parseJSON(raw);
       if(iaError(j)) hadError=true;
-      // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
-      else if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
+      else {
+        leidas.push(fac);
+        // La depreciación nunca se aplica automáticamente: el perito la marca a mano en la tabla.
+        if(j.partidas?.length>0) all=[...all,...j.partidas.map(p=>({...p,id:Date.now()+Math.random(),ivaOn:(+p.iva||0)>0,depr:false,pctDepr:0}))];
+      }
     }
     const tooBigMsg = tooBig.length?`${tooBig.join(', ')}: ${tooBig.length===1?'supera':'superan'} el límite de 14 MB por archivo y no se ${tooBig.length===1?'ha':'han'} podido leer.`:'';
+    const perdidasMsg = perdidas.length?`${perdidas.map(f=>f.name).join(', ')}: ${perdidas.length===1?'se perdió':'se perdieron'} al guardar el expediente y no se ${perdidas.length===1?'ha':'han'} podido leer. Vuelve a adjuntar${perdidas.length===1?'la':'las'}.`:'';
+    const avisos = [tooBigMsg, perdidasMsg].filter(Boolean).join(' ');
     if(all.length>0) {
-      onChange({...data,partidas:all.map(sanP)});
-      if(tooBigMsg) setGenMsg({tipo:"aviso",texto:`Tabla generada. ${tooBigMsg}`});
+      const aplicada = setLateTablaIA(all.map(sanP), "facturas", leidas, huellaAntes);
+      setGenMsg(mensajeTrasTablaIA({aplicada, tipo:"facturas", extra:avisos,
+        mensajeNormal: avisos?{tipo:"aviso",texto:`Tabla generada. ${avisos}`}:null}));
     }
-    else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${tooBigMsg?' '+tooBigMsg:''}`});
-    else if(tooBigMsg) setGenMsg({tipo:"error",texto:tooBigMsg});
+    else if(hadError) setGenMsg({tipo:"error",texto:`No se pudo leer alguna de las facturas. Comprueba que son PDF legibles e inténtalo de nuevo.${avisos?' '+avisos:''}`});
+    else if(avisos) setGenMsg({tipo:"error",texto:avisos});
     else setGenMsg({tipo:"aviso",texto:"No se encontraron líneas en las facturas adjuntas."});
     setGenLoad(false);
   };
 
   // ── Adjuntar facturas ────────────────────────────────────────────────────
+  // DT-13: la factura se añade al momento (para poder extraer la tabla sin
+  // esperar) y se sube a Storage en paralelo. Al terminar la subida solo se le
+  // añade su `url`, sobre el estado más reciente del expediente (onPatch), sin
+  // tocar nada más. Si la subida falla se dice: quedaría solo en memoria y se
+  // perdería al recargar.
+  const [subiendoFac,setSubiendoFac] = useState([]); // ids en curso
+  const [errFac,setErrFac] = useState('');
   const addFactura = files => {
-    const news = Array.from(files).map(f=>({id:Date.now()+Math.random(),name:f.name,size:f.size,file:f}));
+    const list = Array.from(files);
+    if(!list.length) return;
+    setErrFac('');
+    const news = list.map(f=>({id:Date.now()+Math.random(),name:f.name,size:f.size,type:f.type||"",file:f}));
     onChange({...data,facturas:[...facturas,...news]});
+    if(!token||!userId){
+      setErrFac('Adjuntada, pero NO guardada: sesión no disponible. Si recargas la página se perderá. Vuelve a iniciar sesión y adjúntala de nuevo.');
+      return;
+    }
+    // Mismo límite que la IA (14 MB), no el de Anexos (10 MB): toda factura que
+    // "Extraer tabla" puede leer tiene que poder guardarse, o quedaría en el
+    // estado "se lee ahora pero se pierde al recargar". El límite de 10 MB de
+    // Anexos no tiene ninguna razón documentada y el bucket no fija ninguno
+    // propio (hereda el general del proyecto Supabase), pero no se toca aquí.
+    const grandes = news.filter(n=>n.size>PDF_IA_MAX_SIZE);
+    const validas = news.filter(n=>n.size<=PDF_IA_MAX_SIZE);
+    if(grandes.length) setErrFac(`${grandes.map(n=>n.name).join(', ')}: supera el límite de 14 MB. La IA no puede leerla y no se guardará: se perderá al recargar.`);
+    if(!validas.length) return;
+    setSubiendoFac(s=>[...s,...validas.map(n=>n.id)]);
+    Promise.allSettled(validas.map(n=>
+      subirArchivoAnexo(n.file,{name:n.name,carpeta:'sec3-facturas',token,userId,informeId}).then(r=>({id:n.id,...r}))
+    )).then(res=>{
+      const ok = res.filter(r=>r.status==='fulfilled').map(r=>r.value);
+      const errs = res.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
+      // Se añade la `url` a cada factura que siga en la lista. Las que el perito
+      // borró mientras se subían, y todas si la escritura se descarta (editor
+      // cerrado u otro expediente), dejan un archivo en Storage que nadie
+      // referencia: se borra para no dejar documentos huérfanos.
+      let huerfanas = ok.map(o=>o.url);
+      if(ok.length) onPatch?.(s3=>{ const r = adjuntarUrlsSubidas(s3, ok); huerfanas = r.huerfanas; return r.s3; });
+      huerfanas.forEach(url=>borrarArchivoAnexo(url, token));
+      if(errs.length) setErrFac(prev=>[prev, `No se han guardado (se perderán al recargar): ${errs.join(' · ')}`].filter(Boolean).join(' '));
+      setSubiendoFac(s=>s.filter(id=>!validas.some(n=>n.id===id)));
+    });
   };
-  const delFactura = id => onChange({...data,facturas:facturas.filter(f=>f.id!==id)});
+  const delFactura = id => {
+    const f = facturas.find(x=>x.id===id);
+    onChange({...data,facturas:facturas.filter(x=>x.id!==id)});
+    borrarArchivoAnexo(f?.url, token);
+  };
   const [facDrag,setFacDrag] = useState(false);
   const s3b = s3BlockStates(data);
 
@@ -2625,12 +2717,20 @@ Devuelve SOLO, copiando EXACTAMENTE el texto de "partida" en el campo "desc" y s
           {facturas.map(f=>(
             <div key={f.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",
               background:C.greenBg,border:"1px solid #A7F3D0",borderRadius:6,marginBottom:6,fontSize:14}}>
-              <Receipt size={13} style={{color:C.green,flexShrink:0}}/>
-              <span style={{flex:1,color:C.green,fontWeight:600}}>{f.name}</span>
+              <Receipt size={13} style={{color:facturaPerdida(f)?C.red:C.green,flexShrink:0}}/>
+              <span style={{flex:1,color:facturaPerdida(f)?C.red:C.green,fontWeight:600}}>
+                {f.name}
+                {subiendoFac.includes(f.id)&&<span style={{marginLeft:8,fontWeight:400,color:C.muted,fontSize:13}}>guardando…</span>}
+                {facturaPerdida(f)&&<span style={{display:"block",fontWeight:400,fontSize:12.5}}>Se perdió al guardar el expediente. Quítala y vuelve a adjuntarla.</span>}
+                {!f.url&&tieneArchivoEnMemoria(f)&&!subiendoFac.includes(f.id)&&<span style={{display:"block",fontWeight:400,fontSize:12.5,color:C.orange}}>Sin guardar: se perderá si recargas la página.</span>}
+              </span>
               <span style={{color:C.muted,fontSize:13}}>{f.size?(f.size/1024).toFixed(0)+" KB":""}</span>
               <button onClick={()=>delFactura(f.id)} aria-label="Eliminar factura" style={{background:"none",border:"none",cursor:"pointer",color:C.muted}}><X size={12}/></button>
             </div>
           ))}
+          {errFac&&<div role="alert" style={{background:C.redBg,border:`1px solid ${C.red}`,color:C.red,borderRadius:6,padding:"8px 10px",fontSize:13,marginBottom:8,display:"flex",gap:6,alignItems:"flex-start"}}>
+            <AlertTriangle size={13} style={{flexShrink:0,marginTop:2}}/><span>{errFac}</span>
+          </div>}
           {facturas.length>0&&<Btn primary full onClick={extractFromFacturas} disabled={genLoad}>
             {genLoad?<><Spin/>Extrayendo partidas…</>:<><Sparkles size={13}/>Extraer tabla desde {facturas.length} {esFactura?"factura":"presupuesto"}{facturas.length>1?"s":""}</>}
           </Btn>}
@@ -3075,18 +3175,38 @@ const Sec4 = ({data,onChange,enc,s1,s3,onTokens,onNext,onPrev,onSave,scrollRef})
 const ANEXOS_MAX_SIZE = 10*1024*1024; // 10 MB
 const ANEXOS_PUBLIC_PREFIX = `${SB_URL}/storage/v1/object/public/anexos/`;
 const sanitizeAnexoName = n => (n||"archivo").normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
-// Sube una captura automática (Catastro/XEMA, imagen data-URI) al mismo bucket que los anexos manuales.
-const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeId}) => {
+// Sube un archivo al bucket `anexos` y devuelve su dirección. Única
+// implementación: la usan los anexos manuales, las capturas automáticas
+// (Catastro/XEMA) y las facturas de la Sección 3.
+const subirArchivoAnexo = async (blob, {name, carpeta, token, userId, informeId, tipo}) => {
   if(!token||!userId) throw new Error('Sesión no disponible.');
-  const blob = await (await fetch(dataUrl)).blob();
-  const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(name)}`;
+  const path = `${userId}/${informeId||'sin-informe'}/${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(name)}`;
+  const type = blob.type||tipo||'application/octet-stream';
   const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
     method:'POST',
-    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':blob.type||'image/png'},
+    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':type},
     body:blob
   });
-  if(!res.ok) throw new Error(`Fallo al subir ${name} (${res.status})`);
-  return {id:Date.now()+Math.random(), name, url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type:blob.type||'image/png', caption:'', cat:cat||'Documento'};
+  if(!res.ok) throw new Error(`${name}: fallo al subir (${res.status})`);
+  return {url:`${ANEXOS_PUBLIC_PREFIX}${path}`, type};
+};
+// Borra de Storage un archivo del bucket `anexos`. Un fallo solo se registra:
+// el anexo ya se ha quitado del informe y no debe bloquear al perito.
+const borrarArchivoAnexo = (url, token) => {
+  if(!url?.startsWith(ANEXOS_PUBLIC_PREFIX) || !token) return;
+  const path = url.slice(ANEXOS_PUBLIC_PREFIX.length);
+  fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
+    method:'DELETE',
+    headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY}
+  }).then(res=>{
+    if(!res.ok) console.error('No se pudo borrar el archivo de Storage:', res.status, path);
+  }).catch(err=>console.error('No se pudo borrar el archivo de Storage:', err));
+};
+// Sube una captura automática (Catastro/XEMA, imagen data-URI) al mismo bucket que los anexos manuales.
+const uploadAutoAnexo = async (dataUrl, {name, tab, cat, token, userId, informeId}) => {
+  const blob = await (await fetch(dataUrl)).blob();
+  const {url, type} = await subirArchivoAnexo(blob, {name, carpeta:tab, token, userId, informeId, tipo:'image/png'});
+  return {id:Date.now()+Math.random(), name, url, type, caption:'', cat:cat||'Documento'};
 };
 
 const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId,scrollRef}) => {
@@ -3126,14 +3246,8 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
     }
     setUploading(u=>[...u,...valid.map(f=>f.name)]);
     Promise.allSettled(valid.map(async f=>{
-      const path = `${userId}/${informeId||'sin-informe'}/${tab}/${Date.now()}-${Math.random().toString(36).slice(2,8)}-${sanitizeAnexoName(f.name)}`;
-      const res = await fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
-        method:'POST',
-        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY,'Content-Type':f.type||'application/octet-stream'},
-        body:f
-      });
-      if(!res.ok) throw new Error(`${f.name}: fallo al subir (${res.status})`);
-      return {id:Date.now()+Math.random(),name:f.name,url:`${ANEXOS_PUBLIC_PREFIX}${path}`,type:f.type||"",caption:"",cat:"Daño general"};
+      const {url} = await subirArchivoAnexo(f, {name:f.name, carpeta:tab, token, userId, informeId});
+      return {id:Date.now()+Math.random(),name:f.name,url,type:f.type||"",caption:"",cat:"Daño general"};
     })).then(results=>{
       const okItems = results.filter(r=>r.status==='fulfilled').map(r=>r.value);
       const errs = results.filter(r=>r.status==='rejected').map(r=>r.reason?.message||'Error desconocido al subir');
@@ -3146,15 +3260,7 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
   const delI = id => {
     const item = bucket.find(i=>i.id===id);
     onChange({...data,[tab]:bucket.filter(i=>i.id!==id)});
-    if(item?.url?.startsWith(ANEXOS_PUBLIC_PREFIX) && token){
-      const path = item.url.slice(ANEXOS_PUBLIC_PREFIX.length);
-      fetch(`${SB_URL}/storage/v1/object/anexos/${path}`, {
-        method:'DELETE',
-        headers:{'Authorization':`Bearer ${token}`,'apikey':SB_KEY}
-      }).then(res=>{
-        if(!res.ok) console.error('No se pudo borrar el archivo de Storage:', res.status, path);
-      }).catch(err=>console.error('No se pudo borrar el archivo de Storage:', err));
-    }
+    borrarArchivoAnexo(item?.url, token);
   };
   const handleSave = () => { onSave?.(); setSaved(true); setTimeout(()=>setSaved(false),2500); };
   const total = tabs.reduce((a,t)=>a+(data[t.id]||[]).length,0);
@@ -3241,21 +3347,22 @@ const SecAnexos = ({data,onChange,s3,onPrev,onNext,onSave,token,userId,informeId
 // ─── EXPORT HELPERS ──────────────────────────────────────────────────────────
 const fmtPDF = n => new Intl.NumberFormat('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
 const esPdfItem = f => !!(f.type?.includes('pdf')||f.url?.startsWith('data:application/pdf'));
-// Todas las facturas/presupuestos del informe: los subidos en Anexos (URL real
-// en Storage) más los adjuntados en Sec3 para la extracción por IA (Blob local,
-// nunca subido). A los de Sec3 se les crea una URL de objeto para poder
-// incrustarlos igualmente como una hoja más del informe.
+// Todas las facturas/presupuestos del informe: los subidos en Anexos más los
+// adjuntados en la Sección 3. Desde la sesión 29 (DT-13) los de la Sección 3
+// también tienen URL en Storage; si solo están en memoria se crea una URL de
+// objeto, y si se perdieron (guardados antes de la corrección) salen como
+// "[Documento adjunto]" en vez de romper la exportación. Ver lib/dominio/facturas.js.
 const allFacturasOf = cData => {
   const anexos=cData.anexos||{}, s3=cData.s3||{};
   const tipoS3 = s3.modoValoracion==='presupuesto'?'Presupuesto':'Factura';
   return [
     ...(anexos.facturas||[]).map(f=>({...f,tipo:'Factura'})),
     ...(anexos.presupuestos||[]).map(f=>({...f,tipo:'Presupuesto'})),
-    ...(s3.facturas||[]).map(f=>({...f,tipo:tipoS3,type:f.type||f.file?.type||'',url:f.url||(f.file?URL.createObjectURL(f.file):null)})),
+    ...(s3.facturas||[]).map(f=>facturaSec3ParaExportar(f, tipoS3, b=>URL.createObjectURL(b))),
   ];
 };
 
-const buildWordHTML = (cData) => {
+export const buildWordHTML = (cData) => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const catastroImg=(anexos.catastro||[]).find(c=>!(c.type?.includes('pdf')||c.url?.startsWith('data:application/pdf')));
   const catastroHTML=catastroImg?`<p style='font-size:8.5pt;color:#666;margin:6pt 0 2pt'>Cartografía catastral:</p><img src='${catastroImg.url}' style='max-width:60%;max-height:240pt;border:1px solid #ccc'/>`:'';
@@ -3386,7 +3493,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <p><span class='field-label'>Asegurado</span><span class='field-value'>${enc.asegurado||'—'}</span></p>
 <table><tr><td><span class='field-label'>Perito:</span><span class='field-value'>${enc.perito||'—'}</span></td><td><span class='field-label'>Teléfono Perito:</span><span class='field-value'>${enc.telPerito||'—'}</span></td></tr></table>
 <p class='intro'>Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class='intro'>En cumplimiento de lo requerido, se ha procedido a la comparecencia pericial en el Riesgo Asegurado, realizando la función pericial iniciando los trabajos que nos son propios, tendentes a la determinación de las causas y circunstancias del siniestro y a la valoración de los daños consecuentes al mismo, para finalmente elevar propuesta de indemnización a las partes, a tenor de la información conocida hasta la fecha.</p>
+<p class='intro'>${fraseComparecencia(enc.modalidadVisita)}</p>
 <p class='intro'>El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class='intro'>La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class='page-break'></div>
@@ -3395,7 +3502,7 @@ ${f.url&&!isPdfItem?`<img src='${f.url}' width="520" style='width:100%;max-width
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
-<br/>
+${muestraCapitalesAsegurados(enc)?`<br/>
 <div class="no-split">
 <b>CONTINENTE / OBRAS DE REFORMA</b>
 <p style='font-style:italic;font-size:9pt'>1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -3413,7 +3520,7 @@ ${catastroHTML}
 <tr><td>VALOR PREEXISTENTE</td><td>${fmtPDF(reglas.vPreexContenido)} €</td></tr>
 <tr><td><b>INFRASEGURO</b></td><td><b>${fmtPDF(reglas.infraContenido)} %</b></td></tr></table>
 </div>
-${s1.aiText?'<p>'+s1.aiText+'</p>':''}
+`:''}${s1.aiText?'<p>'+s1.aiText+'</p>':''}
 <h2>2. CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
@@ -3505,7 +3612,8 @@ const exportWord = async (cData) => {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
 
-const exportPDF = (cData, dniPerito='') => {
+// HTML del informe en PDF, separado de la impresión para poder probarlo.
+export const buildPDFHTML = (cData, dniPerito='') => {
   const enc=cData.encargo||{}, s1=cData.s1||{}, s2=cData.s2||{}, s3=cData.s3||{}, s4=cData.s4||{}, anexos=cData.anexos||{};
   const partidas=getPartidas(s3);
   const totalDano=sumReal(partidas);
@@ -3624,7 +3732,7 @@ const exportPDF = (cData, dniPerito='') => {
 <div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${enc.asegurado||'—'}</span></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${enc.perito||'—'}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${enc.telPerito||'—'}</span></div></div></div>
 <p class="intro">Este informe pericial ha sido emitido por el perito Don ${enc.perito||'—'}, ha sido solicitado por el departamento de siniestros de la aseguradora epigrafiada anteriormente, a tenor del siniestro declarado en el riesgo asegurado con póliza suscrita por la precitada aseguradora.</p>
-<p class="intro">En cumplimiento de lo requerido, se ha procedido a la comparecencia pericial en el Riesgo Asegurado, realizando la función pericial iniciando los trabajos que nos son propios, tendentes a la determinación de las causas y circunstancias del siniestro y a la valoración de los daños consecuentes al mismo, para finalmente elevar propuesta de indemnización a las partes.</p>
+<p class="intro">${fraseComparecencia(enc.modalidadVisita)}</p>
 <p class="intro">El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class="intro">La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class="page-break"></div>
@@ -3633,7 +3741,7 @@ const exportPDF = (cData, dniPerito='') => {
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
 ${catastroHTML}
-<h3>Estudios de los capitales Asegurados:</h3>
+${muestraCapitalesAsegurados(enc)?`<h3>Estudios de los capitales Asegurados:</h3>
 <div class="no-split">
 <p style="font-weight:bold">CONTINENTE / OBRAS DE REFORMA</p>
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ha sido estudiada en aplicación de los precios por m², teniendo en cuenta calidad de acabados y provincia.</p>
@@ -3645,7 +3753,7 @@ ${catastroHTML}
 <p style="font-style:italic;font-size:8.5pt">1. La preexistencia ES ESTIMADA atendiendo a los criterios de objetividad pericial teniendo en cuenta criterios objetivos.</p>
 <table class="cap"><tr><th colspan="2">CONTENIDO</th></tr><tr><td>VALOR ASEGURADO</td><td><strong>${fmtPDF(capC2)} €</strong></td></tr><tr><td>VALOR PREEXISTENTE</td><td><strong>${fmtPDF(reglas.vPreexContenido)} €</strong></td></tr><tr><td><strong>INFRASEGURO</strong></td><td><strong>${fmtPDF(reglas.infraContenido)} %</strong></td></tr></table>
 </div>
-${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
+`:''}${s1.aiText?`<p style="margin-top:10pt">${s1.aiText.replace(/\n/g,'<br/>')}</p>`:''}
 <h2>2.&nbsp;&nbsp;&nbsp;CAUSAS Y CIRCUNSTANCIAS</h2>
 <h3>2.1. Descripción del siniestro:</h3>
 <p>${(s2.textoAI||s2.textoRaw||'').replace(/\n/g,'<br/>')}</p>
@@ -3699,6 +3807,11 @@ ${allFotos.length?`${facturasD.length?`<div class="page-break"></div>
 `:''}
 </body></html>`;
 
+  return html;
+};
+
+const exportPDF = (cData, dniPerito='') => {
+  const html = buildPDFHTML(cData, dniPerito);
   // Impresión en un iframe oculto en vez de abrir una pestaña nueva con una URL
   // blob: — el diálogo de impresión aparece sobre la propia app (sin pestañas ni
   // ventanas adicionales que el perito tenga que cerrar) y arranca en cuanto las
@@ -3727,10 +3840,13 @@ ${allFotos.length?`${facturasD.length?`<div class="page-break"></div>
 };
 
 
-const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
-  const [dni,setDni]         = useState(cData.encargo?.dniPerito||'');
-  const [perito,setPerito]   = useState(cData.encargo?.perito||'');
-  const [telPerito,setTel]   = useState(cData.encargo?.telPerito||'');
+// I-2: los datos del perito se proponen desde su perfil (nunca desde el
+// encargo) y, al exportar, se guardan en el perfil y en el expediente.
+const ExportModal = ({cData, perfil, onClose, onExported}) => {
+  const inicial = peritoDesdePerfil(perfil);
+  const [dni,setDni]         = useState(inicial.dni);
+  const [perito,setPerito]   = useState(inicial.nombre);
+  const [telPerito,setTel]   = useState(inicial.telefono);
   const [pdfLoad,setPdfLoad] = useState(false);
   const [wrdLoad,setWrdLoad] = useState(false);
   const [pdfOk,setPdfOk]   = useState(false);
@@ -3741,12 +3857,12 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
 
   const handlePDF = () => {
     setErr('');
-    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onSaveDni?.(dni,perito,telPerito); onExported?.(); }
+    try{ exportPDF(cDataWithPerito(), dni); setPdfOk(true); setTimeout(()=>setPdfOk(false),3000); onExported?.({nombre:perito,telefono:telPerito,dni}); }
     catch(e){ setErr('Error al generar PDF. Activa las ventanas emergentes del navegador.'); console.error(e); }
   };
   const handleWord = async () => {
     setWrdLoad(true); setErr('');
-    try{ await exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); onExported?.(); }
+    try{ await exportWord(cDataWithPerito()); setWrdOk(true); setTimeout(()=>setWrdOk(false),3000); onExported?.({nombre:perito,telefono:telPerito,dni}); }
     catch(e){ setErr('Error al generar Word.'); console.error(e); }
     setWrdLoad(false);
   };
@@ -3777,7 +3893,7 @@ const ExportModal = ({cData, onClose, user, token, onSaveDni, onExported}) => {
           <Lbl c="DNI del Perito (para la página de firma)"/>
           <input value={dni} onChange={e=>setDni(e.target.value)} placeholder="Ej: B13809660"
             style={{...inpStyle(false),marginBottom:4}}/>
-          <div style={{fontSize:13,color:C.muted}}>Datos del perito para el documento exportado</div>
+          <div style={{fontSize:13,color:C.muted}}>Datos de tu perfil de perito. Si los cambias, se guardan para los siguientes informes.</div>
         </div>
         {err&&<div style={{background:C.redBg,border:'1px solid #FECACA',borderRadius:7,padding:'8px 12px',fontSize:14,color:C.red,marginBottom:14}}>{err}</div>}
         <div style={{display:'flex',gap:10}}>
@@ -3900,12 +4016,16 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
             </select>
           </div>
           <div>
-            <Lbl c="Modalidad de visita"/>
-            <select value={enc.modalidadVisita||"PRESENCIAL"} onChange={e=>s("modalidadVisita")(e.target.value)}
+            <Lbl c="Modalidad de intervención"/>
+            <select value={normalizarModalidad(enc.modalidadVisita)} onChange={e=>s("modalidadVisita")(e.target.value)}
               style={{...inpStyle(false),cursor:"pointer"}}>
-              <option value="PRESENCIAL">Presencial</option>
-              <option value="DOCUMENTAL">Documental</option>
+              <option value="">Sin indicar</option>
+              <option value="PRESENCIAL">Presencial (visita al riesgo)</option>
+              <option value="VIDEO">Vídeo-peritación (remota)</option>
+              <option value="DOCUMENTAL">Documental (sin visita)</option>
             </select>
+            {!normalizarModalidad(enc.modalidadVisita)&&<div style={{fontSize:13,color:C.orange,marginTop:4}}>
+              Sin indicar: el informe no dirá si hubo visita al riesgo. Elige la modalidad real.</div>}
           </div>
         </div>
       </Block>
@@ -3915,7 +4035,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
+const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
   const [sec,setSec]         = useState("encargo");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
@@ -3925,6 +4045,23 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const costEur = ((tokens.i||0)/1e6*3+(tokens.o||0)/1e6*15)*1.08;
   const addTokens = (i,o) => onUpdate({...cData,tokenStats:{i:(tokens.i||0)+i,o:(tokens.o||0)+o}});
   const upd = (key,val) => onUpdate({...cData,[key]:val});
+  // Para cambios que llegan tarde (al terminar una subida a Storage): se
+  // aplican sobre el expediente MÁS RECIENTE, no sobre el del momento en que
+  // empezó la subida. Con `upd` se pisarían los cambios hechos mientras tanto
+  // (por ejemplo, las partidas extraídas por la IA durante la subida).
+  //
+  // Solo mientras el editor sigue abierto y solo sobre el MISMO expediente en
+  // el que empezó la operación (`idOrigen`, el de la pantalla en el momento de
+  // empezar). Si el perito ya ha salido o ha pasado a otro expediente, se
+  // descarta: la factura queda sin `url` y, al volver, muestra el aviso
+  // "Sin guardar". La regla vive en lib/dominio/escrituraTardia.js.
+  const cDataRef = useRef(cData); cDataRef.current = cData;
+  const editorAbiertoRef = useRef(true);
+  useEffect(()=>{ editorAbiertoRef.current = true; return ()=>{ editorAbiertoRef.current = false; }; },[]);
+  const updLatest = (key, fn, idOrigen) => {
+    const nuevo = aplicarEscrituraTardia({actual:cDataRef.current, idOrigen, editorAbierto:editorAbiertoRef.current, clave:key, fn});
+    if(nuevo) onUpdate(nuevo);
+  };
   // Sube una captura automática (Catastro/XEMA) y la añade a Anexos sin pasar por el editor de esa sección.
   const addAutoAnexo = async (tab,dataUrl,name,cat) => {
     const item = await uploadAutoAnexo(dataUrl,{name,tab,cat,token,userId:user?.id,informeId:cData._sbId||cData.id});
@@ -3955,11 +4092,11 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
 
   const renderSec = () => {
     switch(sec){
-      case "informe": return <SecInforme enc={cData.encargo||{}} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
+      case "informe": return <SecInforme enc={cData.encargo||{}} perfil={perfil} s1={cData.s1||{}} s2={cData.s2||{}} s3={cData.s3||{}} s4={cData.s4||{}} anexos={cData.anexos||{}} onGoTo={setSec}/>;
       case "encargo": return <SecEncargo enc={cData.encargo||{}} onUpdate={enc=>onUpdate({...cData,encargo:enc})} onNext={()=>setSec("s1")} onSave={handleSave} scrollRef={contentRef}/>;
       case "s1": return <Sec1 data={cData.s1||{}} onChange={v=>upd("s1",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
       case "s2": return <Sec2 data={cData.s2||{}} onChange={v=>upd("s2",v)} enc={cData.encargo||{}} onAutoAnexo={addAutoAnexo} {...commonProps}/>;
-      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} enc={cData.encargo||{}} s1={cData.s1||{}} {...commonProps}/>;
+      case "s3": return <Sec3 data={cData.s3||{}} onChange={v=>upd("s3",v)} onPatch={fn=>updLatest("s3",fn,cData.id)} enc={cData.encargo||{}} s1={cData.s1||{}} token={token} userId={user?.id} informeId={cData._sbId||cData.id} {...commonProps}/>;
       case "s4": return <Sec4 data={cData.s4||{}} onChange={v=>upd("s4",v)} enc={cData.encargo||{}} s1={cData.s1||{}} s3={cData.s3||{}} {...commonProps}/>;
       case "anexos": return <SecAnexos data={cData.anexos||{}} onChange={v=>upd("anexos",v)} s3={cData.s3||{}} onPrev={goPrev} onNext={goNext} onSave={handleSave} token={token} userId={user?.id} informeId={cData._sbId||cData.id} scrollRef={contentRef}/>;
       default: return null;
@@ -3996,7 +4133,6 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   // lo que muestra cada <Block> o el semáforo de arriba.
   const BLOCK_LABELS = {
     encargo: ["Compañía y Siniestro","Asegurado y Localización","Capitales Asegurados"],
-    s1: ["Datos del Riesgo Asegurado","Superficie y Arquitectura","Capitales Asegurados"],
     s3: ["Descripción de los Daños","Cómo se valora"],
     s4: ["Texto de Valoración","Descripción de la Cobertura"],
   };
@@ -4007,7 +4143,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
   const pendingList = [];
   [
     ["encargo",encargoBlockStates(cData.encargo||{}),BLOCK_LABELS.encargo],
-    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),BLOCK_LABELS.s1],
+    ["s1",s1BlockStates(cData.s1||{},cData.encargo||{}),etiquetasSeccion1(cData.encargo||{})],
     ["s2",s2BlockStates(cData.s2||{},cData.encargo||{}),s2Labels],
     ["s3",s3BlockStates(cData.s3||{}),BLOCK_LABELS.s3],
     ["s4",s4BlockStates(cData.s4||{}),BLOCK_LABELS.s4],
@@ -4043,7 +4179,9 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         <div className="editor-actions" style={{display:"flex",gap:12,alignItems:"center",flexShrink:0}}>
           {saveState==="saving" && <div style={{color:"rgba(255,255,255,.6)",fontSize:13,display:"flex",alignItems:"center",gap:5}}><Spin/>Guardando…</div>}
           {saveState==="saved" && <div style={{color:C.green,fontSize:13,display:"flex",alignItems:"center",gap:5}}><Check size={12}/>Guardado</div>}
-          {saveState==="error" && <div title="No se pudo guardar en la nube. Revisa tu conexión; reintentará en el próximo cambio." style={{color:"#f7b267",fontSize:13,display:"flex",alignItems:"center",gap:5,cursor:"help"}}><AlertTriangle size={12}/>Sin guardar</div>}
+          {saveState==="error" && <button onClick={()=>onFlushSave?.()} title="No se pudo guardar en la nube. Revisa tu conexión y pulsa para reintentar."
+            style={{background:"rgba(192,57,43,.35)",border:"none",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:"#FFD7CF",fontSize:13,fontWeight:700,fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
+            <AlertTriangle size={12}/>Sin guardar · Reintentar</button>}
           <div style={{textAlign:"right"}}>
             <div style={{color:"rgba(255,255,255,.35)",fontSize:11,textTransform:"uppercase",letterSpacing:".06em"}}>Consumo API</div>
             <div style={{color:"rgba(255,255,255,.75)",fontSize:13,fontWeight:600}}>{((tokens.i||0)+(tokens.o||0)).toLocaleString("es-ES")} tokens · {costEur.toFixed(4)} €</div>
@@ -4063,6 +4201,20 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
           </button>
         </div>
       </div>
+
+      {/* C-3. Expediente que todavía no existe en la base de datos: aviso fijo
+          hasta que se cree. Antes, si la primera creación fallaba, no había
+          ninguna señal y nada de lo que se hacía se guardaba. */}
+      {!cData._sbId&&<div role="alert" style={{background:C.redBg,borderBottom:`1px solid ${C.red}`,color:C.red,padding:"8px 16px",
+        display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",fontSize:14,flexShrink:0}}>
+        <AlertTriangle size={14} style={{flexShrink:0}}/>
+        <span style={{flex:1,minWidth:200}}>
+          {saveState==="saving"
+            ? "Guardando el expediente por primera vez…"
+            : <><b>Este expediente todavía NO está guardado.</b> Si recargas o cierras la página, se perderá. Tus datos siguen aquí mientras no salgas.</>}
+        </span>
+        {saveState!=="saving"&&<Btn sm danger onClick={()=>onFlushSave?.()}><RefreshCw size={11}/>Reintentar guardado</Btn>}
+      </div>}
 
       {/* ACCESOS RÁPIDOS — franja fija bajo la topbar, con semáforo por pantalla.
           Convive con el menú lateral (no lo sustituye): la pantalla activa se ve
@@ -4196,7 +4348,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,sidebarOpen,setSidebarOp
         </div>}
       </div>
 
-      {exportOpen&&<ExportModal cData={cData} onClose={()=>setExportOpen(false)} user={user} token={token} onSaveDni={async (dni,perito,telPerito)=>{ if(token&&user?.id) await sbDb(`perfiles?id=eq.${user.id}`,"PATCH",{dni},token); onUpdate({...cData,encargo:{...cData.encargo,perito,telPerito,dniPerito:dni}}); }} onExported={onExported}/>}
+      {exportOpen&&<ExportModal cData={cData} perfil={perfil} onClose={()=>setExportOpen(false)} onExported={onExported}/>}
       <link rel="stylesheet" href={FONT}/>
       <style>{css}</style>
     </div>
@@ -4273,6 +4425,7 @@ export default function App(){
   // guardados fallaban en silencio; ahora que la IA también exige sesión, se
   // renueva solo con el refresh_token antes de que caduque.
   const [isAdmin,setIsAdmin] = useState(false);
+  const [perfil,setPerfil]   = useState({}); // I-2: nombre, teléfono y DNI del perito (tabla perfiles)
   const refreshRef = useRef({rt:null, exp:0});
 
   const applySession = (tk, s) => {
@@ -4303,50 +4456,66 @@ export default function App(){
     const cuenta = await sbDb('rpc/mi_cuenta','POST',{},tk);
     if(cuenta?.bloqueado) return 'Tu cuenta está desactivada. Contacta con PERIT.IA para reactivarla.';
     setIsAdmin(!!cuenta?.es_admin);
+    // I-2: datos del perito para el informe. Si no se pueden leer, se piden al exportar.
+    const pf = await sbDb(`perfiles?id=eq.${u.id}&select=nombre,dni,telefono`,'GET',null,tk);
+    setPerfil(Array.isArray(pf)&&pf[0]?pf[0]:{});
     applySession(tk, s);
     setUser(u); loadCases(tk);
     return null;
   };
-  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setCases([]); setActive(null); setView('dashboard'); };
+  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setPerfil({}); setCases([]); setActive(null); setView('dashboard'); };
+
+  // C-3. Guardado en Supabase: crea el expediente si todavía no existe en la
+  // base de datos y, si ya existe, lo actualiza. La regla vive en
+  // lib/dominio/guardado.js. Token y usuario se leen en el momento de guardar
+  // (refs), no los del render en que se programó el guardado.
+  const tokenRef = useRef(token); tokenRef.current = token;
+  const userRef  = useRef(user);  userRef.current  = user;
+  const guardadorRef = useRef(null);
+  if(!guardadorRef.current) guardadorRef.current = crearGuardador({
+    crear: async fila => {
+      const uid = userRef.current?.id; if(!uid) return null;
+      const saved = await sbDb('informes', 'POST', {user_id:uid, ...fila}, tokenRef.current);
+      const row = Array.isArray(saved)?saved[0]:saved;
+      return row?.id || null;
+    },
+    // Reintenta una vez ante un fallo transitorio (red/servidor).
+    actualizar: async (sbId, fila) => {
+      let res = await sbDb(`informes?id=eq.${sbId}`, 'PATCH', fila, tokenRef.current);
+      if(!res){
+        await new Promise(r=>setTimeout(r,2000));
+        res = await sbDb(`informes?id=eq.${sbId}`, 'PATCH', fila, tokenRef.current);
+      }
+      return !!res;
+    },
+  });
 
   const handleDone = async enc => {
-    // Always open editor immediately with extracted data
+    // El editor se abre al momento con los datos extraídos. El expediente
+    // conserva este id local toda la sesión (las subidas y respuestas de IA en
+    // curso se identifican por él) y gana `_sbId` cuando existe en la base de
+    // datos. Hasta entonces el editor muestra que NO está guardado.
     const localCase = {id:'local_'+Date.now(),encargo:enc,s1:{},s2:{},s3:{},s4:{},anexos:{},tokenStats:{i:0,o:0},estado:'borrador'};
     setActive(localCase); setView("editor");
-    // Then try to save to Supabase in background
-    if(token && user?.id) {
-      const newRow = {user_id:user.id, num_referencia:enc.numReferencia||'', compania:enc.compania||'', asegurado:enc.asegurado||'', estado:'borrador', encargo:enc, s1:{}, s2:{}, s3:{}, s4:{}, anexos:{}};
-      const saved = await sbDb('informes', 'POST', newRow, token);
-      const row = Array.isArray(saved)?saved[0]:saved;
-      if(row) {
-        const savedCase = {...localCase, id:row.id, _sbId:row.id};
-        setCases(p=>[savedCase,...p.filter(x=>x.id!==localCase.id)]);
-        setActive(savedCase);
-      } else {
-        setCases(p=>[localCase,...p]);
-      }
-    }
+    setCases(p=>[localCase,...p]);
+    dirtyRef.current = true;
+    if(tokenRef.current && userRef.current?.id) await saveToSb(localCase);
+    else setSaveState("error");
   };
 
   const openCase  = c => { setActive(c); setView("editor"); };
 
-  // Guarda en Supabase y confirma el resultado. Reintenta una vez ante un
-  // fallo transitorio (red/servidor). Devuelve true si se guardó de verdad.
+  // Guarda en Supabase y confirma el resultado. Devuelve true si se guardó de
+  // verdad. Si el expediente aún no existe en la base de datos, lo crea (o
+  // reintenta crearlo) y le añade su `_sbId` sobre el estado más reciente.
   const saveToSb = async (u) => {
-    if(!u._sbId||!token) return false;
-    const payload = {
-      encargo:u.encargo||{}, s1:u.s1||{}, s2:u.s2||{}, s3:u.s3||{}, s4:u.s4||{},
-      anexos:u.anexos||{}, estado:u.estado||'borrador',
-      num_referencia:u.encargo?.numReferencia||'',
-      compania:u.encargo?.compania||'', asegurado:u.encargo?.asegurado||''
-    };
+    if(!u||!tokenRef.current) { setSaveState("error"); return false; }
     setSaveState("saving");
-    let res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
-    if(!res){
-      await new Promise(r=>setTimeout(r,2000));
-      res = await sbDb(`informes?id=eq.${u._sbId}`, 'PATCH', payload, token);
+    const {ok, sbId} = await guardadorRef.current(u);
+    if(ok && !u._sbId){
+      setActive(a=>marcarPersistido(a,u.id,sbId));
+      setCases(p=>p.map(c=>marcarPersistido(c,u.id,sbId)));
     }
-    const ok = !!res;
     if(ok) dirtyRef.current = false;
     setSaveState(ok?"saved":"error");
     if(ok) setTimeout(()=>setSaveState(s=>s==="saved"?"idle":s),2500);
@@ -4355,8 +4524,9 @@ export default function App(){
 
   const updateCase = u => {
     setActive(u); setCases(p=>p.map(c=>c.id===u.id?u:c));
-    if(u._sbId&&token){
-      dirtyRef.current = true;
+    // También sin `_sbId`: el siguiente guardado reintenta crear el expediente.
+    dirtyRef.current = true;
+    if(tokenRef.current){
       clearTimeout(sbSaveTimer.current);
       sbSaveTimer.current = setTimeout(() => saveToSb(u), 5000);
     }
@@ -4374,12 +4544,25 @@ export default function App(){
   // sobre informes.estado). Un fallo de red no interrumpe la exportación:
   // el documento ya se generó en el cliente antes de llamar a esta función;
   // aquí solo queda reflejado en saveState ("error"), igual que el autosave.
-  const markExported = async () => {
+  //
+  // I-2: `datosPerito` son los que el perito confirmó en la ventana de
+  // exportación. Se guardan en el expediente (quién firmó) en la MISMA
+  // actualización que el estado, para que una no pise a la otra, y en su
+  // perfil si han cambiado.
+  const markExported = async (datosPerito) => {
     if(!active) return;
-    const updated = {...active, estado:'exportado'};
+    const updated = {...active, estado:'exportado', ...(datosPerito?{encargo:firmarEncargo(active.encargo, datosPerito)}:{})};
+    if(datosPerito && user?.id && tokenRef.current){
+      const patch = cambiosPerfil(perfil, datosPerito);
+      if(Object.keys(patch).length){
+        setPerfil(p=>({...p, ...patch}));
+        sbDb(`perfiles?id=eq.${user.id}`,'PATCH',patch,tokenRef.current)
+          .then(r=>{ if(!r) console.error('No se pudo guardar el perfil del perito.'); });
+      }
+    }
     setActive(updated);
     setCases(p=>p.map(c=>c.id===updated.id?updated:c));
-    if(updated._sbId&&token){
+    if(tokenRef.current){
       clearTimeout(sbSaveTimer.current);
       dirtyRef.current = true;
       await saveToSb(updated);
@@ -4397,7 +4580,7 @@ export default function App(){
   if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="admin"&&isAdmin) return <><AdminPanel token={token} user={user} onExit={()=>setView("dashboard")} theme={{C,FONT,Logo}} sb={{url:SB_URL,key:SB_KEY}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
-  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
+  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} perfil={perfil} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onAdmin={isAdmin?()=>setView("admin"):null}/>
     <TestBadge/>
