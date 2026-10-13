@@ -196,6 +196,17 @@ describe("E6 · sin delimitadores Markdown literales", () => {
   });
 });
 
+describe("Cobertura literal de la póliza en Word y PDF (revisión técnica)", () => {
+  it("el texto de la póliza sale tal cual, escapado, en los dos formatos", () => {
+    const literal = "Continente: daños *especiales* según cláusula ________ & límite < 40 l/m² > umbral.";
+    const c = expediente({ s4: { descripcionCobertura: literal } });
+    for (const [, h] of ambos(c)) {
+      expect(h).toContain("daños *especiales* según cláusula ________ &amp; límite &lt; 40 l/m² &gt; umbral.");
+      expect(texto(h)).toContain(literal.replace(/\s+/g, " ").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"));
+    }
+  });
+});
+
 describe("E7 · anexos que no se pueden reproducir", () => {
   it("los PDF se citan con su estado, sin iframes ni páginas vacías por documento", () => {
     for (const [, h] of ambos(expediente())) {
@@ -235,6 +246,36 @@ describe("E8 · cabecera y saltos de página del PDF", () => {
   it("los títulos no se separan de lo que les sigue", () => {
     expect(pdf).toMatch(/h2\{[^}]*break-after:avoid/);
     expect(pdf).toMatch(/h3\{[^}]*break-after:avoid/);
+  });
+});
+
+describe("Escape de datos del encargo y de las partidas (revisión técnica)", () => {
+  it("&, < y > en asegurado, dirección, referencia y partidas no rompen el documento", () => {
+    const c = expediente({
+      encargo: { asegurado: "GARCÍA & HIJOS <S.L.>", lugarIntervencion: "C/ Mayor 1 <bajo> & local", numReferencia: "97<1>" },
+      s3: { partidas: [{ id: 1, oficio: "Fontanería & gas", desc: "Tubería Ø<20 mm > codo", uds: 1, p: 100, cobertura: true, perceptor: "Asegurado" }] },
+    });
+    for (const [formato, h] of ambos(c)) {
+      expect(h, formato).toContain("GARCÍA &amp; HIJOS &lt;S.L.&gt;");
+      expect(h, formato).toContain("C/ Mayor 1 &lt;bajo&gt; &amp; local");
+      expect(h, formato).toContain("97&lt;1&gt;");
+      expect(h, formato).toContain("Tubería Ø&lt;20 mm &gt; codo");
+      expect(h, formato).toContain("FONTANERÍA &amp; GAS");
+      const cuerpo = h.replace(/<style[\s\S]*?<\/style>/g, "");
+      expect(cuerpo, formato).not.toMatch(/<S\.L\.>|<bajo>|<1>|Ø<20/);
+    }
+    // En la cabecera de página del PDF (CSS), escape de CSS: se ve "97<1>".
+    expect(buildPDFHTML(c)).toContain('content:"expediente 97\\3C 1\\3E "');
+  });
+  it("las tablas mantienen sus filas y celdas", () => {
+    const normal = expediente();
+    const raro = expediente({ encargo: { asegurado: "A & B <C>" }, s3: { partidas: normal.s3.partidas.map(p => ({ ...p, desc: p.desc + " <x> & y" })) } });
+    const cuenta = (h, re) => (h.match(re) || []).length;
+    for (const f of [buildWordHTML, buildPDFHTML]) {
+      const [a, b] = [f(normal), f(raro)];
+      expect(cuenta(b, /<tr[\s>]/g)).toBe(cuenta(a, /<tr[\s>]/g));
+      expect(cuenta(b, /<td[\s>]/g)).toBe(cuenta(a, /<td[\s>]/g));
+    }
   });
 });
 

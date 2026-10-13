@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  esErrorIA, mensajeErrorIA, respuestaTextoIA, limpiarMarkdown, escaparHTML, textoParaInforme,
+  esErrorIA, mensajeErrorIA, respuestaTextoIA, limpiarMarkdown, escaparHTML, textoParaInforme, textoLiteralParaInforme,
   textoInstantPorDefecto, fraseEmision, fechaInforme, importeInforme, reglasRedaccionIA,
-  SEC4_INTROS, sec4IntroAuto, sec4IndemnAuto, textoIntroVigente, textoIndemnVigente,
+  SEC4_INTROS, sec4IntroAuto, sec4IndemnAuto, textoIntroVigente, textoIndemnVigente, mismoTextoAutomatico,
 } from "../lib/dominio/textosInforme.js";
 
 const ERROR_SALDO = '{"_apiError":true,"_status":400,"_msg":"Your credit balance is too low to access the Anthropic API."}';
@@ -55,6 +55,32 @@ describe("E6 · Markdown y HTML", () => {
   it("escapa el HTML y convierte los saltos de línea", () => {
     expect(escaparHTML(`<b>"a" & 'b'</b>`)).toBe("&lt;b&gt;&quot;a&quot; &amp; &#39;b&#39;&lt;/b&gt;");
     expect(textoParaInforme("**A**\n<B>")).toBe("A<br/>&lt;B&gt;");
+  });
+});
+
+describe("Cobertura literal de la póliza (revisión técnica)", () => {
+  const POLIZA = "Daños *especiales* (ver art. 3) y **franquicia** de 150 €.\nFirma: ________ Fecha: __/__/____\n# Cláusula 7 · Riesgos < 40 l/m² & > 80 km/h";
+  const deshacer = h => h.replace(/<br\/>/g, "\n").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+  it("no quita asteriscos, guiones bajos ni almohadillas", () => {
+    const h = textoLiteralParaInforme(POLIZA);
+    expect(h).toContain("*especiales*");
+    expect(h).toContain("**franquicia**");
+    expect(h).toContain("________");
+    expect(h).toContain("__/__/____");
+    expect(h).toContain("# Cláusula 7");
+  });
+  it("escapa &, < y > sin cambiar lo que se ve", () => {
+    const h = textoLiteralParaInforme(POLIZA);
+    expect(h).toContain("&lt; 40 l/m² &amp; &gt; 80 km/h");
+    expect(h).not.toMatch(/<(?!br\/>)/);
+    expect(deshacer(h)).toBe(POLIZA);
+  });
+  it("tampoco recorta espacios ni exporta un error técnico", () => {
+    expect(textoLiteralParaInforme("  Continente: sí  ")).toBe("  Continente: sí  ");
+    expect(textoLiteralParaInforme('{"_apiError":true}')).toBe("");
+  });
+  it("la limpieza de Markdown sigue activa en los textos redactados", () => {
+    expect(textoParaInforme("sito en **Calle Mayor, 1**")).toBe("sito en Calle Mayor, 1");
   });
 });
 
@@ -123,5 +149,20 @@ describe("E2 / E4 · textos automáticos de la Sección 3 y 4", () => {
     expect(sec4IndemnAuto({ modoValoracion: "factura", perceptorTipo: "reparador", partidas: [{ cobertura: true }] }, 1234.5))
       .toBe("Se propone indemnización de la siguiente manera:\n\nINDEMNIZACIÓN:\nReparador: 1.234,50 €");
     expect(sec4IndemnAuto({ partidas: [{ cobertura: false }] }, 0)).toBe("NO se propone indemnización.");
+  });
+});
+
+describe("Sección 4: abrir un expediente antiguo no lo reescribe por el formato (revisión técnica)", () => {
+  const s3 = { modoValoracion: "presupuesto", partidas: [{ cobertura: true }] };
+  const antiguo = "A la espera de aportación de la factura, se propone indemnización a valor real sin IVA de la siguiente manera:\n\nINDEMNIZACIÓN:\nAsegurado: 2470,00 €";
+  it("el mismo texto con otro formato de millares cuenta como el mismo", () => {
+    expect(mismoTextoAutomatico(sec4IndemnAuto(s3, 2470), antiguo)).toBe(true);
+    expect(mismoTextoAutomatico(sec4IndemnAuto(s3, 1234567.5), antiguo.replace("2470,00", "1234567,50"))).toBe(true);
+  });
+  it("un cambio real (importe, perceptor o modo) sí cuenta como distinto", () => {
+    expect(mismoTextoAutomatico(sec4IndemnAuto(s3, 2480), antiguo)).toBe(false);
+    expect(mismoTextoAutomatico(sec4IndemnAuto({ ...s3, perceptorTipo: "reparador" }, 2470), antiguo)).toBe(false);
+    expect(mismoTextoAutomatico(sec4IndemnAuto({ ...s3, modoValoracion: "baremo" }, 2470), antiguo)).toBe(false);
+    expect(mismoTextoAutomatico(sec4IndemnAuto(s3, 2470), undefined)).toBe(false);
   });
 });

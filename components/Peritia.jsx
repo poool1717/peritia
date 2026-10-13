@@ -27,8 +27,8 @@ import { huellaDocumento, registroExtraccionEncargo, registroExtraccionPartidas 
 import { huellaTabla, aplicarTablaIA, mensajeTrasTablaIA } from "../lib/dominio/tablaIA.js";
 import { estadosSeccion1, etiquetasSeccion1 } from "../lib/dominio/bloquesSeccion1.js";
 import {
-  esErrorIA, mensajeErrorIA, respuestaTextoIA, textoParaInforme, limpiarMarkdown, escaparHTML, textoInstantPorDefecto, fraseEmision,
-  fechaInforme, importeInforme, reglasRedaccionIA, SEC4_INTROS, sec4IntroAuto, sec4IndemnAuto, textoIntroVigente, textoIndemnVigente,
+  esErrorIA, mensajeErrorIA, respuestaTextoIA, textoParaInforme, textoLiteralParaInforme, limpiarMarkdown, escaparHTML, textoInstantPorDefecto, fraseEmision,
+  fechaInforme, importeInforme, mismoTextoAutomatico, reglasRedaccionIA, SEC4_INTROS, sec4IntroAuto, sec4IndemnAuto, textoIntroVigente, textoIndemnVigente,
 } from "../lib/dominio/textosInforme.js";
 import { clasificarDocumentos, ESTADO_DOC, notaDocumento, hayDocumentosAportados } from "../lib/dominio/anexosInforme.js";
 import { revisarInforme, textoSeccion2, textoSeccion3, discrepanciaIndemnizacion } from "../lib/dominio/revisionInforme.js";
@@ -1671,7 +1671,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
             {textoSeccion2(s2)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{limpiarMarkdown(textoSeccion2(s2))}</div>}
             {s2?.meteo&&<div style={{marginTop:textoSeccion2(s2)?14:0}}>
               <div style={{fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:15,color:C.ink,marginBottom:6}}>Verificación meteorológica</div>
-              {s2.meteo.texto&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{s2.meteo.texto}</div>}
+              {s2.meteo.texto&&!esErrorIA(s2.meteo.texto)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:6}}>{limpiarMarkdown(s2.meteo.texto)}</div>}
               <MeteoTabla m={s2.meteo} enc={enc}/>
             </div>}
           </>
@@ -1683,7 +1683,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
         {partidas.length>0
           ?<>
             <div style={{fontSize:15,color:C.ink,lineHeight:1.8,marginBottom:14}}>Evaluada con arreglo a los criterios que se establecen en las condiciones de la póliza, resumimos la tasación de daños.</div>
-            {s3Intro&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{s3Intro}</div>}
+            {s3Intro&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{limpiarMarkdown(s3Intro)}</div>}
             {textoSeccion3(s3)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap",marginBottom:14}}>{limpiarMarkdown(textoSeccion3(s3))}</div>}
             {[["Daños en Continente",rowsContP],["Daños en Contenido",rowsCont2P]].filter(([,rows])=>rows.length>0).map(([titulo,rows])=>(
               <div key={titulo} style={{marginBottom:16}}>
@@ -1788,7 +1788,7 @@ const SecInforme = ({enc,perfil,s1,s2,s3,s4,anexos,onGoTo}) => {
                 </tbody>
               </table>
             </>}
-            {s4Indemn&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{s4Indemn}</div>}
+            {s4Indemn&&!esErrorIA(s4Indemn)&&<div style={{fontSize:15,color:C.ink,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{limpiarMarkdown(s4Indemn)}</div>}
           </>
           :<Empty msg="Completa la Sección 4 para ver el estudio de cobertura"/>}
         </Section>
@@ -3059,7 +3059,10 @@ const Sec4 = ({data,onChange,enc,s1,s3,anexos,onTokens,onNext,onPrev,onSave,scro
     // no la edite a mano (textoIndemnEdited).
     if(!data.textoIndemnEdited){
       const propuesta = sec4IndemnAuto(s3,indemn);
-      if(propuesta!==data.textoIndemn) patch.textoIndemn = propuesta;
+      // Un expediente antiguo guardó "2470,00 €": abrir la sección no lo
+      // reescribe solo por el formato de los millares. Si cambia algo de
+      // verdad (importe, perceptor, modo), sí se actualiza, como siempre.
+      if(!mismoTextoAutomatico(propuesta, data.textoIndemn)) patch.textoIndemn = propuesta;
     }
 
     if(Object.keys(patch).length) onChange({...data,...patch});
@@ -3194,11 +3197,15 @@ const Sec4 = ({data,onChange,enc,s1,s3,anexos,onTokens,onNext,onPrev,onSave,scro
         {/* E2: si el perito editó la propuesta y su importe ya no cuadra con la tabla, se dice. */}
         {(()=>{
           const d = data.textoIndemnEdited ? discrepanciaIndemnizacion(data.textoIndemn, indemn) : null;
-          return d&&<div style={{marginTop:8,background:C.redBg,border:"1px solid #FECACA",borderRadius:7,padding:"8px 12px",fontSize:14,color:C.red,display:"flex",gap:7,alignItems:"flex-start"}}>
+          // "ambiguo": no se puede leer con seguridad qué paga la propuesta → aviso, no error.
+          const dudoso = d?.motivo==="ambiguo";
+          return d&&<div style={{marginTop:8,background:dudoso?C.orangeBg:C.redBg,border:`1px solid ${dudoso?"#FDE68A":"#FECACA"}`,borderRadius:7,padding:"8px 12px",fontSize:14,color:dudoso?C.orange:C.red,display:"flex",gap:7,alignItems:"flex-start"}}>
             <AlertTriangle size={14} style={{flexShrink:0,marginTop:2}}/>
             <span>{d.motivo==="no_propone"
               ? <>La propuesta dice que no se propone indemnización, pero la tabla de garantías da <b>{importeInforme(d.calculo)} €</b>.</>
-              : <>La propuesta dice <b>{importeInforme(d.texto)} €</b>, pero la tabla de garantías da <b>{importeInforme(d.calculo)} €</b>.</>} Revísala o pulsa «Restaurar».</span>
+              : dudoso
+                ? <>No se ha podido identificar con seguridad qué importe paga la propuesta. Comprueba que coincide con la tabla de garantías: <b>{importeInforme(d.calculo)} €</b>.</>
+                : <>La propuesta dice <b>{importeInforme(d.texto)} €</b>, pero la tabla de garantías da <b>{importeInforme(d.calculo)} €</b>.</>} Revísala o pulsa «Restaurar».</span>
           </div>;
         })()}
       </Card>
@@ -3449,7 +3456,8 @@ export const datosInforme = (cData, dniPerito='') => {
     s2Texto: textoParaInforme(textoSeccion2(s2)),
     intro3: textoParaInforme(textoIntroVigente(s4, modo, hayDocumentosAportados(anexos, s3))),
     s3Texto: textoParaInforme(textoSeccion3(s3)),
-    desc4: textoParaInforme(s4.descripcionCobertura),
+    // Texto literal de la póliza: solo se escapa, no se limpia (ver textoLiteralParaInforme).
+    desc4: textoLiteralParaInforme(s4.descripcionCobertura),
     indemnTexto: textoParaInforme(textoIndemnVigente(s4, s3, indemn)),
     indemn,
     lugarFirma: esc(enc.municipio||enc.lugarIntervencion)||'—',
@@ -3494,10 +3502,10 @@ export const buildWordHTML = (cData, dniPerito='') => {
   const wTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAw?['%IVA','IVA']:[]),...(showDeprw?['Depr','%Depr']:[]),'V.Real','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const wRows = rows => rows.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
-    return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td>${fmtSmart(p.uds||1)}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
+    return `<tr><td>${escaparHTML((p.oficio||'').toUpperCase())}</td><td>${escaparHTML(p.desc||'')}</td><td>${fmtSmart(p.uds||1)}</td><td>${fmtPDF(p.p)}</td><td>${fmtPDF(vr)}</td>`
       +(showIVAw?`<td>${p.ivaOn?fmtSmart(p.iva||21):0}%</td><td>${fmtPDF(iv)}</td>`:'')
       +(showDeprw?`<td>${p.depr?'SI':'NO'}</td><td>${p.depr?fmtSmart(p.pctDepr||0)+'%':'0'}</td>`:'')
-      +`<td>${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado'}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
+      +`<td>${fmtPDF(vreal)}</td><td>${escaparHTML(p.perceptor||'Asegurado')}</td><td>${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
   const wSubtotal = rows => `<tr class='subtotal'><td></td><td>Subtotal</td><td></td><td></td><td>${fmtPDF(sumRepos(rows))} €</td>`
     +(showIVAw?`<td></td><td>${fmtPDF(sumIVA(rows))} €</td>`:'')
@@ -3508,7 +3516,7 @@ export const buildWordHTML = (cData, dniPerito='') => {
   const wGarRows=[
     {tit:'Continente',dano:dCont,lim:capCont,on:s3.reglaContinente,regla:reglas.continente,ajust:aCont},
     {tit:'Contenido', dano:dCont2,lim:capCont2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aCont2},
-  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}.<br/>${enc.garantia||''}<br/>${enc.causa||''}</td><td>${fmtPDF(b.dano)} €</td><td>${fmtPDF(b.lim)} €</td><td>${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td>${fmtPDF(b.ajust)} €</td><td>—</td><td>${fmtPDF(b.ajust)} €</td></tr>`).join('');
+  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}.<br/>${escaparHTML(enc.garantia||'')||''}<br/>${escaparHTML(enc.causa||'')||''}</td><td>${fmtPDF(b.dano)} €</td><td>${fmtPDF(b.lim)} €</td><td>${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td>${fmtPDF(b.ajust)} €</td><td>—</td><td>${fmtPDF(b.ajust)} €</td></tr>`).join('');
   const w3Intro=D.intro3;
   const w4Desc=D.desc4;
   const w4Indemn=D.indemnTexto;
@@ -3525,19 +3533,19 @@ export const buildWordHTML = (cData, dniPerito='') => {
     return `<tr><td width="100%" valign="top" class='foto-cell'>${est.estado!==ESTADO_DOC.IMAGEN?`<p style='font-size:8pt;color:#666'>${escaparHTML(f.name||'Documento')} — ${notaDocumento(est)}.</p>`:`<img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`}<div style='font-size:9pt;font-weight:bold;color:#333;margin-top:4pt'>Foto ${i+1}</div>${f.caption?`<div style='font-size:8pt;color:#666;margin-top:1pt'>${escaparHTML(f.caption)}</div>`:''}</td></tr>`;
   };
   const wFotosHTML=wFotos.length?`${(facturasW.length||D.docsCitados.length)?`<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
 <table class='foto-table' width="100%" cellpadding="4" cellspacing="0">${wFotos.map(wFotoRow).join('')}</table>`:'';
   // E7: los PDF y los documentos sin archivo se citan en una lista; solo las
   // imágenes ocupan página propia.
   const wFacturasHTML=docsCitadosHTML(D.docsCitados)+facturasW.map((f,i)=>{
     return `${(i>0||D.docsCitados.length)?`<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>`:''}
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>`:''}
 <h3>${escaparHTML(f.tipo)} ${f.numero}${f.name?': '+escaparHTML(f.name):''}</h3>
 <img src='${f.url}' width="520" style='width:100%;max-width:520pt;height:auto;display:block' border="0"/>`;
   }).join('');
   return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head><meta charset='utf-8'/><title>Informe Pericial ${enc.numReferencia||''}</title>
+<head><meta charset='utf-8'/><title>Informe Pericial ${escaparHTML(enc.numReferencia||'')||''}</title>
 <style>
   @page Section1{size:21cm 29.7cm;margin:1.2cm 1.5cm 1.6cm 1.5cm;mso-header:h1;mso-footer:f1;mso-header-margin:.5cm;mso-footer-margin:.5cm}
   div.Section1{page:Section1}
@@ -3570,33 +3578,33 @@ export const buildWordHTML = (cData, dniPerito='') => {
   .docs-citados li{margin-bottom:4pt}
 </style></head>
 <body>
-<div style='mso-element:header' id=h1><p style='margin:0;font-size:7.5pt;color:#666'>GABINETE DE VALORACIONES PERICIALES · expediente ${enc.numReferencia||''}</p></div>
+<div style='mso-element:header' id=h1><p style='margin:0;font-size:7.5pt;color:#666'>GABINETE DE VALORACIONES PERICIALES · expediente ${escaparHTML(enc.numReferencia||'')||''}</p></div>
 <div style='mso-element:footer' id=f1><p style='margin:0;text-align:center;font-size:7.5pt;color:#666'>Página <span style="mso-field-code:' PAGE '">1</span> de <span style="mso-field-code:' NUMPAGES '">1</span></p></div>
 <div class=Section1>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h1>INFORME PERICIAL</h1>
 <table style='margin-top:16pt'><tr>
-  <td><span class='field-label'>Compañía</span><span class='field-value'>${normCompania(enc.compania)||'—'}</span></td>
-  <td><span class='field-label'>Nº Referencia</span><span class='field-value'>${enc.numReferencia||'—'}</span></td>
-  <td><span class='field-label'>Nº Póliza</span><span class='field-value'>${enc.numPoliza||'—'}</span></td>
+  <td><span class='field-label'>Compañía</span><span class='field-value'>${escaparHTML(normCompania(enc.compania)||'')||'—'}</span></td>
+  <td><span class='field-label'>Nº Referencia</span><span class='field-value'>${escaparHTML(enc.numReferencia||'')||'—'}</span></td>
+  <td><span class='field-label'>Nº Póliza</span><span class='field-value'>${escaparHTML(enc.numPoliza||'')||'—'}</span></td>
 </tr><tr>
-  <td><span class='field-label'>Ramo</span><span class='field-value'>${enc.ramo||'—'}</span></td>
-  <td><span class='field-label'>Garantía</span><span class='field-value'>${enc.garantia||'—'}</span></td>
+  <td><span class='field-label'>Ramo</span><span class='field-value'>${escaparHTML(enc.ramo||'')||'—'}</span></td>
+  <td><span class='field-label'>Garantía</span><span class='field-value'>${escaparHTML(enc.garantia||'')||'—'}</span></td>
   <td><span class='field-label'>Importe líquido siniestro</span><span class='field-value'>${fmtPDF(totalDano)} €</span></td>
 </tr><tr>
-  <td><span class='field-label'>Fecha Encargo</span><span class='field-value'>${enc.fechaEncargo||'—'}</span></td>
-  <td><span class='field-label'>Fecha Siniestro</span><span class='field-value'>${enc.fechaSiniestro||'—'}</span></td>
-  <td><span class='field-label'>Nº de Encargo</span><span class='field-value'>${enc.numExpInterno||'—'}</span></td>
+  <td><span class='field-label'>Fecha Encargo</span><span class='field-value'>${escaparHTML(enc.fechaEncargo||'')||'—'}</span></td>
+  <td><span class='field-label'>Fecha Siniestro</span><span class='field-value'>${escaparHTML(enc.fechaSiniestro||'')||'—'}</span></td>
+  <td><span class='field-label'>Nº de Encargo</span><span class='field-value'>${escaparHTML(enc.numExpInterno||'')||'—'}</span></td>
 </tr></table>
-<p><span class='field-label'>Lugar intervención (Provincia)</span><span class='field-value'>${enc.lugarIntervencion||'—'}</span></p>
-<p><span class='field-label'>Asegurado</span><span class='field-value'>${enc.asegurado||'—'}</span></p>
+<p><span class='field-label'>Lugar intervención (Provincia)</span><span class='field-value'>${escaparHTML(enc.lugarIntervencion||'')||'—'}</span></p>
+<p><span class='field-label'>Asegurado</span><span class='field-value'>${escaparHTML(enc.asegurado||'')||'—'}</span></p>
 <table><tr><td><span class='field-label'>Perito:</span><span class='field-value'>${D.perito}</span></td><td><span class='field-label'>Teléfono Perito:</span><span class='field-value'>${D.telPerito}</span></td></tr></table>
 <p class='intro'>${D.emision}</p>
 <p class='intro'>${D.comparecencia}</p>
 <p class='intro'>El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class='intro'>La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h2>1. VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class='bullet'>${riesgoLines.map(l=>`<li>${l}</li>`).join('')}</ul>
@@ -3663,7 +3671,7 @@ ${w4Indemn?`<p style='white-space:pre-wrap'>${w4Indemn}</p>`:''}
 </tr></table>
 </div>
 ${(D.documentos.length||wFotos.length)?`<div class='page-break'></div>
-<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${enc.numReferencia||''}</span></div>
+<div class='header-gvp'><b style='color:#555'>GABINETE DE VALORACIONES PERICIALES</b><span style='color:#666'>expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h2>Anexos.</h2>`:''}
 ${wFacturasHTML}
 ${wFotosHTML}
@@ -3747,10 +3755,10 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   const dTh=['Oficio','Descripción-concepto','Uds','V.Unit.','V.Repos.',...(showIVAd?['%IVA','IVA']:[]),...(showDeprd?['Depr','%Depr']:[]),'V.Real','Perceptor','Cob.'].map(h=>`<th>${h}</th>`).join('');
   const dRows = rows => rows.map(p=>{
     const {vRepos:vr,ivaAmt:iv,vReal:vreal}=calcPartida(p);
-    return `<tr><td>${(p.oficio||'').toUpperCase()}</td><td>${p.desc||''}</td><td style="text-align:right">${fmtSmart(p.uds||1)}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
+    return `<tr><td>${escaparHTML((p.oficio||'').toUpperCase())}</td><td>${escaparHTML(p.desc||'')}</td><td style="text-align:right">${fmtSmart(p.uds||1)}</td><td style="text-align:right">${fmtPDF(p.p)}</td><td style="text-align:right">${fmtPDF(vr)}</td>`
       +(showIVAd?`<td style="text-align:right">${p.ivaOn?fmtSmart(p.iva||21):0}%</td><td style="text-align:right">${fmtPDF(iv)}</td>`:'')
       +(showDeprd?`<td style="text-align:center">${p.depr?'SI':'NO'}</td><td style="text-align:right">${p.depr?fmtSmart(p.pctDepr||0)+'%':'0'}</td>`:'')
-      +`<td style="text-align:right">${fmtPDF(vreal)}</td><td>${p.perceptor||'Asegurado'}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
+      +`<td style="text-align:right">${fmtPDF(vreal)}</td><td>${escaparHTML(p.perceptor||'Asegurado')}</td><td style="text-align:center">${p.cobertura!==false?'Sí':'No'}</td></tr>`;
   }).join('');
   const dSubtotal = rows => `<tr class="subtotal"><td></td><td>Subtotal</td><td></td><td></td><td style="text-align:right">${fmtPDF(sumRepos(rows))} €</td>`
     +(showIVAd?`<td></td><td style="text-align:right">${fmtPDF(sumIVA(rows))} €</td>`:'')
@@ -3761,7 +3769,7 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   const dGarRows=[
     {tit:'Continente',dano:dC,lim:capC,on:s3.reglaContinente,regla:reglas.continente,ajust:aC},
     {tit:'Contenido', dano:dC2,lim:capC2,on:s3.reglaContenido,regla:reglas.contenido,ajust:aC2},
-  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}. ${enc.garantia||''}. ${enc.causa||''}</td><td style="text-align:right">${fmtPDF(b.dano)} €</td><td style="text-align:right">${fmtPDF(b.lim)} €</td><td style="text-align:right">${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td><td style="text-align:right">—</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td></tr>`).join('');
+  ].filter(b=>b.dano>0).map(b=>`<tr><td>${b.tit}. ${escaparHTML(enc.garantia||'')||''}. ${escaparHTML(enc.causa||'')||''}</td><td style="text-align:right">${fmtPDF(b.dano)} €</td><td style="text-align:right">${fmtPDF(b.lim)} €</td><td style="text-align:right">${b.on&&b.regla<1?fmtSmart(b.regla*100)+'%':'NO'}</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td><td style="text-align:right">—</td><td style="text-align:right">${fmtPDF(b.ajust)} €</td></tr>`).join('');
   const d3Intro=D.intro3;
   const d4Desc=D.desc4;
   const d4Indemn=D.indemnTexto;
@@ -3770,10 +3778,12 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   // E8: la cabecera va en el margen superior de cada página (@page), no en un
   // bloque "position:fixed" que tapaba el primer título de las páginas 3 y
   // siguientes. El texto se escapa para la cadena CSS.
-  const refCSS=String(enc.numReferencia||'').replace(/[\\"\n\r]/g,' ');
+  // En CSS no valen las entidades HTML: "<" y ">" se escriben como \3C y \3E
+  // (se ven igual y no pueden cerrar la etiqueta <style>).
+  const refCSS=String(enc.numReferencia||'').replace(/[\\"\n\r]/g,' ').replace(/</g,'\\3C ').replace(/>/g,'\\3E ');
 
   const html=`<!DOCTYPE html><html>
-<head><meta charset="utf-8"/><title>Informe Pericial ${enc.numReferencia||''}</title>
+<head><meta charset="utf-8"/><title>Informe Pericial ${escaparHTML(enc.numReferencia||'')||''}</title>
 <style>
   @page{
     size:A4;margin:24mm 15mm 18mm 15mm;
@@ -3837,20 +3847,20 @@ export const buildPDFHTML = (cData, dniPerito='') => {
   }
 </style></head>
 <body>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h1>INFORME PERICIAL</h1>
-<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Compañía</span><span class="fv">${normCompania(enc.compania)||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Referencia</span><span class="fv">${enc.numReferencia||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Póliza</span><span class="fv">${enc.numPoliza||'—'}</span></div></div></div>
-<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Ramo</span><span class="fv">${enc.ramo||'—'}</span></div><div class="grid3-cell"><span class="fl">Garantía</span><span class="fv">${enc.garantia||'—'}</span></div><div class="grid3-cell"><span class="fl">Importe líquido siniestro</span><span class="fv">${fmtPDF(totalDano)} €</span></div></div></div>
-<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Fecha Encargo</span><span class="fv">${enc.fechaEncargo||'—'}</span></div><div class="grid3-cell"><span class="fl">Fecha Siniestro</span><span class="fv">${enc.fechaSiniestro||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº de Encargo</span><span class="fv">${enc.numExpInterno||'—'}</span></div></div></div>
-<div style="margin-bottom:6pt"><span class="fl">Lugar intervención (Provincia)</span><span class="fv">${enc.lugarIntervencion||'—'}</span></div>
-<div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${enc.asegurado||'—'}</span></div>
+<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Compañía</span><span class="fv">${escaparHTML(normCompania(enc.compania)||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Referencia</span><span class="fv">${escaparHTML(enc.numReferencia||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº Póliza</span><span class="fv">${escaparHTML(enc.numPoliza||'')||'—'}</span></div></div></div>
+<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Ramo</span><span class="fv">${escaparHTML(enc.ramo||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Garantía</span><span class="fv">${escaparHTML(enc.garantia||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Importe líquido siniestro</span><span class="fv">${fmtPDF(totalDano)} €</span></div></div></div>
+<div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Fecha Encargo</span><span class="fv">${escaparHTML(enc.fechaEncargo||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Fecha Siniestro</span><span class="fv">${escaparHTML(enc.fechaSiniestro||'')||'—'}</span></div><div class="grid3-cell"><span class="fl">Nº de Encargo</span><span class="fv">${escaparHTML(enc.numExpInterno||'')||'—'}</span></div></div></div>
+<div style="margin-bottom:6pt"><span class="fl">Lugar intervención (Provincia)</span><span class="fv">${escaparHTML(enc.lugarIntervencion||'')||'—'}</span></div>
+<div style="margin-bottom:6pt"><span class="fl">Asegurado</span><span class="fv">${escaparHTML(enc.asegurado||'')||'—'}</span></div>
 <div class="grid3"><div class="grid3-row"><div class="grid3-cell"><span class="fl">Perito:</span><span class="fv">${D.perito}</span></div><div class="grid3-cell"><span class="fl">Teléfono Perito:</span><span class="fv">${D.telPerito}</span></div></div></div>
 <p class="intro">${D.emision}</p>
 <p class="intro">${D.comparecencia}</p>
 <p class="intro">El que suscribe en cumplimiento del artículo 335.2 de la Ley 1/2000 de Enjuiciamiento Civil, manifiesta bajo promesa de decir verdad, que ha actuado y actuará con la mayor objetividad posible, tomando en consideración tanto lo que pueda favorecer como lo que sea susceptible de causar perjuicio a cualquiera de las partes.</p>
 <p class="intro">La valoración económica sugerida, así como cualquier observación relativa a coberturas, exclusiones y/o responsabilidad del presente informe, queda supeditada en todo caso a criterio de la Compañía en base de la póliza suscrita.</p>
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h2>1.&nbsp;&nbsp;&nbsp;VERIFICACIÓN DEL RIESGO Y PÓLIZA.</h2>
 <h3>1.1. Descripción del riesgo:</h3>
 <ul class="viñetas">${rLines.filter(Boolean).map(l=>`<li>${l}</li>`).join('')}</ul>
@@ -3908,15 +3918,15 @@ ${d4Indemn?`<p style="white-space:pre-wrap;margin-top:8pt">${d4Indemn}</p>`:''}
 </div>
 ${(D.documentos.length||allFotos.length)?`
 <div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>
 <h2 style="text-align:left">Anexos.</h2>
 ${docsCitadosHTML(D.docsCitados)}
 ${facturasD.map((f,i)=>`${(i>0||D.docsCitados.length)?`<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>`:''}
 <h3>${escaparHTML(f.tipo)} ${f.numero}${f.name?': '+escaparHTML(f.name):''}</h3>
 <img src="${f.url}" style="width:100%;height:auto" alt="${escaparHTML(f.name||'')}" ${IMG_ONERROR}/>`).join('')}
 ${allFotos.length?`${(facturasD.length||D.docsCitados.length)?`<div class="page-break"></div>
-<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${enc.numReferencia||''}</span></div>`:''}
+<div class="hdr"><span class="hdr-left">GABINETE DE VALORACIONES PERICIALES</span><span class="hdr-right">expediente ${escaparHTML(enc.numReferencia||'')||''}</span></div>`:''}
 <h3>Reportaje fotográfico.</h3>
 <div class="anex-foto">${allFotos.map((f,i)=>{
   const est=clasificarDocumentos([f])[0];
@@ -4153,7 +4163,7 @@ const SecEncargo = ({enc, onUpdate, onNext, onSave, scrollRef}) => {
   );
 };
 
-const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
+const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,perfilListo,sidebarOpen,setSidebarOpen,onFlushSave,saveState,onExported}) => {
   const [sec,setSec]         = useState("encargo");
   const [saving,setSaving]   = useState(false);
   const [exportOpen,setExportOpen]   = useState(false);
@@ -4227,7 +4237,8 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   // Reutiliza las mismas funciones de estado que alimentan el prop `done` de
   // cada <Block>, para que topbar y bloques nunca puedan contar cosas distintas.
   // Revisión del informe (errores confirmados y avisos), ver lib/dominio/revisionInforme.js.
-  const revision = revisarInforme(cData, {documentos:documentosParaRevision(cData), perito:peritoDesdePerfil(perfil)});
+  // El aviso de "falta tu nombre" solo cuando el perfil se ha leído bien.
+  const revision = revisarInforme(cData, {documentos:documentosParaRevision(cData), perito:perfilListo?peritoDesdePerfil(perfil):null});
   const revErrores = revision.filter(r=>r.nivel==="error");
   const revAvisos  = revision.filter(r=>r.nivel==="aviso");
   const secSemaforo = id => {
@@ -4285,9 +4296,12 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,sidebarOpen,setSi
   // aparte y no impiden que el informe salga como "Todo listo".
   revErrores.forEach(r=>pendingList.push(revItem(r)));
   const avisoList = revAvisos.map(revItem);
+  // Los avisos solo informativos (un anexo en PDF, que es lo normal) se ven en
+  // el panel, pero no obligan a pasar por él en cada exportación.
+  const hayAvisoRelevante = revAvisos.some(r=>!r.informativo);
   const goToPending = secId => { setSec(secId); setPendingOpen(false); };
   const handleExportClick = () => {
-    if(pendingList.length>0||avisoList.length>0){ setPendingBanner(true); setPendingOpen(true); }
+    if(pendingList.length>0||hayAvisoRelevante){ setPendingBanner(true); setPendingOpen(true); }
     else setExportOpen(true);
   };
 
@@ -4576,6 +4590,7 @@ export default function App(){
   // renueva solo con el refresh_token antes de que caduque.
   const [isAdmin,setIsAdmin] = useState(false);
   const [perfil,setPerfil]   = useState({}); // I-2: nombre, teléfono y DNI del perito (tabla perfiles)
+  const [perfilListo,setPerfilListo] = useState(false); // la lectura del perfil terminó bien (aunque esté vacío)
   const refreshRef = useRef({rt:null, exp:0});
 
   const applySession = (tk, s) => {
@@ -4609,11 +4624,12 @@ export default function App(){
     // I-2: datos del perito para el informe. Si no se pueden leer, se piden al exportar.
     const pf = await sbDb(`perfiles?id=eq.${u.id}&select=nombre,dni,telefono`,'GET',null,tk);
     setPerfil(Array.isArray(pf)&&pf[0]?pf[0]:{});
+    setPerfilListo(Array.isArray(pf)); // null = no se pudo leer: no se dice que falta el nombre
     applySession(tk, s);
     setUser(u); loadCases(tk);
     return null;
   };
-  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setPerfil({}); setCases([]); setActive(null); setView('dashboard'); };
+  const handleSignOut = () => { setUser(null); setToken(null); setAuthToken(''); refreshRef.current={rt:null,exp:0}; setIsAdmin(false); setPerfil({}); setPerfilListo(false); setCases([]); setActive(null); setView('dashboard'); };
 
   // C-3. Guardado en Supabase: crea el expediente si todavía no existe en la
   // base de datos y, si ya existe, lo actualiza. La regla vive en
@@ -4730,7 +4746,7 @@ export default function App(){
   if(!user) return <><LoginScreen onAuth={handleAuth}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="upload") return <><UploadEncargo onDone={handleDone} onCancel={()=>setView("dashboard")} onTokens={()=>{}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
   if(view==="admin"&&isAdmin) return <><AdminPanel token={token} user={user} onExit={()=>setView("dashboard")} theme={{C,FONT,Logo}} sb={{url:SB_URL,key:SB_KEY}}/><TestBadge/><link rel="stylesheet" href={FONT}/><style>{css}</style></>;
-  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} perfil={perfil} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
+  if(view==="editor"&&active) return <><ReportEditor cData={active} onUpdate={updateCase} onBack={()=>setView("dashboard")} user={user} token={token} perfil={perfil} perfilListo={perfilListo} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onFlushSave={flushSave} saveState={saveState} onExported={markExported}/><TestBadge/></>;
   return <>
     <Dashboard cases={cases} onNew={()=>setView("upload")} onOpen={openCase} onDelete={deleteCase} user={user} onSignOut={handleSignOut} loading={sbLoading} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onAdmin={isAdmin?()=>setView("admin"):null}/>
     <TestBadge/>

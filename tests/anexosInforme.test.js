@@ -31,6 +31,14 @@ describe("E7 · duplicados", () => {
     expect(docs.map(d => d.numero)).toEqual([1, 2, 3, 4]);
     expect(docs.map(d => d.duplicadoDe)).toEqual([null, 1, null, 1]);
   });
+  it("dice por qué parece duplicado: mismo archivo o mismo nombre y tamaño", () => {
+    const docs = clasificarDocumentos([
+      { name: "P.pdf", size: 10, url: "a" },
+      { name: "P.pdf", size: 10, url: "b" },
+      { name: "Q.pdf", url: "a" },
+    ]);
+    expect(docs.map(d => d.duplicadoPor)).toEqual([null, "nombre_tamano", "archivo"]);
+  });
 });
 
 describe("E4 · ¿constan documentos aportados?", () => {
