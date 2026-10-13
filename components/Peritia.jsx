@@ -4274,7 +4274,7 @@ const ReportEditor = ({cData,onUpdate,onBack,user,token,perfil,perfilListo,sideb
     ? ["Descripción del Siniestro","Verificación Meteorológica"]
     : ["Descripción del Siniestro"];
   const SECTION_TITLES = {encargo:"Datos del Encargo",s1:"Verificación del Riesgo",s2:"Causas y Circunstancias",s3:"Valoración de Daños",s4:"Cobertura-Indemnización",anexos:"Anexos",informe:"Informe"};
-  const REV_LABELS = {error_ia:"Error técnico de la IA",modalidad:"Texto incompatible con la modalidad",indemnizacion:"La propuesta de indemnización no cuadra",
+  const REV_LABELS = {error_ia:"Error técnico de la IA",modalidad:"Texto incompatible con la modalidad",indemnizacion:"La propuesta de indemnización no cuadra",indemnizacion_ambigua:"No se ha podido verificar la propuesta de indemnización",
     anexo_no_disponible:"Anexo no disponible",anexo_pdf:"Anexo en PDF",anexo_duplicado:"Posible anexo duplicado",
     partida_sin_importe:"Partidas sin importe",sin_documento:"Valoración sin documento adjunto",perito:"Datos del perito"};
   const revItem = r => ({secId:r.secId,secTitle:SECTION_TITLES[r.secId]||"Informe",label:REV_LABELS[r.codigo]||r.codigo,detalle:r.mensaje,esError:r.nivel==="error"});

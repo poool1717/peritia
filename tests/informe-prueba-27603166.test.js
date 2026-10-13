@@ -105,7 +105,7 @@ describe("E2 · la propuesta final y la tabla de garantías dicen lo mismo", () 
     expect(d.mensaje).toMatch(/1\.000,00 €.*2\.470,00 €/);
   });
   it("el caso real (texto automático desfasado) no deja discrepancia: se recalcula", () => {
-    expect(revisarInforme(expediente()).find(x => x.codigo === "indemnizacion")).toBeUndefined();
+    expect(revisarInforme(expediente()).filter(x => x.codigo.startsWith("indemnizacion"))).toEqual([]);
   });
 });
 

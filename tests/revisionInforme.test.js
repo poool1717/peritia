@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { actuacionIncompatible, importesEnTexto, discrepanciaIndemnizacion, revisarInforme, textoSeccion2, leerImporte } from "../lib/dominio/revisionInforme.js";
 import { calcIndemnizacion } from "../lib/dominio/calculo.js";
 import { sec4IndemnAuto, importeInforme } from "../lib/dominio/textosInforme.js";
@@ -156,7 +157,7 @@ describe("E2 · importes propuestos: solo lo que se paga (revisión técnica)", 
     expect(D("INDEMNIZACIÓN:\nAsegurado: 16,78 €", indemn)).toBeNull();
     const mal = D("INDEMNIZACIÓN:\nAsegurado: 16,77 €", indemn);
     expect(mal).toEqual({ motivo: "importe", texto: 16.77, calculo: 16.78 });
-    expect(revisarInforme({ encargo: enc, s1: {}, s2: {}, s3, s4: {} }).find(x => x.codigo === "indemnizacion")).toBeUndefined();
+    expect(revisarInforme({ encargo: enc, s1: {}, s2: {}, s3, s4: {} }).filter(x => x.codigo.startsWith("indemnizacion"))).toEqual([]);
   });
   it("ningún texto automático da discrepancia con importes de medio céntimo", () => {
     for (let c = 5; c < 200000; c += 10) {
@@ -167,9 +168,41 @@ describe("E2 · importes propuestos: solo lo que se paga (revisión técnica)", 
   it("en la revisión, lo ambiguo es aviso y la discrepancia real, error", () => {
     const base = { encargo: { franquicia: "0" }, s1: {}, s2: {}, s3: { modoValoracion: "baremo", partidas: [{ id: 1, uds: 1, p: 2470, cobertura: true }] } };
     const amb = revisarInforme({ ...base, s4: { textoIndemnEdited: true, textoIndemn: "INDEMNIZACIÓN:\nAsegurado: según factura definitiva" } });
-    expect(amb.find(x => x.codigo === "indemnizacion")?.nivel).toBe("aviso");
+    // Aviso (no error), con su propio código, y sin ninguna incidencia de error.
+    expect(amb.find(x => x.codigo === "indemnizacion_ambigua")?.nivel).toBe("aviso");
+    expect(amb.find(x => x.codigo === "indemnizacion")).toBeUndefined();
+    expect(amb.filter(x => x.codigo.startsWith("indemnizacion")).every(x => x.nivel === "aviso")).toBe(true);
+    expect(amb.find(x => x.codigo === "indemnizacion_ambigua").mensaje).toMatch(/No se ha podido identificar con seguridad/);
     const err = revisarInforme({ ...base, s4: { textoIndemnEdited: true, textoIndemn: "INDEMNIZACIÓN:\nAsegurado: 2.000,00 €" } });
     expect(err.find(x => x.codigo === "indemnizacion")?.nivel).toBe("error");
+    expect(err.find(x => x.codigo === "indemnizacion_ambigua")).toBeUndefined();
+  });
+});
+
+describe("Aviso ambiguo de la propuesta de indemnización: título y categoría", () => {
+  const base = { encargo: { franquicia: "0" }, s1: {}, s2: {}, s3: { modoValoracion: "baremo", partidas: [{ id: 1, uds: 1, p: 2470, cobertura: true }] } };
+  const con = texto => revisarInforme({ ...base, s4: { textoIndemnEdited: true, textoIndemn: texto } });
+  // El título lo pone la interfaz según el código de la incidencia (REV_LABELS en Peritia.jsx).
+  const fuente = readFileSync(new URL("../components/Peritia.jsx", import.meta.url), "utf8");
+  it("lo que no se puede verificar tiene su propio código y un título neutral, no «no cuadra»", () => {
+    expect(fuente).toContain('indemnizacion_ambigua:"No se ha podido verificar la propuesta de indemnización"');
+    const r = con("INDEMNIZACIÓN:\nAsegurado: según factura definitiva").filter(x => x.codigo.startsWith("indemnizacion"));
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ codigo: "indemnizacion_ambigua", nivel: "aviso", secId: "s4", informativo: false });
+  });
+  it("las discrepancias reales siguen siendo error, con su código y su título de siempre", () => {
+    expect(fuente).toContain('indemnizacion:"La propuesta de indemnización no cuadra"');
+    for (const t of ["INDEMNIZACIÓN:\nAsegurado: 1.000,00 €", "INDEMNIZACIÓN:\nAsegurado: 2.000,00 €\nReparador: 400,00 €", "NO se propone indemnización."]) {
+      const r = con(t).filter(x => x.codigo.startsWith("indemnizacion"));
+      expect(r, t).toHaveLength(1);
+      expect(r[0], t).toMatchObject({ codigo: "indemnizacion", nivel: "error", secId: "s4" });
+    }
+  });
+  it("ningún texto dudoso se convierte en error", () => {
+    for (const t of ["INDEMNIZACIÓN:\nAsegurado: dos mil euros", "Daños por 2.620,00 € y gastos de 300,00 €.", "NO se propone indemnización para el contenido."]) {
+      const r = con(t).filter(x => x.codigo.startsWith("indemnizacion"));
+      expect(r.every(x => x.nivel === "aviso"), t).toBe(true);
+    }
   });
 });
 
