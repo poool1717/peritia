@@ -1,7 +1,7 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 13 octubre 2026 (sesión 30, corrección de la revisión técnica — **la revisión antes de exportar ya no da errores injustificados**. Modalidad analizada por frase (negación, quién actúa, en qué texto); propuesta de indemnización comparada solo con lo que se paga y con el redondeo de la tabla; cobertura de la póliza literal; datos del encargo y partidas escapados; secundarios del flujo de exportación. Sin cambios en cálculo, baremo, cobertura ni indemnización. 671 tests. Rama `claude/informe-prueba-falsos-positivos`, derivada de `claude/prioridad-a-validacion-informe-prueba`, sin PR)
+**Última actualización:** 13 octubre 2026 (sesión 30, corrección de la revisión técnica — **la revisión antes de exportar ya no da errores injustificados**. Modalidad analizada por frase (negación, quién actúa, en qué texto); propuesta de indemnización comparada solo con lo que se paga y con el redondeo de la tabla; cobertura de la póliza literal; datos del encargo y partidas escapados; secundarios del flujo de exportación. Sin cambios en cálculo, baremo, cobertura ni indemnización. 674 tests. Rama `claude/informe-prueba-falsos-positivos`, derivada de `claude/prioridad-a-validacion-informe-prueba`, sin PR)
 
 **Anterior:** 9 octubre 2026 (sesión 30, revisión del primer informe de prueba — **el informe exportado ya no imprime errores de la IA ni se contradice**. Corregidos E1–E10 del informe de prueba 27603166: error de la API en 2.1, propuesta «0,00 €» frente a 2.470,00 €, inspección inventada en un expediente documental, «a la espera de presupuestos» con presupuestos adjuntos, «Don»/«La perita», asteriscos, anexos PDF en blanco, cabecera que tapaba títulos, DNI solo en el PDF. Nueva revisión antes de exportar con errores y avisos. Sin migraciones ni cambios de fórmulas. 639 tests. Rama `claude/prioridad-a-validacion-informe-prueba`, derivada de `claude/prioridad-a-validacion` (PR #24), sin PR. Ver «Sesión 30 — revisión del primer informe de prueba»)
 
@@ -38,6 +38,7 @@
 - ✅ **Cobertura literal.** La descripción de cobertura de la póliza solo se escapa: no se quitan asteriscos ni guiones bajos.
 - ✅ **Escape.** Asegurado, dirección, referencia, compañía y partidas se escapan en Word y PDF; la referencia en la cabecera de página del PDF usa escape de CSS.
 - ✅ **Secundarios.** El aviso de anexo en PDF ya no obliga a abrir el panel al exportar; «Falta tu nombre de perito» solo si el perfil se leyó bien; el aviso de duplicado dice el criterio real; la vista previa limpia los textos como Word y PDF; abrir la Sección 4 de un expediente antiguo no lo reescribe solo por el formato de los millares.
+- ✅ **Aviso ambiguo de indemnización.** Cuando no se puede verificar el importe, el panel lo titula «No se ha podido verificar la propuesta de indemnización» (aviso naranja, código `indemnizacion_ambigua`); las discrepancias reales siguen siendo error con «La propuesta de indemnización no cuadra».
 - **Regresión:** 600 documentos (300 expedientes, Word y PDF) con los mismos importes que la rama anterior; frente a `test`, mismos importes salvo el estudio de capitales que I-1 quita en Instant Payment.
 
 ### Sesión 30 — revisión del primer informe de prueba (E1–E10)
