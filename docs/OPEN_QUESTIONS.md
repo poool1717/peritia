@@ -42,6 +42,11 @@
 | P-24 | ¿Cómo se reconcilian las carpetas de `knowledge/` del Sprint 0 con las del Sprint 2? | `knowledge/architecture/KNOWLEDGE_ARCHITECTURE.md` | Media |
 | P-25 | ¿Falta la garantía de Rotura de cristales en el catálogo? | `TAXONOMY.md` §4, catálogo de garantías | **Alta** |
 | P-26 | ¿El baremo debe cubrir parquet, cubierta e incendio? | Catálogo de métodos de reparación | **Alta** |
+| P-27 | ¿Las facturas de la Sección 3 y las de la pestaña "Facturas" de Anexos son lo mismo? | DT-13, R-07 | Media |
+| P-28 | ¿"Extraer tabla" debe respetar las partidas que el perito edita mientras la IA trabaja? | DT-13, validación PR #23 | Media |
+| P-29 | ¿Qué errores de la revisión deben impedir exportar el informe? | DT-30, revisión antes de exportar | **Alta** |
+| P-30 | ¿Cómo se incorporan al informe los presupuestos y facturas en PDF? | DT-30 (E7) | **Alta** |
+| P-31 | ¿"Importe líquido siniestro" de la portada es el total de daños o la indemnización? | DT-30 (E2) | Media |
 
 ---
 
@@ -533,3 +538,94 @@ convencional, y dejan sin cubrir supuestos muy frecuentes:
 **Bloquea:** el alcance del catálogo de métodos de reparación
 (`knowledge/repairs/`) y la utilidad real de las fichas de material ya
 redactadas, que hoy no pueden referenciar ningún método aplicable.
+
+---
+
+## P-27 · ¿Las facturas de la Sección 3 y las de la pestaña "Facturas" son lo mismo? — sesión 29
+
+Hoy hay **dos sitios** para adjuntar una factura o un presupuesto:
+- **Sección 3**, para que la IA extraiga de ella las partidas de la valoración.
+- **Anexos → pestaña "Facturas" / "Presupuestos"**, como documento del informe.
+
+Las dos acaban en la exportación como una hoja más del informe. Si el perito
+adjunta la misma factura en los dos sitios, sale dos veces.
+
+Desde la sesión 29 (DT-13) las dos vías guardan el archivo en Storage de la
+misma manera, así que unificarlas ya no tiene obstáculo técnico. Lo que falta
+es la decisión:
+
+- ¿Son el mismo documento visto desde dos pantallas, y debería adjuntarse una
+  sola vez?
+- ¿O son cosas distintas (la factura "que se valora" frente a documentación
+  complementaria) y deben seguir separadas?
+- Si se unifican, ¿dónde debe adjuntarse: en la Sección 3, en Anexos, o en
+  cualquiera de los dos y verse en ambos?
+
+**No se ha tocado nada por esta decisión**: las dos vías siguen como estaban.
+
+---
+
+## P-28 · ¿"Extraer tabla" debe respetar las partidas que el perito edita mientras la IA trabaja? — sesión 30
+
+Al validar la PR #23 (escenario B): si el perito modifica una partida mientras
+"Extraer tabla" o "Generar tabla" está trabajando, al volver la IA **sustituye la
+tabla entera** y la modificación se pierde. El resto de la Sección 3 (textos,
+dirección de las facturas) sí se conserva.
+
+Es el comportamiento de siempre: el botón genera la tabla de nuevo. La pregunta
+es de producto:
+- ¿Se bloquea la edición de la tabla mientras la IA trabaja?
+- ¿Se añaden las partidas nuevas a las existentes en vez de sustituirlas?
+- ¿O basta con avisar antes de sustituir?
+
+**Protección mínima aplicada (sesión 30, a petición de Pol).** Al pulsar el
+botón se toma la huella de la tabla. Si al volver la IA la tabla ha cambiado,
+NO se sustituye: se conservan los cambios del perito, la propuesta de la IA
+queda en la trazabilidad (`s3.trazaIA`, `aplicada: false`) y se avisa de que
+puede volver a pulsar para sustituirla. `lib/dominio/tablaIA.js`.
+
+**Sigue abierto:** no se mezclan la tabla de la IA y la del perito, y una
+tabla existente sin cambios durante la espera se sigue sustituyendo entera
+(incluido el caso baremo + factura). Decisión de producto pendiente.
+
+---
+
+## P-29 · ¿Qué errores de la revisión deben impedir exportar el informe? — sesión 30
+
+La revisión antes de exportar distingue ahora **errores confirmados** (texto
+técnico de la IA, actuación incompatible con la modalidad, propuesta de
+indemnización que no cuadra con la tabla, anexo sin archivo) y **avisos** (PDF
+que no se reproduce, posible duplicado, partida a 0 €, valoración sin documento,
+falta el nombre del perito).
+
+**Criterio aplicado, sin inventar reglas nuevas:** se mantiene el comportamiento
+documentado del panel ("es un aviso, no un bloqueo"). Los errores cuentan como
+pendientes y ponen la sección en rojo; el perito puede "Exportar igualmente".
+Lo único que nunca sale en el informe, pase lo que pase, es un error técnico de
+la IA.
+
+**Propuesta para decidir:** bloquear la exportación (sin "Exportar igualmente")
+solo con dos errores: propuesta de indemnización que contradice la tabla y texto
+que describe una inspección presencial en un expediente documental. Son los dos
+que hacen que el informe diga algo falso. El resto, como ahora.
+
+## P-30 · ¿Cómo se incorporan al informe los presupuestos y facturas en PDF? — sesión 30
+
+El navegador no puede imprimir el contenido de un PDF dentro de otro documento
+(salían páginas en blanco), y Word tampoco lo admite en el formato actual. Hoy
+se citan en la lista de anexos: "Presupuesto 1: nombre.pdf — documento PDF que
+consta en el expediente; su contenido no se reproduce en este informe".
+
+Opciones: (a) convertir cada página del PDF en imagen al exportar, lo que exige
+una librería nueva (pdf.js) y hay que aprobarla (regla 4 de CLAUDE.md); (b)
+entregar los PDF junto al informe, por separado; (c) pedir al perito que suba
+los presupuestos como imagen. Mientras no se decida, el perito los ve avisados en
+la revisión.
+
+## P-31 · ¿"Importe líquido siniestro" de la portada es el total de daños o la indemnización? — sesión 30
+
+La portada pone en "Importe líquido siniestro" el **total de daños** (valor
+real de las partidas con cobertura), no la indemnización tras regla
+proporcional y franquicia. En el informe de prueba coinciden (franquicia 0, sin
+regla), pero no en general. No se ha cambiado: no consta cuál es el criterio
+del gabinete.
