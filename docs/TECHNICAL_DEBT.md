@@ -965,6 +965,12 @@ sola actualización (antes el guardado tardío devolvía el expediente a
   cada página; ahora va en el margen de la página (`@page`).
 - **E9.** Word y PDF toman los datos de `datosInforme`; el Word ya lleva el DNI.
 
+**Revisión técnica (sesión 30, 13 oct).** La revisión antes de exportar daba
+errores injustificados (modalidad por palabras sueltas; indemnización sumando
+todos los importes y con otro redondeo) y la limpieza de Markdown alteraba el
+texto literal de la póliza. Corregido en `claude/informe-prueba-falsos-positivos`;
+además se escapan los datos del encargo y de las partidas en Word y PDF.
+
 ## DT-31 · La cabecera del Word se duplica — abierta
 
 El Word lleva la cabecera de Word (`mso-element:header`) y, además, un bloque

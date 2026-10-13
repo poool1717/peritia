@@ -1,7 +1,9 @@
 # PERIT.IA — CONTEXT.md
 > Estado actual del proyecto y contexto acumulado. Actualizar al cerrar cada sesión.
 
-**Última actualización:** 9 octubre 2026 (sesión 30, revisión del primer informe de prueba — **el informe exportado ya no imprime errores de la IA ni se contradice**. Corregidos E1–E10 del informe de prueba 27603166: error de la API en 2.1, propuesta «0,00 €» frente a 2.470,00 €, inspección inventada en un expediente documental, «a la espera de presupuestos» con presupuestos adjuntos, «Don»/«La perita», asteriscos, anexos PDF en blanco, cabecera que tapaba títulos, DNI solo en el PDF. Nueva revisión antes de exportar con errores y avisos. Sin migraciones ni cambios de fórmulas. 639 tests. Rama `claude/prioridad-a-validacion-informe-prueba`, derivada de `claude/prioridad-a-validacion` (PR #24), sin PR. Ver «Sesión 30 — revisión del primer informe de prueba»)
+**Última actualización:** 13 octubre 2026 (sesión 30, corrección de la revisión técnica — **la revisión antes de exportar ya no da errores injustificados**. Modalidad analizada por frase (negación, quién actúa, en qué texto); propuesta de indemnización comparada solo con lo que se paga y con el redondeo de la tabla; cobertura de la póliza literal; datos del encargo y partidas escapados; secundarios del flujo de exportación. Sin cambios en cálculo, baremo, cobertura ni indemnización. 671 tests. Rama `claude/informe-prueba-falsos-positivos`, derivada de `claude/prioridad-a-validacion-informe-prueba`, sin PR)
+
+**Anterior:** 9 octubre 2026 (sesión 30, revisión del primer informe de prueba — **el informe exportado ya no imprime errores de la IA ni se contradice**. Corregidos E1–E10 del informe de prueba 27603166: error de la API en 2.1, propuesta «0,00 €» frente a 2.470,00 €, inspección inventada en un expediente documental, «a la espera de presupuestos» con presupuestos adjuntos, «Don»/«La perita», asteriscos, anexos PDF en blanco, cabecera que tapaba títulos, DNI solo en el PDF. Nueva revisión antes de exportar con errores y avisos. Sin migraciones ni cambios de fórmulas. 639 tests. Rama `claude/prioridad-a-validacion-informe-prueba`, derivada de `claude/prioridad-a-validacion` (PR #24), sin PR. Ver «Sesión 30 — revisión del primer informe de prueba»)
 
 **Anterior:** 9 octubre 2026 (sesión 30, continuación — **la revisión antes de exportar ya no pide datos de peritación en un Instant Payment**. En un expediente Instant terminado, la revisión marcaba como pendientes "Datos del Riesgo Asegurado" y "Superficie y Arquitectura", que en la pantalla de Instant no existen. Ahora la Sección 1 en Instant solo pide su texto. Regla en `lib/dominio/bloquesSeccion1.js`. No cambia ninguna fórmula. 577 tests. Misma rama `claude/prioridad-a-validacion`)
 
@@ -26,6 +28,17 @@
 ---
 
 ## Estado actual
+
+### Sesión 30 — corrección de la revisión técnica (falsos positivos)
+
+**Rama.** `claude/informe-prueba-falsos-positivos`, derivada de `claude/prioridad-a-validacion-informe-prueba`. Sin PR, sin fusionar.
+
+- ✅ **Modalidad.** Se analiza cada frase: si está negada, quién actúa (el perito o un tercero) y en qué texto aparece (verificación del riesgo y daños, que describen la actuación del perito, frente al relato del siniestro). Error solo si la contradicción es inequívoca; aviso si es dudosa; nada si es de un tercero o está negada.
+- ✅ **Indemnización.** Solo cuenta el primer importe de cada línea de perceptor; franquicias e IVA citados no se suman; formatos `2.470,00`, `2470,00`, `2470.00`, `€ 2.470,00`; negación parcial; comparación en céntimos con el importe que imprime la tabla. Si no se puede saber qué se paga: aviso.
+- ✅ **Cobertura literal.** La descripción de cobertura de la póliza solo se escapa: no se quitan asteriscos ni guiones bajos.
+- ✅ **Escape.** Asegurado, dirección, referencia, compañía y partidas se escapan en Word y PDF; la referencia en la cabecera de página del PDF usa escape de CSS.
+- ✅ **Secundarios.** El aviso de anexo en PDF ya no obliga a abrir el panel al exportar; «Falta tu nombre de perito» solo si el perfil se leyó bien; el aviso de duplicado dice el criterio real; la vista previa limpia los textos como Word y PDF; abrir la Sección 4 de un expediente antiguo no lo reescribe solo por el formato de los millares.
+- **Regresión:** 600 documentos (300 expedientes, Word y PDF) con los mismos importes que la rama anterior; frente a `test`, mismos importes salvo el estudio de capitales que I-1 quita en Instant Payment.
 
 ### Sesión 30 — revisión del primer informe de prueba (E1–E10)
 
@@ -486,6 +499,10 @@ La sesión 15 cierra el punto 5 que quedó pendiente de la sesión 14: reorganiz
 
 | Problema | Causa | Solución |
 |---|---|---|
+| La revisión daba error de modalidad con negaciones («No se realizó inspección ocular») y con actuaciones de terceros («el fontanero acudió al domicilio») (sesión 30) | Se buscaban palabras sueltas en todo el texto | Análisis por frase: negación, quién actúa y en qué texto (`lib/dominio/revisionInforme.js`) |
+| La revisión daba error de indemnización con franquicias o IVA citados, decimales con punto, negaciones parciales y medios céntimos (sesión 30) | Se sumaban todos los importes del texto y se redondeaba distinto que la tabla | Solo el primer importe de cada perceptor, en céntimos impresos; lo dudoso es aviso |
+| La exportación quitaba asteriscos y guiones bajos del texto literal de la póliza (sesión 30) | Se aplicaba la limpieza de Markdown a la cobertura | La cobertura solo se escapa (`textoLiteralParaInforme`) |
+| Un «<» o «&» en el asegurado, la dirección o una partida rompía el HTML del informe (anterior) | Los datos se insertaban sin escapar | Se escapan en Word y PDF |
 | El informe de prueba imprimió el JSON de un error de la API de IA en 2.1 (sesión 30, E1) | `callClaude` devuelve el error como texto y «Mejorar» lo guardaba como redacción | Un error no sustituye al texto, se avisa en pantalla y nunca se exporta (`lib/dominio/textosInforme.js`) |
 | Propuesta «Asegurado: 0,00 €» con una tabla de garantías de 2.470,00 € (sesión 30, E2) | El texto automático de la Sección 4 solo se recalcula con la pantalla abierta; se guardó con la tabla vacía | Al exportar se recalcula si es automático; si se editó y no cuadra, error en la revisión |
 | «Inspección ocular directa» en un expediente documental (sesión 30, E3) | La petición a la IA no decía la modalidad | La petición lleva la modalidad y prohíbe inventar; la revisión detecta la contradicción (`lib/dominio/revisionInforme.js`) |
@@ -592,6 +609,7 @@ Datos hardcodeados:
 
 ### Corto plazo (próxima sesión)
 - [ ] **Prueba manual del informe 27603166 en la app de test** (sesión 30): el panel de revisión debe marcar el texto de 1.1 («inspección ocular» en documental) y el aviso de los dos presupuestos con el mismo nombre; el informe ya no debe llevar el error de la API, ni «0,00 €», ni asteriscos.
+- [ ] **Prueba manual de la revisión corregida** (sesión 30): expediente documental con «el fontanero acudió al domicilio» en 2.1 (sin incidencia); propuesta editada con la franquicia entre paréntesis (sin incidencia); abrir la Sección 4 de un expediente antiguo sin tocar nada (no debe marcarse como modificado).
 - [ ] **Decidir P-29, P-30 y P-31** (`docs/OPEN_QUESTIONS.md`): qué errores bloquean la exportación, cómo se incorporan los PDF anexos y qué importe va en la portada.
 - [ ] **DT-31:** comprobar en Microsoft Word real la cabecera duplicada del Word.
 - [x] Auto-relleno de concepto de garantía y franquicia en Sec3 desde encargo/póliza
